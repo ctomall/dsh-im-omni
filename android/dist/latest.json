@@ -1,9 +1,9 @@
 {
-  "versionCode": 1,
-  "versionName": "0.1.0",
+  "versionCode": 2,
+  "versionName": "0.1.1",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.1.0.apk",
-  "sha256": "47a92fbc902be589787a7f859009a422d36787c9d1432bc08e7b276454225b36",
-  "notes": "全渠道 IM 首次发布：收件箱、渠道绑定、手机配对与在线升级。",
-  "publishedAt": "2026-11-04T08:14:47.000Z"
+  "file": "dsh-im-omni-0.1.1.apk",
+  "sha256": "173847375cc92b0d3a892767c16260c93943b9bf93434117efe69bfc1cc7754a",
+  "notes": "修复：扫码结果不写入表单（Compose remember 陷阱）；配对失败现在会说明具体原因（码失效/过期、来源被拒、尝试过多）。",
+  "publishedAt": "2026-11-04T08:45:00.000Z"
 }

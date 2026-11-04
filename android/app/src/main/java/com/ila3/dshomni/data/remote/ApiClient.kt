@@ -44,8 +44,22 @@ class ApiClient(cookieJar: CookieJar) {
             .build()
         val request = Request.Builder().url(base + "pair").post(body).build()
         http.newCall(request).execute().use { response ->
-            if (response.code == 403 || response.code == 429) {
-                throw ApiException("pair-rejected", "配对码无效、已过期或尝试过于频繁。", response.code)
+            when (response.code) {
+                401 -> throw ApiException(
+                    "pair-code-invalid",
+                    "配对码无效或已过期。请在电脑端重新生成一个配对码，并在 5 分钟内完成配对。",
+                    401,
+                )
+                403 -> throw ApiException(
+                    "pair-origin",
+                    "配对请求的来源被网关拒绝，请从同一个入口重新打开配对页。",
+                    403,
+                )
+                429 -> throw ApiException(
+                    "pair-too-many",
+                    "尝试次数过多，请 10 分钟后再试。",
+                    429,
+                )
             }
             if (!response.isSuccessful) {
                 throw ApiException("pair-http", "配对失败：HTTP ${response.code}", response.code)

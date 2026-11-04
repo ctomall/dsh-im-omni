@@ -40,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,6 +87,19 @@ fun PairingScreen(
     var code by remember { mutableStateOf(initialLink?.code.orEmpty()) }
     var label by remember { mutableStateOf("") }
     var workaround by remember { mutableStateOf(false) }
+
+    // The screen is already composed when the scanner returns, so a plain
+    // `remember` initializer would never apply the scanned target. A dead code
+    // (401) is cleared here too, because retrying with it can only fail again.
+    LaunchedEffect(initialLink) {
+        if (initialLink != null) {
+            address = initialLink.baseUrl
+            code = initialLink.code
+        }
+    }
+    LaunchedEffect(state.errorCode) {
+        if (state.errorCode == "pair-code-invalid") code = ""
+    }
 
     val scroll = rememberScrollState()
     val parsed = remember(address, code) { PairingTarget.parse(buildString { append(address); if (code.isNotBlank()) append(if (address.contains('?')) "&" else "?").append("code=").append(code) }) }
@@ -215,6 +229,20 @@ fun PairingScreen(
                         Text(if (state.loading) "配对中…" else "配对并连接")
                     }
                 }
+                if (state.error != null && state.errorCode?.startsWith("pair") == true) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        state.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "配对码 5 分钟内有效、只能使用一次；过期请在电脑端重新生成。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 

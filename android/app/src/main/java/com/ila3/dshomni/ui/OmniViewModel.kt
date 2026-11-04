@@ -34,6 +34,8 @@ data class UiState(
     val loading: Boolean = false,
     val refreshing: Boolean = false,
     val error: String? = null,
+    /** Machine-readable code of the last failure, e.g. `pair-code-invalid`. */
+    val errorCode: String? = null,
     val unauthorized: Boolean = false,
     val notice: String? = null,
     val suggestions: List<String> = emptyList(),
@@ -101,6 +103,7 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
                 busyAction = null,
                 unauthorized = exception?.code == "unauthorized",
                 error = exception?.message ?: error.message ?: "操作失败。",
+                errorCode = exception?.code,
             )
         }
     }
