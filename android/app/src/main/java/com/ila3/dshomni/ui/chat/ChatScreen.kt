@@ -568,7 +568,7 @@ private fun MessageBubble(
                             Text(
                                 text = when {
                                     message.failed -> stringResource(R.string.msg_status_failed)
-                                    message.status == "queued" || message.status == "sending" -> stringResource(R.string.msg_status_sending)
+                                    message.status == "queued" || message.status == "sending" -> stringResource(R.string.msg_status_submitted)
                                     else -> stringResource(R.string.msg_status_sent)
                                 },
                                 style = MaterialTheme.typography.labelSmall,

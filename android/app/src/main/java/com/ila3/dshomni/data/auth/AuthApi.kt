@@ -44,6 +44,19 @@ class AuthApi(
             JSONObject().put("email", email).put("password", password).put("name", name),
         )
 
+    /** Exchange a refresh token for a new access token (rotates the refresh). */
+    suspend fun refresh(baseUrl: String, refreshToken: String): AuthResult {
+        val body = JSONObject().put("refreshToken", refreshToken)
+        val result = call(baseUrl, "/v1/auth/refresh", body, null)
+        return when (result) {
+            is Raw.Failure -> AuthResult.Failure(result.message)
+            is Raw.Success -> {
+                val session = parseSession(baseUrl, result.json, null)
+                if (session == null) AuthResult.Failure("刷新返回无法识别") else AuthResult.Success(session)
+            }
+        }
+    }
+
     /** Issue a token for another tenant. */
     suspend fun switchTenant(session: AuthSession, tenantId: String): AuthResult {
         val body = JSONObject().put("tenantId", tenantId)

@@ -5,7 +5,7 @@ versioned separately; this file tracks `com.ila3.dshomni`.
 
 ## 0.7.1 — 2024-11-04 (versionCode 16)
 
-### Data plane read from the SaaS backend
+### Data plane read + send through the SaaS backend
 
 - New `data/v1/V1Api.kt` maps `/v1/contacts`, `/v1/channels`,
   `/v1/conversations`, `/v1/conversations/{id}/messages` onto the existing
@@ -15,8 +15,16 @@ versioned separately; this file tracks `com.ila3.dshomni`.
   `state.paired`; the legacy pairing gate no longer appears for signed-in users.
 - Mark-read goes through `POST /v1/conversations/{id}/read` when the active
   connection is a v1 one, and updates the local unread count.
-- Screenshots: `docs/v1-{inbox,chat,contacts,me}.png` captured on an emulator
-  against the seeded demo tenant (three conversations, real messages).
+- Sending now goes through `POST /v1/messages`: an optimistic bubble appears
+  immediately, the stored message replaces it, and a rejection flips it to
+  `failed` with the existing 重试 affordance. Status is shown as 已提交 rather
+  than 已发送 because the SaaS backend queues the message and no channel adapter
+  has delivered it yet.
+- Access tokens last 15 minutes, so v1 calls refresh the session first when the
+  JWT is within two minutes of expiry (`ensureFreshToken`), replacing the silent
+  401 that used to appear after a quarter of an hour.
+- Screenshots: `docs/v1-{inbox,chat,contacts,me,send}.png` captured on an
+  emulator against the seeded demo tenant.
 
 Version stays 0.7.1 (code 16). Server: 33 tests green.
 

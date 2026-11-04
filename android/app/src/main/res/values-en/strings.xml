@@ -102,4 +102,5 @@
     <string name="account_switch_hint">Switching reloads that team\'s data.</string>
     <string name="account_sign_out">Sign out</string>
     <string name="login_legacy">Use legacy QR pairing</string>
+    <string name="msg_status_submitted">Submitted</string>
 </resources>

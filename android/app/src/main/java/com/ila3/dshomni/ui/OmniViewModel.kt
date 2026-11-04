@@ -10,6 +10,7 @@ import com.ila3.dshomni.data.model.Attachment
 import com.ila3.dshomni.data.model.Channel
 import com.ila3.dshomni.data.model.CommandResult
 import com.ila3.dshomni.data.model.Connection
+import com.ila3.dshomni.data.model.Message
 import com.ila3.dshomni.data.model.Snapshot
 import com.ila3.dshomni.data.model.UpdateInfo
 import com.ila3.dshomni.data.remote.ApiClient
@@ -216,7 +217,8 @@ private fun fail(error: Throwable) {
     fun adoptSession(baseUrl: String, accessToken: String, label: String) {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            runCatching { V1Api().snapshot(baseUrl, accessToken, label) }
+            val token = ensureFreshToken(baseUrl, accessToken)
+            runCatching { V1Api().snapshot(baseUrl, token, label) }
                 .onSuccess { snapshot ->
                     _state.update {
                         it.copy(
@@ -337,6 +339,11 @@ private fun fail(error: Throwable) {
     /** Send a reply into one conversation. */
     fun sendMessage(conversationId: String, text: String, attachments: List<Attachment> = emptyList()) {
         if (text.isBlank() && attachments.isEmpty()) return
+        val active = _state.value.connection
+        if (active != null && active.id.startsWith("v1:")) {
+            sendViaV1(active.baseUrl, conversationId, text.trim())
+            return
+        }
         val payload = JSONObject().put("conversationId", conversationId).put("text", text.trim())
         if (attachments.isNotEmpty()) {
             val array = org.json.JSONArray()
@@ -344,6 +351,113 @@ private fun fail(error: Throwable) {
             payload.put("attachments", array)
         }
         run("message.send", payload)
+    }
+
+    /**
+     * Send through the SaaS backend with an optimistic bubble.
+     *
+     * The bubble appears immediately as `queued`; the server reply replaces it
+     * with the stored message (`sent`), and a failure flips it to `failed` so
+     * the existing retry affordance keeps working.
+     */
+    private fun sendViaV1(baseUrl: String, conversationId: String, text: String) {
+        val stored = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return
+        val clientId = UUID.randomUUID().toString()
+        val optimistic = Message(
+            id = "local-" + clientId,
+            direction = "out",
+            kind = "text",
+            text = text,
+            status = "queued",
+            createdAt = System.currentTimeMillis(),
+            error = "",
+            translation = null,
+            attachments = emptyList(),
+        )
+        _state.update { state -> appendMessage(state, conversationId, optimistic) }
+        viewModelScope.launch {
+            val token = ensureFreshToken(baseUrl, stored.accessToken)
+            runCatching { V1Api().sendMessage(baseUrl, token, conversationId, text, clientId) }
+                .onSuccess { stored ->
+                    _state.update { state ->
+                        // Keep the server's status: the SaaS backend queues the
+                        // message, and channel adapters mark it sent later.
+                        replaceMessage(state, conversationId, optimistic.id, stored)
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { state ->
+                        replaceMessage(
+                            state,
+                            conversationId,
+                            optimistic.id,
+                            optimistic.copy(status = "failed", error = error.message ?: "发送失败"),
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Return a usable access token, refreshing it when it is about to expire.
+     *
+     * Access tokens live 15 minutes; without this the app silently starts
+     * failing after the first quarter of an hour of use.
+     */
+    private suspend fun ensureFreshToken(baseUrl: String, current: String): String {
+        if (!expiresSoon(current)) return current
+        val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return current
+        return when (val result = com.ila3.dshomni.data.auth.AuthApi().refresh(baseUrl, session.refreshToken)) {
+            is com.ila3.dshomni.data.auth.AuthResult.Success -> {
+                com.ila3.dshomni.data.auth.AuthStore(getApplication()).save(result.session)
+                result.session.accessToken
+            }
+            is com.ila3.dshomni.data.auth.AuthResult.Failure -> current
+        }
+    }
+
+    /** Whether a JWT expires within the next two minutes. */
+    private fun expiresSoon(token: String): Boolean {
+        return runCatching {
+            val payload = token.split(".")[1]
+            val json = String(android.util.Base64.decode(payload, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING))
+            val exp = org.json.JSONObject(json).optLong("exp", 0L)
+            exp > 0 && exp - System.currentTimeMillis() / 1000 < 120
+        }.getOrDefault(true)
+    }
+
+    /** Append one message to a conversation inside the current snapshot. */
+    private fun appendMessage(state: UiState, conversationId: String, message: Message): UiState {
+        val snapshot = state.snapshot ?: return state
+        return state.copy(
+            snapshot = snapshot.copy(
+                conversations = snapshot.conversations.map { conversation ->
+                    if (conversation.id == conversationId) {
+                        conversation.copy(messages = conversation.messages + message)
+                    } else {
+                        conversation
+                    }
+                },
+            ),
+        )
+    }
+
+    /** Replace an optimistic message with its stored or failed version. */
+    private fun replaceMessage(state: UiState, conversationId: String, localId: String, next: Message): UiState {
+        val snapshot = state.snapshot ?: return state
+        return state.copy(
+            snapshot = snapshot.copy(
+                conversations = snapshot.conversations.map { conversation ->
+                    if (conversation.id == conversationId) {
+                        conversation.copy(
+                            messages = conversation.messages.map { if (it.id == localId) next else it },
+                        )
+                    } else {
+                        conversation
+                    }
+                },
+            ),
+        )
     }
 
     /** Upload one picked file and send it with the current caption. */

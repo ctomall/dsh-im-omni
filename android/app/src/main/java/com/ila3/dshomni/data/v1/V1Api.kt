@@ -82,6 +82,27 @@ class V1Api(
             post(baseUrl, "/v1/conversations/$conversationId/read", accessToken, JSONObject())
         }
 
+    /**
+     * Send one message. `clientId` makes the call idempotent, so a retry after a
+     * dropped connection cannot produce a duplicate bubble.
+     * @returns the stored message as the server sees it.
+     */
+    suspend fun sendMessage(
+        baseUrl: String,
+        accessToken: String,
+        conversationId: String,
+        text: String,
+        clientId: String,
+    ): Message = withContext(Dispatchers.IO) {
+        val payload = JSONObject()
+            .put("conversationId", conversationId)
+            .put("text", text)
+            .put("kind", "text")
+            .put("clientId", clientId)
+        val response = post(baseUrl, "/v1/messages", accessToken, payload)
+        toMessage(response.optJSONObject("message") ?: JSONObject())
+    }
+
     private fun post(baseUrl: String, path: String, token: String, body: JSONObject): JSONObject {
         val request = Request.Builder()
             .url(baseUrl.trimEnd('/') + path)

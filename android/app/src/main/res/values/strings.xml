@@ -108,4 +108,5 @@
     <string name="account_switch_hint">切换后会重新拉取该团队的数据。</string>
     <string name="account_sign_out">退出登录</string>
     <string name="login_legacy">使用旧版扫码配对</string>
+    <string name="msg_status_submitted">已提交</string>
 </resources>
