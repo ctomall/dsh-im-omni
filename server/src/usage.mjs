@@ -122,3 +122,78 @@ export async function billingSnapshot(tenantId) {
     period: { start: periodStart.toISOString(), end: periodEnd.toISOString() },
   }
 }
+
+/**
+ * Billing period key (`YYYY-MM-01`) for the current month.
+ * @param {Date} [now] - clock.
+ * @returns {string} period date.
+ */
+export function currentPeriod(now = new Date()) {
+  const year = now.getUTCFullYear()
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
+  return `${year}-${month}-01`
+}
+
+/**
+ * Create (or return) the draft invoice for the current period.
+ *
+ * The amount is the plan price for that period; usage overage is deliberately
+ * not billed yet — the goal is an auditable ledger, not a payment gateway.
+ * @param {string} tenantId - tenant uuid.
+ * @param {string} period - `YYYY-MM-01`.
+ * @returns {Promise<{invoice: Record<string, any>, created: boolean}>} result.
+ */
+export async function ensureInvoice(tenantId, period) {
+  const plan = await planOf(tenantId)
+  const amount = plan?.price_cents ?? 0
+  const currency = plan?.currency ?? 'CNY'
+  return withTenant(tenantId, async (client) => {
+    const existing = await client.query('SELECT * FROM invoices WHERE tenant_id = $1 AND period = $2', [tenantId, period])
+    if (existing.rowCount > 0) return { invoice: existing.rows[0], created: false }
+    const inserted = await client.query(
+      `INSERT INTO invoices (tenant_id, period, amount_cents, currency, status)
+       VALUES ($1, $2, $3, $4, 'draft')
+       ON CONFLICT (tenant_id, period) DO UPDATE SET amount_cents = invoices.amount_cents
+       RETURNING *`,
+      [tenantId, period, amount, currency],
+    )
+    return { invoice: inserted.rows[0], created: true }
+  })
+}
+
+/**
+ * Move an invoice through draft -> issued -> paid, or void it.
+ * @param {string} tenantId - tenant uuid.
+ * @param {string} invoiceId - invoice uuid.
+ * @param {'issued'|'paid'|'void'} status - next status.
+ * @returns {Promise<Record<string, any>|null>} updated invoice.
+ */
+export async function setInvoiceStatus(tenantId, invoiceId, status) {
+  return withTenant(tenantId, async (client) => {
+    const result = await client.query(
+      `UPDATE invoices
+          SET status = $3,
+              issued_at = CASE WHEN $3 = 'issued' THEN now() ELSE issued_at END,
+              paid_at = CASE WHEN $3 = 'paid' THEN now() ELSE paid_at END
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING *`,
+      [tenantId, invoiceId, status],
+    )
+    return result.rows[0] ?? null
+  })
+}
+
+/**
+ * List invoices for a tenant, newest period first.
+ * @param {string} tenantId - tenant uuid.
+ * @returns {Promise<Record<string, any>[]>} invoices.
+ */
+export async function listInvoices(tenantId) {
+  return withTenant(tenantId, async (client) => {
+    const result = await client.query(
+      'SELECT * FROM invoices WHERE tenant_id = $1 ORDER BY period DESC LIMIT 24',
+      [tenantId],
+    )
+    return result.rows
+  })
+}

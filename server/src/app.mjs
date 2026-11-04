@@ -7,7 +7,16 @@
  */
 import { createServer } from 'node:http'
 import { db, withTenant } from './db.mjs'
-import { QuotaError, assertQuota, billingSnapshot, recordUsage } from './usage.mjs'
+import {
+  QuotaError,
+  assertQuota,
+  billingSnapshot,
+  currentPeriod,
+  ensureInvoice,
+  listInvoices,
+  recordUsage,
+  setInvoiceStatus,
+} from './usage.mjs'
 import { inc, render as renderMetrics } from './metrics.mjs'
 import {
   ACCESS_TTL,
@@ -530,6 +539,38 @@ route('GET', '/v1/billing/usage', async (request, response) => {
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
   const snapshot = await billingSnapshot(claims.tenantId)
   send(response, 200, { usage: snapshot.usage, limits: snapshot.limits, period: snapshot.period })
+})
+
+route('GET', '/v1/billing/invoices', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  send(response, 200, { items: await listInvoices(claims.tenantId) })
+})
+
+route('POST', '/v1/billing/invoices', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (claims.role !== 'owner' && claims.role !== 'admin') {
+    return fail(response, 403, 'forbidden', '只有管理员可以生成账单。')
+  }
+  const input = await body(request)
+  const period = /^\d{4}-\d{2}-01$/.test(String(input.period ?? '')) ? String(input.period) : currentPeriod()
+  const result = await ensureInvoice(claims.tenantId, period)
+  send(response, result.created ? 201 : 200, { invoice: result.invoice, created: result.created })
+})
+
+route('POST', '/v1/billing/invoices/([0-9a-f-]{36})/status', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (claims.role !== 'owner' && claims.role !== 'admin') {
+    return fail(response, 403, 'forbidden', '只有管理员可以改动账单。')
+  }
+  const input = await body(request)
+  const status = ['issued', 'paid', 'void'].includes(input.status) ? input.status : ''
+  if (status === '') return fail(response, 422, 'invalid', 'status 只能是 issued/paid/void。')
+  const invoice = await setInvoiceStatus(claims.tenantId, params[0], status)
+  if (invoice === null) return fail(response, 404, 'not-found', '账单不存在。')
+  send(response, 200, { invoice })
 })
 
 route('POST', '/v1/messages', async (request, response) => {

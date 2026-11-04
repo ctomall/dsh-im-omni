@@ -283,7 +283,26 @@ server/Dockerfile            node:22-slim，npm ci --omit=dev
 > Prometheus+Grafana+Loki、Sentry。它们不阻塞"杀实例不中断"这条验收，
 > 已在 compose 里就位，等部署到多节点时启用。
 
-## 14. 风险与取舍
+## 14. 已落地（S4 最小闭环：账单台账）
+
+```
+server/migrations/005_invoice_period_unique.sql   (tenant_id, period) 唯一，生成幂等
+server/src/usage.mjs    currentPeriod / ensureInvoice / setInvoiceStatus / listInvoices
+server/src/app.mjs      POST /v1/billing/invoices            （owner/admin，按周期幂等）
+                        GET  /v1/billing/invoices
+                        POST /v1/billing/invoices/:id/status （issued / paid / void）
+```
+
+- 金额取当前套餐月费（`plans.price_cents`），外币字段随套餐；**不做按量计费**，用量只用于配额和超额提示。
+- 状态机 `draft → issued → paid`，`void` 可作废；`issued_at` / `paid_at` 自动打点。
+- 幂等：同一租户同一周期只有一张账单（DB 唯一索引兜底，非应用层判断）。
+- 隔离：其他租户在列表里看不到、按 id 改状态返回 404（RLS + 租户上下文）。
+- 验证：**25** 个服务端用例全绿（5 RLS + 8 账号/设备 + 4 计量 + 4 高可用 + 4 账单）。
+
+支付网关（微信/支付宝/Stripe）与自动续费未接：需要商户资质与回调验签，属 S4 的第二段，
+接口已按 `status` 设计好，接入时只加"支付回调 → setInvoiceStatus('paid')"一条链路。
+
+## 15. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
 | --- | --- | --- |
