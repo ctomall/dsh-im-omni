@@ -3,6 +3,9 @@
 > 状态：规格稿（v0.1）。手机为主客户端的接口契约。
 > 现有 `/api/im-omni.state` / `.command` 保留，v1 是其之上的面向移动端的封装。
 
+> 多租户与账号体系见 `SAAS-ARCHITECTURE.md`。下文接口默认带租户上下文：
+> `Authorization: Bearer <accessToken>`，租户由 token 声明或 `X-Tenant-Id` 指定。
+
 ## 0. 通用
 
 - **Base**：`https://<host>/api/im-omni/v1`
@@ -23,6 +26,43 @@
 | 422 | `invalid` | 业务校验失败 | 展示 message |
 | 429 | `rate-limited` | 限流 | 按 `Retry-After` 退避 |
 | 5xx | `server-error` | 服务端错误 | 指数退避重试 |
+
+## 1A. 账号 / 租户
+
+### POST /auth/register · POST /auth/login · POST /auth/refresh
+
+```json
+// POST /auth/login
+{ "email": "a@corp.com", "password": "..." }
+// 200
+{
+  "accessToken": "eyJ...", "expiresIn": 900,
+  "refreshToken": "rt_...",
+  "user": { "id": "usr_1", "name": "阿杰", "email": "a@corp.com" },
+  "tenants": [ { "id": "tnt_1", "name": "售后团队", "role": "admin" } ]
+}
+```
+
+### GET /me
+
+当前用户 + 所属租户 + 角色。
+
+### GET /tenants/{id}/members · POST /tenants/{id}/invites
+
+成员列表与邀请（`role`、有效期 7 天）。
+
+### POST /devices/link
+
+已登录账号绑定一台手机（替代过去"扫码即登录"）。
+
+```json
+{ "code": "K7F2-91QX", "deviceName": "Pixel 7", "platform": "android" }
+// 200 { "deviceToken": "dt_...", "deviceId": "dev_...", "tenantId": "tnt_1" }
+```
+
+### GET /billing/plan · GET /billing/usage · GET /billing/invoices
+
+当前套餐、本期用量（消息/AI/席位/渠道）、历史账单。写操作在控制台。
 
 ## 1. 配对 / 设备
 
