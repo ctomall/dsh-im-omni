@@ -319,6 +319,20 @@ server/src/server.mjs        进程内 3s 调度（DISPATCH_ENABLED=false 可关
 - 验证：**36** 个服务端用例全绿（新增 3 条：成功投递、失败重试到 failed、无桥退避）；
   端到端在模拟器上完成：App 发送 → 库里 `sent` → 气泡显示 **Sent ✓✓**。
 
+## 16. 已落地（入站回流）
+
+```
+server/src/inbound.mjs             provider 回调 → 找客户/会话 → 落库 → unread+1 → 计量
+server/migrations/007_inbound_lookup.sql   channel_lookup()：URL 只有 channelId，先解析租户
+server/src/app.mjs                 POST /v1/webhooks/{channelId}
+```
+
+- 验签：渠道 credentials 非空时要求 x-dsh-signature: sha256=<HMAC(raw body)>，不匹配 401。
+- 幂等：externalId 落成 client_id=in:<id>，重复回调返回 200 + duplicate:true。
+- 归并：同手机号复用联系人；同渠道同联系人优先落进未解决会话，否则新建。
+- 计量：入站同样写 usage_events(type=message)，与出站共用配额。
+- 验证：40 个服务端用例全绿；模拟器实拍：curl 打一条回调 → App 刷新出现「王小雨」新会话（未读 1）→ 会话内白色气泡。
+
 ## 16. 风险与取舍
 
 | 风险 | 说明 | 缓解 |

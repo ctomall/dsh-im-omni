@@ -31,6 +31,10 @@ versioned separately; this file tracks `com.ila3.dshomni`.
 - Screenshots: `docs/v1-{inbox,chat,contacts,me,send,delivered}.png` captured on
   an emulator against the seeded demo tenant.
 
+- Inbound messages now appear in the app: a provider webhook lands in Postgres,
+  the inbox shows the new contact with an unread badge and the chat renders the
+  customer bubble (docs/v1-inbound-inbox.png, docs/v1-inbound.png).
+
 Version stays 0.7.1 (code 16). Server: 33 tests green.
 
 ## 0.7.0 — 2024-11-04 (versionCode 16)
