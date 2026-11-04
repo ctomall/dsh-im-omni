@@ -196,7 +196,31 @@ CREATE POLICY tenant_isolation ON conversations
 | **S3**（1~2 周） | Redis + 队列 + 多实例 + Patroni/RDS + 监控备份 | 杀掉一个 app 实例，业务不中断 |
 | **S4**（按需） | 支付网关、自动续费、发票自动化；私有化打包 | 第一笔真实收款 |
 
-## 10. 风险与取舍
+## 10. 已落地（S0）
+
+```
+server/
+  migrations/001_init.sql   13 张表（租户/用户/成员/设备/渠道/联系人/会话/消息/用量/订阅/账单/审计/幂等）
+                            + RLS（FORCE）+ 月分区（messages、usage_events）
+  scripts/migrate.mjs       按文件名顺序迁移，记录 schema_migrations
+  src/db.mjs                withTenant：SET LOCAL app.tenant_id，事务级隔离
+  src/server.mjs            /healthz + 租户隔离读（S1 接认证）
+  test/rls.test.mjs         5 条隔离用例（读不到/写不进/无租户看不到/幂等唯一）
+```
+
+本地验证（Postgres 18 + 两个角色 `im_omni_owner` / `im_omni_app`）：
+
+```
+applied 001_init.sql
+✔ a tenant sees only its own conversations
+✔ an unfiltered query still cannot cross tenants
+✔ writing a row for another tenant is rejected
+✔ a transaction without a tenant sees nothing
+✔ message idempotency is unique per tenant
+pass 5 / fail 0
+```
+
+## 11. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
 | --- | --- | --- |

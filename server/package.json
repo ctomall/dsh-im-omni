@@ -1,0 +1,15 @@
+{
+  "name": "@dsh/im-omni-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-tenant IM backend: tenants, accounts, conversations, billing metering.",
+  "scripts": {
+    "migrate": "node scripts/migrate.mjs",
+    "test": "node --test",
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
