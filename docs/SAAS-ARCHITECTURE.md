@@ -302,7 +302,24 @@ server/src/app.mjs      POST /v1/billing/invoices            （owner/admin，�
 支付网关（微信/支付宝/Stripe）与自动续费未接：需要商户资质与回调验签，属 S4 的第二段，
 接口已按 `status` 设计好，接入时只加"支付回调 → setInvoiceStatus('paid')"一条链路。
 
-## 15. 风险与取舍
+## 15. 已落地（发送与投递）
+
+```
+server/src/dispatch.mjs       worker：queued → POST channel.config.outboundUrl → sent / 重试 / failed
+server/migrations/006_dispatch.sql   attempts、next_attempt_at、queued 索引
+server/scripts/echo-webhook.mjs      本地 provider 桥，用于演示与测试
+server/src/server.mjs        进程内 3s 调度（DISPATCH_ENABLED=false 可关）
+```
+
+- 桥地址来自 `channels.config.outboundUrl`；未配置桥的渠道消息保持 `queued` 并退避 5 分钟，不空转。
+- 失败重试 3 次（1s→2s→4s 指数退避），超限置 `failed` 并记录 `error`。
+- 渠道 `credentials` 非空时附带 `x-dsh-signature: sha256=<HMAC>`，桥可以验签。
+- 投递权限集中在 worker：它用 `DISPATCH_DATABASE_URL`（开发环境为 owner，BYPASSRLS）连接，
+  只做投递，不服务任何请求；API 进程仍用无 BYPASSRLS 的 `im_omni_app`。
+- 验证：**36** 个服务端用例全绿（新增 3 条：成功投递、失败重试到 failed、无桥退避）；
+  端到端在模拟器上完成：App 发送 → 库里 `sent` → 气泡显示 **Sent ✓✓**。
+
+## 16. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
 | --- | --- | --- |

@@ -379,11 +379,13 @@ private fun fail(error: Throwable) {
             val token = ensureFreshToken(baseUrl, stored.accessToken)
             runCatching { V1Api().sendMessage(baseUrl, token, conversationId, text, clientId) }
                 .onSuccess { stored ->
+                    // Keep the server's status: the SaaS backend queues the
+                    // message, and the delivery worker flips it to sent later.
                     _state.update { state ->
-                        // Keep the server's status: the SaaS backend queues the
-                        // message, and channel adapters mark it sent later.
                         replaceMessage(state, conversationId, optimistic.id, stored)
                     }
+                    // Reload once so the bubble picks up the delivered state.
+                    refreshV1Soon(baseUrl)
                 }
                 .onFailure { error ->
                     _state.update { state ->
@@ -413,6 +415,19 @@ private fun fail(error: Throwable) {
                 result.session.accessToken
             }
             is com.ila3.dshomni.data.auth.AuthResult.Failure -> current
+        }
+    }
+
+    /** Reload the tenant shortly after a send so delivery state catches up. */
+    private fun refreshV1Soon(baseUrl: String) {
+        viewModelScope.launch {
+            // The worker ticks on its own schedule; two reloads cover both a fast
+            // and a slow dispatch without polling the API forever.
+            for (delayMs in longArrayOf(2_500L, 6_000L)) {
+                kotlinx.coroutines.delay(delayMs)
+                val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return@launch
+                adoptSession(baseUrl, session.accessToken, session.email)
+            }
         }
     }
 

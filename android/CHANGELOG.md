@@ -23,8 +23,13 @@ versioned separately; this file tracks `com.ila3.dshomni`.
 - Access tokens last 15 minutes, so v1 calls refresh the session first when the
   JWT is within two minutes of expiry (`ensureFreshToken`), replacing the silent
   401 that used to appear after a quarter of an hour.
-- Screenshots: `docs/v1-{inbox,chat,contacts,me,send}.png` captured on an
-  emulator against the seeded demo tenant.
+- The bubble now shows **Sent ✓✓** once the delivery worker has posted the
+  message to the channel bridge; sends that happened before a bridge existed
+  stay 已提交 until they are dispatched.
+- After a send the app reloads the tenant twice (2.5 s and 6 s) so the bubble
+  picks up the delivered state without a manual refresh.
+- Screenshots: `docs/v1-{inbox,chat,contacts,me,send,delivered}.png` captured on
+  an emulator against the seeded demo tenant.
 
 Version stays 0.7.1 (code 16). Server: 33 tests green.
 
