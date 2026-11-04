@@ -118,7 +118,9 @@ Host 收到 inbound ──▶ 查订阅设备 ──▶ 推送
 - 通知动作：`Reply`（带 `clientId` 直接进 outbox）、`MarkRead`（`POST /conversations/{id}/read`）。
 - 前台：收到推送只作为"有新数据"信号，走增量同步；不直接渲染推送内容。
 
-### 通道决策（待确认）
+> 内部自用场景不接厂商推送，改用企业微信/钉钉机器人：见 `docs/DEPLOYMENT-INTERNAL.md` §3。
+
+### 通道决策（若将来对外）
 
 | 场景 | 方案 | 前置条件 |
 | --- | --- | --- |
