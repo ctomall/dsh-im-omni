@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import android.provider.Settings
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Brush
@@ -16,9 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import android.content.Context
 import android.content.ContextWrapper
@@ -79,19 +78,6 @@ private val LightScheme = lightColorScheme(
     onError = Color.White,
 )
 
-/** Slightly tighter Material 3 type for dense inbox rows. */
-private val AppTypography = Typography(
-    headlineSmall = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
-    titleLarge = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-    bodyLarge = TextStyle(fontSize = 15.sp),
-    bodyMedium = TextStyle(fontSize = 13.5.sp),
-    bodySmall = TextStyle(fontSize = 12.sp),
-    labelLarge = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium),
-)
-
 /** The decorative gradient used by avatars, headers, and the send button. */
 @Composable
 fun brandGradient(): Brush = Brush.linearGradient(listOf(BrandBlue, BrandTeal))
@@ -114,7 +100,13 @@ fun DshOmniTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val scheme = if (dark) DarkScheme else LightScheme
     val view = LocalView.current
-    val activity = LocalContext.current.findActivity()
+    val context = LocalContext.current
+    val activity = context.findActivity()
+    // Developer options / accessibility: "Remove animations" sets this to 0.
+    // Screens read LocalReduceMotion and settle on the final state instead.
+    val reduceMotion = remember(context) {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
     if (!view.isInEditMode && activity != null) {
         SideEffect {
             val window = activity.window
@@ -127,9 +119,11 @@ fun DshOmniTheme(content: @Composable () -> Unit) {
             }
         }
     }
-    MaterialTheme(colorScheme = scheme, typography = AppTypography) {
-        Surface(color = scheme.background, modifier = Modifier.fillMaxSize()) {
-            content()
+    CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
+        MaterialTheme(colorScheme = scheme, typography = AppTypography) {
+            Surface(color = scheme.background, modifier = Modifier.fillMaxSize()) {
+                content()
+            }
         }
     }
 }
