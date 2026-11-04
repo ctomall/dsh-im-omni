@@ -51,7 +51,12 @@ export async function handleInbound(channelId, payload, meta = {}) {
   const channel = await db().query('SELECT * FROM channel_lookup($1)', [channelId])
   if (channel.rowCount === 0) throw new InboundError(404, 'channel-not-found', 'Channel not found.')
   const target = channel.rows[0]
-  if (!validSignature(target.credentials ?? '', meta.rawBody ?? '', meta.signature ?? '')) {
+  // WhatsApp signs with the app secret (x-hub-signature-256); generic channels
+  // sign with their credential (x-dsh-signature).
+  const secret = target.type === 'whatsapp_cloud'
+    ? String(target.config?.appSecret ?? '')
+    : String(target.credentials ?? '')
+  if (!validSignature(secret, meta.rawBody ?? '', meta.signature ?? '')) {
     throw new InboundError(401, 'bad-signature', 'Signature mismatch.')
   }
 

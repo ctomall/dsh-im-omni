@@ -19,6 +19,7 @@ import {
 } from './usage.mjs'
 import { inc, render as renderMetrics } from './metrics.mjs'
 import { InboundError, handleInbound } from './inbound.mjs'
+import { parseWebhook as parseWhatsappWebhook } from './channels/whatsapp.mjs'
 import {
   notifyInbound as notifyInboundMessage,
   sendTestCard,
@@ -788,9 +789,22 @@ route('POST', '/v1/webhooks/([0-9a-f-]{36})', async (request, response, params) 
     return fail(response, 422, 'invalid-json', 'Body must be JSON.')
   }
   try {
-    const result = await handleInbound(params[0], payload, {
+    // Meta sends a nested change payload; flatten it before the generic handler.
+    const channelRow = await db().query('SELECT * FROM channel_lookup($1)', [params[0]])
+    const channelType = channelRow.rows[0]?.type
+    let inboundPayload = payload
+    // Only a real Meta envelope is flattened; a generic bridge posting the flat
+    // shape to a WhatsApp channel keeps working unchanged.
+    if (channelType === 'whatsapp_cloud' && Array.isArray(payload?.entry)) {
+      const flat = parseWhatsappWebhook(payload)
+      if (flat === null) return fail(response, 422, 'invalid', 'Unsupported WhatsApp payload.')
+      inboundPayload = flat
+    }
+    const result = await handleInbound(params[0], inboundPayload, {
       rawBody: raw,
-      signature: request.headers['x-dsh-signature'],
+      signature: channelType === 'whatsapp_cloud'
+        ? request.headers['x-hub-signature-256']
+        : request.headers['x-dsh-signature'],
     })
     if (!result.duplicate && result.conversationId) {
       inc('im_omni_inbound_total', {})

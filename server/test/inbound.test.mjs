@@ -42,7 +42,7 @@ before(async () => {
   const secret = 'shared-secret'
   const channel = await admin.query(
     `INSERT INTO channels (tenant_id, type, name, credentials)
-     VALUES ($1, 'whatsapp_cloud', '入站通道', $2) RETURNING id`,
+     VALUES ($1, 'webhook', '入站通道', $2) RETURNING id`,
     [tenantId, secret],
   )
   fixture = { channelId: channel.rows[0].id, tenantId, token: registered.accessToken, secret }

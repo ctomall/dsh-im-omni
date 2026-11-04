@@ -47,6 +47,10 @@ versioned separately; this file tracks `com.ila3.dshomni`.
   「另有 N 条新消息」。
 - Screenshots: docs/v1-mute-list.png.
 
+- 服务端接入 WhatsApp Cloud 适配器（Graph 发送 + Meta webhook 拍平），App 端无需改动：
+  会话内消息经真实适配器投递后显示 Sent ✓✓。
+- Screenshots: docs/v1-whatsapp.png.
+
 - Inbound messages now appear in the app: a provider webhook lands in Postgres,
   the inbox shows the new contact with an unread badge and the chat renders the
   customer bubble (docs/v1-inbound-inbox.png, docs/v1-inbound.png).

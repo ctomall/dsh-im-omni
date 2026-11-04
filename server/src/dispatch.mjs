@@ -11,6 +11,7 @@
  */
 import { createHmac } from 'node:crypto'
 import pg from 'pg'
+import { sendWhatsapp } from './channels/whatsapp.mjs'
 
 /** Attempts before a message is parked as failed. */
 const MAX_ATTEMPTS = 3
@@ -55,10 +56,11 @@ export async function dispatchOnce(options = {}) {
     const pending = await client.query(
       `SELECT m.id, m.tenant_id, m.conversation_id, m.body, m.attempts,
               c.id AS channel_id, c.type AS channel_type, c.config, c.credentials,
-              conv.contact_id
+              conv.contact_id, ct.phone AS contact_phone
          FROM messages m
          JOIN conversations conv ON conv.id = m.conversation_id
          JOIN channels c ON c.id = conv.channel_id
+         JOIN contacts ct ON ct.id = conv.contact_id
         WHERE m.status = 'queued'
           AND (m.next_attempt_at IS NULL OR m.next_attempt_at <= $1)
         ORDER BY m.created_at
@@ -66,6 +68,29 @@ export async function dispatchOnce(options = {}) {
       [now, limit],
     )
     for (const row of pending.rows) {
+      // WhatsApp Cloud talks to Graph directly; every other channel uses the
+      // generic outbound bridge URL.
+      if (row.channel_type === 'whatsapp_cloud') {
+        const result = await sendWhatsapp(
+          { config: row.config ?? {}, credentials: row.credentials ?? '' },
+          { body: row.body, contactPhone: row.contact_phone ?? '' },
+          fetchImpl,
+        )
+        const attempts = row.attempts + 1
+        if (result.ok) {
+          await client.query("UPDATE messages SET status = 'sent', attempts = $2, error = '' WHERE id = $1", [row.id, attempts])
+          counters.sent += 1
+          continue
+        }
+        const failed = attempts >= MAX_ATTEMPTS
+        const backoffMs = Math.min(2 ** attempts * 1000, 60_000)
+        await client.query(
+          `UPDATE messages SET attempts = $2, status = $3, error = $4, next_attempt_at = $5 WHERE id = $1`,
+          [row.id, attempts, failed ? 'failed' : 'queued', result.body.slice(0, 300), new Date(now.getTime() + backoffMs)],
+        )
+        if (failed) counters.failed += 1
+        continue
+      }
       const bridge = typeof row.config?.outboundUrl === 'string' ? row.config.outboundUrl : ''
       if (bridge === '') {
         // No bridge configured: keep the message queued but stop polling it hot.

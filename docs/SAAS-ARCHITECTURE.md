@@ -373,6 +373,22 @@ server/src/app.mjs                          GET/PUT /v1/settings/notify、POST /
 - 验证：51 个服务端用例全绿（新增：窗口外发送时带上 suppressed 计数并清零）；
   模拟器实拍 docs/v1-mute-list.png。
 
+## 19. WhatsApp Cloud 适配器
+
+```
+server/src/channels/whatsapp.mjs   sendWhatsapp（Graph 调用）、parseWebhook（Meta 嵌套载荷拍平）
+server/src/dispatch.mjs            channel.type=whatsapp_cloud 时走适配器，其余仍用 outboundUrl 桥
+server/scripts/fake-graph.mjs       本地 Graph 替身（演示/联调）
+```
+
+- 出站：`POST {graphBase}/{phoneNumberId}/messages`，`Authorization: Bearer <channel.credentials>`，
+  body 为 `{messaging_product:'whatsapp', to, type:'text', text:{body}}`。
+- 入站：只有带 `entry` 的 Meta 信封才拍平；普通 `{phone,name,text}` 仍可直接投给 WA 渠道（兼容自建桥）。
+- 验签：WA 渠道用 `config.appSecret` 校验 `x-hub-signature-256`；其他渠道用 credentials 校验 `x-dsh-signature`。
+- 验证：54 个服务端用例全绿（新增 3 条 WA：Graph 请求形状、Meta 入站拍平、非消息信封 422）；
+  模拟器实拍 docs/v1-whatsapp.png，本地 Graph 收到
+  `POST /v20.0/109876543210/messages to=+8613800012345`，消息状态 sent。
+
 ## 17. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
