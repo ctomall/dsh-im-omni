@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Robolectric's createComposeRule() launches a bare ComponentActivity, which
+      has to be declared for the package manager to resolve it. Debug-only: the
+      release manifest is untouched.
+    -->
+    <application>
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="true"
+            android:theme="@style/Theme.DshOmni" />
+    </application>
+</manifest>

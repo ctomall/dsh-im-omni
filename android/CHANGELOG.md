@@ -33,6 +33,10 @@ versioned separately; this file tracks `com.ila3.dshomni`.
 
 - Lint: `MissingPermission` on notification posting is now guarded explicitly
   (`canPost`) and documented; `./gradlew lintDebug` passes.
+- Pairing over the public Cloudflare entry: the `/phone` reverse proxy buffered
+  nothing, so cloudflared stalled every `POST` to the pairing form (the app sat
+  on 「配对中…」). nginx now buffers that location; `POST /phone/pair` answers
+  again and a real device pairs.
 
 ### Known limitations
 
