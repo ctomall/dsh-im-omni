@@ -18,6 +18,8 @@ BEGIN
 END $$;
 
 ALTER ROLE im_omni_owner BYPASSRLS;
+-- The restore drill creates and drops a scratch database.
+ALTER ROLE im_omni_owner CREATEDB;
 ALTER ROLE im_omni_app NOBYPASSRLS;
 
 SELECT 'create the database and migrations next' AS next_step;

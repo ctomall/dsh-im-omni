@@ -8,6 +8,7 @@
 import { createServer } from 'node:http'
 import { db, withTenant } from './db.mjs'
 import { QuotaError, assertQuota, billingSnapshot, recordUsage } from './usage.mjs'
+import { inc, render as renderMetrics } from './metrics.mjs'
 import {
   ACCESS_TTL,
   hashPassword,
@@ -124,7 +125,35 @@ function route(method, pattern, handler) {
   routes.push({ method, pattern: new RegExp(`^${pattern}$`), handler })
 }
 
-route('GET', '/healthz', async (_request, response) => send(response, 200, { ok: true, version: VERSION }))
+route('GET', '/healthz', async (_request, response) => {
+  // Liveness is cheap; readiness includes the database, because an instance
+  // that cannot reach Postgres must be pulled out of the load balancer.
+  try {
+    const started = Date.now()
+    await db().query('SELECT 1')
+    send(response, 200, {
+      ok: true,
+      version: VERSION,
+      db: { ok: true, latencyMs: Date.now() - started },
+      uptimeSeconds: Math.floor(process.uptime()),
+    })
+  } catch (error) {
+    send(response, 503, {
+      ok: false,
+      version: VERSION,
+      db: { ok: false, error: error instanceof Error ? error.message : String(error) },
+    })
+  }
+})
+
+route('GET', '/metrics', async (_request, response) => {
+  const body = renderMetrics()
+  response.writeHead(200, {
+    'content-type': 'text/plain; version=0.0.4; charset=utf-8',
+    'content-length': Buffer.byteLength(body),
+  })
+  response.end(body)
+})
 
 route('POST', '/v1/auth/register', async (request, response) => {
   const input = await body(request)
@@ -577,6 +606,20 @@ route('GET', '/v1/conversations', async (request, response) => {
   send(response, 200, { items: rows })
 })
 
+/**
+ * Collapse a route pattern into a low-cardinality metric label.
+ * @param {RegExp} pattern - route pattern.
+ * @returns {string} stable label.
+ */
+function routeLabel(pattern) {
+  return pattern.source
+    .replaceAll('\\/', '/')
+    .replace(/\^\(\[0-9a-f-\]\{36\}\)/g, ':id')
+    .replaceAll('[0-9a-f-]{36}', ':id')
+    .replaceAll('^', '')
+    .replaceAll('$', '')
+}
+
 /** Create the HTTP server (unbound; tests listen on port 0). */
 export function createApp() {
   return createServer(async (request, response) => {
@@ -586,12 +629,25 @@ export function createApp() {
         if (entry.method !== request.method) continue
         const match = entry.pattern.exec(url.pathname)
         if (match === null) continue
-        await entry.handler(request, response, match.slice(1))
+        const started = Date.now()
+        const path = routeLabel(entry.pattern)
+        try {
+          await entry.handler(request, response, match.slice(1))
+        } finally {
+          inc('im_omni_requests_total', {
+            method: request.method ?? 'GET',
+            route: path,
+            status: String(response.statusCode),
+          })
+          inc('im_omni_request_duration_ms_sum', { route: path }, Date.now() - started)
+          inc('im_omni_request_duration_ms_count', { route: path })
+        }
         return
       }
       fail(response, 404, 'not-found', '未知接口。')
     } catch (error) {
       if (error instanceof QuotaError) {
+        inc('im_omni_quota_refusals_total', { kind: error.kind })
         send(response, 402, {
           error: {
             code: error.code,

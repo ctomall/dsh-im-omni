@@ -256,7 +256,34 @@ server/src/app.mjs                      GET /v1/billing/plan、GET /v1/billing/u
 - 席位配额在邀请接受时校验（`assertQuota(tenant,'seat',1)`）。
 - 验证：`node --test` 共 **17** 个用例（5 RLS + 8 账号/设备 + 4 计量配额），全绿。
 
-## 13. 风险与取舍
+## 13. 已落地（S3 基线）
+
+```
+server/src/metrics.mjs       零依赖计数器 + Prometheus 文本输出
+server/src/app.mjs           GET /healthz（含 DB 探活与延迟）、GET /metrics、
+                             每个路由的请求数/耗时/配额拒绝计数
+server/scripts/backup.sh     pg_dump -Fc + gzip + 保留天数清理
+server/scripts/restore-drill.sh  还原到临时库并断言 schema_migrations/tenants
+server/docker-compose.dev.yml    postgres + redis + minio + 双 app + nginx
+server/nginx.dev.conf        upstream 双实例 + proxy_next_upstream 故障切换
+server/Dockerfile            node:22-slim，npm ci --omit=dev
+```
+
+**验收证据**
+
+| 项 | 结果 |
+| --- | --- |
+| 双实例共享库 | 实例 A 登录的 token 在实例 B 直接可用；B 写入的消息 A 立刻读到 |
+| 故障注入 | 关闭实例 A 后，实例 B 继续返回 200，并完成注册 → me 全流程 |
+| 指标 | `/metrics` 输出 `im_omni_requests_total`、耗时 sum/count、uptime |
+| 备份 | `pg_dump -Fc` 60KB，保留策略生效 |
+| 恢复演练 | `PASS: restored migrations=4 tenants=104` |
+
+> 仍需下单的真实组件：Redis（限流/队列）、MinIO（附件对象存储）、
+> Prometheus+Grafana+Loki、Sentry。它们不阻塞"杀实例不中断"这条验收，
+> 已在 compose 里就位，等部署到多节点时启用。
+
+## 14. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
 | --- | --- | --- |
