@@ -71,6 +71,8 @@ import com.ila3.dshomni.util.installApk
 import org.json.JSONObject
 import com.ila3.dshomni.ui.theme.Radius
 import com.ila3.dshomni.ui.theme.Spacing
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 
 /** Translation targets the Host accepts; the field itself is free-form. */
 private val Languages = listOf(
@@ -92,9 +94,28 @@ private val Languages = listOf(
  * The update is published by the Host itself (`/api/im-omni.app.version`), so
  * the phone upgrades over the same LAN or public entry it already uses.
  */
+/**
+ * Signed-in identity, shown in the 我 tab.
+ *
+ * @property email account email.
+ * @property tenantId current tenant.
+ * @property tenants every tenant the account may enter.
+ * @property role role inside the current tenant.
+ */
+data class AccountInfo(
+    val email: String,
+    val tenantId: String,
+    val tenants: List<com.ila3.dshomni.data.auth.TenantRef>,
+    val role: String,
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     state: UiState,
+    account: AccountInfo? = null,
+    onSwitchTenant: (String) -> Unit = {},
+    onSignOut: () -> Unit = {},
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeMode: (ThemeMode) -> Unit = {},
     onSwitchServer: () -> Unit,
@@ -165,6 +186,48 @@ fun SettingsScreen(
             state.notice?.let {
                 Banner(it, error = false, onDismiss = onDismissNotice)
                 Spacer(Modifier.height(10.dp))
+            }
+
+            if (account != null) {
+                SectionCard(stringResource(R.string.account_title)) {
+                    FieldValue(stringResource(R.string.login_email), account.email)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.account_current),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        account.tenants.forEach { tenant ->
+                            val active = tenant.id == account.tenantId
+                            Text(
+                                tenant.name.ifBlank { tenant.role },
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (active) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .background(
+                                        if (active) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant,
+                                        RoundedCornerShape(Radius.full),
+                                    )
+                                    .clickable(enabled = !active) { onSwitchTenant(tenant.id) }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.account_switch_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = onSignOut) {
+                        Text(stringResource(R.string.account_sign_out))
+                    }
+                }
             }
 
             SectionCard("服务器") {

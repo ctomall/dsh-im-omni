@@ -1,9 +1,9 @@
 {
-  "versionCode": 15,
-  "versionName": "0.6.1",
+  "versionCode": 16,
+  "versionName": "0.7.0",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.6.1.apk",
-  "sha256": "09acb317b09527e8dbbccab3a891d37556ea6549c6ece8d513a0d12445f67dd1",
-  "notes": "0.6.1（P5 账号）：渠道页改为账号语义，行内接入方式/健康度/流量，菜单含暂停、连接测试、查看配置。",
-  "publishedAt": "2026-11-04T14:23:21.000Z"
+  "file": "dsh-im-omni-0.7.0.apk",
+  "sha256": "24d3da17f5a44b2ad5457245d11f1b173848e1dc8a1303b2531c7c2bffb6ad04",
+  "notes": "0.7.0（S1）：登录/注册、账号与租户切换、设备自动注册；保留旧版扫码入口。",
+  "publishedAt": "2026-11-04T15:17:44.000Z"
 }

@@ -155,3 +155,14 @@ test('device linking issues a token and revocation kills it', async () => {
   const dead = await get('/v1/me', deviceToken)
   assert.equal(dead.status, 401)
 })
+
+test('a logged-in phone registers itself as a device', async () => {
+  const owner = await register('ivan')
+  const registered = await post('/v1/devices/register', { deviceName: 'Pixel 8', platform: 'android' }, owner.accessToken)
+  assert.equal(registered.status, 201, JSON.stringify(registered.body))
+  assert.ok(registered.body.device.id)
+  const me = await get('/v1/me', registered.body.accessToken)
+  assert.equal(me.status, 200)
+  const devices = await get('/v1/devices', owner.accessToken)
+  assert.ok(devices.body.items.some((item) => item.id === registered.body.device.id))
+})

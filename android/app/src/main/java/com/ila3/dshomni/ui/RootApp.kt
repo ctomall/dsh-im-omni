@@ -61,6 +61,14 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.ui.res.stringResource
 import com.ila3.dshomni.R
 import com.ila3.dshomni.ui.contacts.ContactsScreen
+import com.ila3.dshomni.ui.settings.AccountInfo
+import com.ila3.dshomni.ui.auth.LoginScreen
+import com.ila3.dshomni.data.auth.AuthStore
+import com.ila3.dshomni.data.auth.AuthResult
+import com.ila3.dshomni.data.auth.AuthApi
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
 
 /** Where the app currently is. Chat, channel detail, and the wizard stack on the tabs. */
 sealed interface Route {
@@ -84,8 +92,61 @@ fun RootApp(
     openConversationId: String? = null,
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeMode: (ThemeMode) -> Unit = {},
+    authStore: AuthStore? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val store = authStore ?: remember { AuthStore(context) }
+    // Multi-tenant sign-in comes before anything else: without an account there
+    // is no workspace to show. The legacy pairing gate still follows it while
+    // the message plane has not moved to the new backend yet (S2).
+    var session by remember { mutableStateOf(store.load()) }
+    var loginBusy by remember { mutableStateOf(false) }
+    var loginError by remember { mutableStateOf<String?>(null) }
+    // Escape hatch while the message plane still lives on the legacy pairing
+    // backend: an operator can keep using the old flow without an account.
+    var legacyMode by remember { mutableStateOf(false) }
+    val loginScope = rememberCoroutineScope()
+    val auth = remember { AuthApi() }
+
+    if (session == null && !legacyMode) {
+        LoginScreen(
+            initialBaseUrl = store.rememberedBaseUrl(),
+            loading = loginBusy,
+            error = loginError,
+            onSubmit = { baseUrl, email, password, register, name ->
+                if (!loginBusy) {
+                    loginScope.launch {
+                        loginBusy = true
+                        loginError = null
+                        val base = auth.normalizeBase(baseUrl)
+                        val result = if (register) {
+                            auth.register(base, email, password, name)
+                        } else {
+                            auth.login(base, email, password)
+                        }
+                        when (result) {
+                            is AuthResult.Success -> {
+                                store.rememberBaseUrl(base)
+                                // Best effort: bind this phone as a device so the
+                                // account can revoke it later. A failure (e.g. an
+                                // older server) must not block the session.
+                                val bound = auth.registerDevice(result.session, android.os.Build.MODEL ?: "android")
+                                val effective = (bound as? AuthResult.Success)?.session ?: result.session
+                                store.save(effective)
+                                session = effective
+                            }
+                            is AuthResult.Failure -> loginError = result.message
+                        }
+                        loginBusy = false
+                    }
+                }
+            },
+            onSkip = { legacyMode = true },
+        )
+        return
+    }
+
     var route by remember { mutableStateOf<Route>(Route.Inbox) }
     var pairingOpen by remember { mutableStateOf(false) }
     var scanned by remember { mutableStateOf<PairingTarget?>(null) }
@@ -296,6 +357,28 @@ fun RootApp(
                     onDismissNotice = viewModel::clearError,
                 )
                 Route.Settings -> SettingsScreen(
+                    account = AccountInfo(
+                        email = session?.email.orEmpty(),
+                        tenantId = session?.tenantId.orEmpty(),
+                        tenants = session?.tenants.orEmpty(),
+                        role = session?.role.orEmpty(),
+                    ),
+                    onSwitchTenant = { tenantId ->
+                        val current = session ?: return@SettingsScreen
+                        loginScope.launch {
+                            when (val result = auth.switchTenant(current, tenantId)) {
+                                is AuthResult.Success -> {
+                                    store.save(result.session)
+                                    session = result.session
+                                }
+                                is AuthResult.Failure -> loginError = result.message
+                            }
+                        }
+                    },
+                    onSignOut = {
+                        store.clear()
+                        session = null
+                    },
                     state = state,
                     themeMode = themeMode,
                     onThemeMode = onThemeMode,

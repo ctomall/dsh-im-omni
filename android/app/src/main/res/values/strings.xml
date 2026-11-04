@@ -93,4 +93,19 @@
     <string name="accounts_test">连接测试</string>
     <string name="accounts_config">查看配置</string>
     <string name="accounts_traffic">收 %1$d · 发 %2$d</string>
+    <string name="login_title">登录</string>
+    <string name="login_subtitle">登录你的团队工作区</string>
+    <string name="login_server">服务器地址</string>
+    <string name="login_email">邮箱</string>
+    <string name="login_password">密码（至少 8 位）</string>
+    <string name="login_name">你的名字</string>
+    <string name="login_submit">登录</string>
+    <string name="login_register">注册</string>
+    <string name="login_no_account">还没有账号？</string>
+    <string name="login_have_account">已有账号？</string>
+    <string name="account_title">账号</string>
+    <string name="account_current">当前团队</string>
+    <string name="account_switch_hint">切换后会重新拉取该团队的数据。</string>
+    <string name="account_sign_out">退出登录</string>
+    <string name="login_legacy">使用旧版扫码配对</string>
 </resources>

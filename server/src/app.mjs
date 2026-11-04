@@ -422,6 +422,44 @@ route('POST', '/v1/devices/link', async (request, response) => {
   }
 })
 
+// A phone that just logged in registers itself: the code-based link above is
+// for the web-console flow, this one has the user's session already.
+route('POST', '/v1/devices/register', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const input = await body(request)
+  const rawToken = randomToken(32)
+  const client = await db().connect()
+  try {
+    await client.query('BEGIN')
+    await client.query("SELECT set_config('app.tenant_id', $1, true)", [claims.tenantId])
+    const device = await client.query(
+      `INSERT INTO devices (tenant_id, user_id, name, platform, token_hash)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, name, platform, created_at`,
+      [
+        claims.tenantId,
+        claims.userId,
+        String(input.deviceName ?? '').slice(0, 60) || '手机',
+        ['android', 'ios'].includes(input.platform) ? input.platform : 'android',
+        sha256(rawToken),
+      ],
+    )
+    const tokens = await issueTokens(client, {
+      userId: claims.userId,
+      tenantId: claims.tenantId,
+      role: claims.role,
+      deviceId: device.rows[0].id,
+    })
+    await client.query('COMMIT')
+    send(response, 201, { device: device.rows[0], deviceToken: rawToken, ...tokens })
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw error
+  } finally {
+    client.release()
+  }
+})
+
 route('GET', '/v1/devices', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')

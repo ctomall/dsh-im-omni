@@ -3,6 +3,29 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.7.0 — 2024-11-04 (versionCode 16)
+
+### S1 (app side) — sign-in gate, accounts and tenant switching
+
+- New login screen: server address, email, password, optional register with a
+  display name. The button stays disabled until the form is usable, and errors
+  from the backend are shown verbatim.
+- `AuthStore` keeps the session (access/refresh token, current tenant, tenant
+  list) in the app-private preference file; the last server address is
+  remembered separately so the form prefills.
+- After a successful sign-in the phone registers itself as a device
+  (`POST /v1/devices/register`) and adopts the device-bound tokens; a failure
+  there never blocks the session.
+- 我 → 账号 shows the signed-in email, every tenant as a switchable chip, and
+  退出登录.
+- Escape hatch for the migration window: 使用旧版扫码配对 keeps the legacy path
+  available while the message plane still lives on the old plugin.
+
+Backend additions in this release: `POST /v1/devices/register` (self-registered
+device after login) with a test.
+
+Version 0.7.0 (code 16). 49 Android tests, 0 failures; lint clean.
+
 ## 0.6.1 — 2024-11-04 (versionCode 15)
 
 ### P5 — channels become accounts

@@ -6,6 +6,7 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.ila3.dshomni.ui.PreviewData
+import com.ila3.dshomni.ui.auth.LoginScreen
 import com.ila3.dshomni.ui.channels.AddChannelScreen
 import com.ila3.dshomni.ui.contacts.ContactsScreen
 import com.ila3.dshomni.ui.channels.ChannelDetailScreen
@@ -212,6 +213,23 @@ class OmniScreenshotTest {
             }
         }
         capture(activity, "omni-accounts.png")
+    }
+
+
+    @Test
+    fun captureLogin() {
+        val activity = activity()
+        activity.setContent {
+            DshOmniTheme {
+                LoginScreen(
+                    initialBaseUrl = "https://dsh.ila3.top/",
+                    loading = false,
+                    error = null,
+                    onSubmit = { _, _, _, _, _ -> },
+                )
+            }
+        }
+        capture(activity, "omni-login.png")
     }
 
 
