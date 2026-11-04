@@ -2807,7 +2807,9 @@ window.__ModuleLoader__.load({
         try {
           const result = await intelligence('suggest', {
             conversationId: conversation.id,
-            targetLanguage: conversation.customerLanguage || workspace.translationTarget || 'zh-CN',
+            // Unknown customer language falls back to 'auto': the Host then asks
+            // the model to mirror whatever the customer wrote.
+            targetLanguage: conversation.customerLanguage || 'auto',
           })
           setSuggestions(Array.isArray(result.suggestions) ? result.suggestions : [])
           if (!Array.isArray(result.suggestions) || result.suggestions.length === 0) notify(t('ai.empty'), 'error')

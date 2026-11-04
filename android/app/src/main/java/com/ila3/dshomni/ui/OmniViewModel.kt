@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ila3.dshomni.data.local.ConnectionStore
 import com.ila3.dshomni.data.local.CookieStore
+import com.ila3.dshomni.data.model.Attachment
 import com.ila3.dshomni.data.model.Channel
 import com.ila3.dshomni.data.model.CommandResult
 import com.ila3.dshomni.data.model.Connection
@@ -68,6 +69,9 @@ data class UpdateState(
 
 /** Upper-confidence byte size guard for a downloaded update. */
 private const val MAX_APK_BYTES = 120L * 1024L * 1024L
+
+/** Mirrors the Host's upload limit so the phone can reject early. */
+private const val MAX_ATTACHMENT_BYTES = 12 * 1024 * 1024
 
 /** Owns pairing, the live snapshot, every command, and the update flow. */
 class OmniViewModel(app: Application) : AndroidViewModel(app) {
@@ -245,9 +249,46 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Send a reply into one conversation. */
-    fun sendMessage(conversationId: String, text: String) {
-        if (text.isBlank()) return
-        run("message.send", JSONObject().put("conversationId", conversationId).put("text", text.trim()))
+    fun sendMessage(conversationId: String, text: String, attachments: List<Attachment> = emptyList()) {
+        if (text.isBlank() && attachments.isEmpty()) return
+        val payload = JSONObject().put("conversationId", conversationId).put("text", text.trim())
+        if (attachments.isNotEmpty()) {
+            val array = org.json.JSONArray()
+            attachments.forEach { attachment -> array.put(JSONObject().put("id", attachment.id)) }
+            payload.put("attachments", array)
+        }
+        run("message.send", payload)
+    }
+
+    /** Upload one picked file and send it with the current caption. */
+    fun uploadAttachment(
+        conversationId: String,
+        bytes: ByteArray,
+        name: String,
+        type: String,
+        caption: String,
+    ) {
+        val connection = _state.value.connection ?: return
+        if (bytes.size > MAX_ATTACHMENT_BYTES) {
+            _state.update { it.copy(error = "附件不能超过 12 MB。") }
+            return
+        }
+        _state.update { it.copy(busyAction = "attachment.upload", error = null) }
+        viewModelScope.launch {
+            try {
+                val attachment = api.upload(connection.baseUrl, bytes, name, type)
+                _state.update { it.copy(busyAction = null) }
+                sendMessage(conversationId, caption, listOf(attachment))
+            } catch (error: Throwable) {
+                fail(error)
+            }
+        }
+    }
+
+    /** Attachment bytes for an inline preview. */
+    suspend fun attachmentBytes(url: String): ByteArray? {
+        val connection = _state.value.connection ?: return null
+        return api.download(connection.baseUrl, url)
     }
 
     /** Clear the unread badge of a conversation. */
@@ -421,6 +462,8 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
     /** Patch workspace settings exposed by the app. */
     fun updateSettings(payload: JSONObject, success: String = "设置已保存") {
         run("settings.update", payload) { _state.update { it.copy(notice = success) } }
+        // Disabling suggestions must also remove the drafts already on screen.
+        if (payload.has("aiSuggestions") && !payload.optBoolean("aiSuggestions")) clearSuggestions()
     }
 
     /** Ask the Host for the newest published APK. */

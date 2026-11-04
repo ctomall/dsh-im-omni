@@ -15,6 +15,7 @@ import { createIntelligence } from './lib/intelligence.js'
 import { ReceptionBot } from './lib/bot.js'
 import { APK_PATH, VERSION_PATH, apkResponse, versionResponse } from './lib/app.js'
 import { UpgradeError, applyUpgrade, checkUpgrade } from './lib/upgrade.js'
+import { MAX_ATTACHMENT_BYTES, configureAttachments, readAttachment, saveAttachment } from './lib/attachments.js'
 import {
   ApiError,
   createSerial,
@@ -33,6 +34,10 @@ const COMMAND_PATH = '/api/im-omni.command'
 const INTELLIGENCE_PATH = '/api/im-omni.ai'
 /** Owner API for the plugin's own Git update. */
 const UPGRADE_PATH = '/api/im-omni.upgrade'
+/** Owner API for uploading one attachment. */
+const UPLOAD_PATH = '/api/im-omni.upload'
+/** Owner API for reading one attachment back. */
+const ATTACHMENT_PATH = '/api/im-omni.attachment'
 /** Public callback prefix, including the trailing slash used to read the channel id. */
 const WEBHOOK_PREFIX = '/api/im-omni.webhook/'
 /** Registered prefix route: the webserver matches `${path}/...`, so this form has no trailing slash. */
@@ -167,6 +172,7 @@ async function handleWebhookRequest(request, response, runtime, limited) {
 export async function apply(ctx) {
   const store = new Store()
   await store.load()
+  configureAttachments(store.file)
   const serial = createSerial()
   const runtime = { store, serial }
   runtime.ingest = (channelId, payload) => handleInbound(runtime, channelId, payload)
@@ -257,6 +263,62 @@ export async function apply(ctx) {
       },
     }),
     'im-omni: intelligence route',
+  )
+
+  ctx.effect(
+    () => ctx.connection.fetch.register({
+      path: UPLOAD_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        let bytes
+        try {
+          bytes = Buffer.from(await request.arrayBuffer())
+        } catch {
+          return json({ ok: false, error: { code: 'bad-body', message: 'The attachment body could not be read.' } }, 400)
+        }
+        if (bytes.length === 0) {
+          return json({ ok: false, error: { code: 'empty-file', message: 'The upload was empty.' } }, 400)
+        }
+        if (bytes.length > MAX_ATTACHMENT_BYTES) {
+          return json({ ok: false, error: { code: 'file-too-large', message: `Attachments are limited to ${Math.round(MAX_ATTACHMENT_BYTES / 1024 / 1024)} MB.` } }, 413)
+        }
+        try {
+          const name = decodeURIComponent(request.headers.get('x-file-name') ?? '') || 'attachment'
+          const type = request.headers.get('content-type') ?? 'application/octet-stream'
+          const attachment = await saveAttachment(bytes, { name, type })
+          return json({ ok: true, result: { attachment } })
+        } catch (error) {
+          const failure = failureOf(error)
+          return json({ ok: false, error: { code: failure.code, message: failure.message } }, failure.status)
+        }
+      },
+    }),
+    'im-omni: attachment upload',
+  )
+
+  ctx.effect(
+    () => ctx.connection.fetch.register({
+      path: ATTACHMENT_PATH,
+      methods: ['GET', 'HEAD'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        const id = new URL(request.url).searchParams.get('id') ?? ''
+        const found = await readAttachment(id)
+        if (found === null) {
+          return json({ ok: false, error: { code: 'attachment-not-found', message: 'No such attachment.' } }, 404)
+        }
+        const headers = {
+          'content-type': found.record.type,
+          'content-length': String(found.bytes.length),
+          'cache-control': 'private, max-age=600',
+          'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(found.record.name)}`,
+        }
+        if (request.method === 'HEAD') return new Response(null, { status: 200, headers })
+        return new Response(found.bytes, { status: 200, headers })
+      },
+    }),
+    'im-omni: attachment download',
   )
 
   ctx.effect(

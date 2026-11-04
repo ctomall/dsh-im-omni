@@ -24,8 +24,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.Translate
@@ -47,8 +57,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -56,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ila3.dshomni.data.model.Conversation
+import com.ila3.dshomni.data.model.Attachment
 import com.ila3.dshomni.data.model.Message
 import com.ila3.dshomni.data.model.Snapshot
 import com.ila3.dshomni.ui.UiState
@@ -69,6 +85,7 @@ import com.ila3.dshomni.ui.theme.BrandTeal
 import com.ila3.dshomni.ui.theme.aiGradient
 import com.ila3.dshomni.util.Labels
 import com.ila3.dshomni.util.Times
+import com.ila3.dshomni.util.formatBytes
 
 /**
  * One conversation: read, translate, draft with AI, and reply.
@@ -87,6 +104,9 @@ fun ChatScreen(
     onSetBotPaused: (Boolean) -> Unit,
     onTranslate: () -> Unit,
     onSuggest: () -> Unit,
+    onDismissSuggestions: () -> Unit,
+    onUploadAttachment: (ByteArray, String, String, String) -> Unit,
+    onLoadAttachment: suspend (String) -> ByteArray?,
     onDismissNotice: () -> Unit,
 ) {
     val snapshot = state.snapshot
@@ -101,12 +121,34 @@ fun ChatScreen(
     val channel = snapshot.channel(conversation.channelId)
     var draft by remember(conversationId) { mutableStateOf("") }
     var menuOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    /** Read a picked URI into bytes plus the display name the system knows. */
+    fun readPicked(uri: Uri): Triple<ByteArray, String, String>? = runCatching {
+        val type = context.contentResolver.getType(uri) ?: "application/octet-stream"
+        val name = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        } ?: uri.lastPathSegment.orEmpty().substringAfterLast('/').ifBlank { "attachment" }
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        if (bytes == null || bytes.isEmpty()) null else Triple(bytes, name, type)
+    }.getOrNull()
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) readPicked(uri)?.let { (bytes, name, type) -> onUploadAttachment(bytes, name, type, draft) }
+    }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) readPicked(uri)?.let { (bytes, name, type) -> onUploadAttachment(bytes, name, type, draft) }
+    }
     val listState = rememberLazyListState()
 
     LaunchedEffect(conversation.messages.size) {
         if (conversation.messages.isNotEmpty()) listState.animateScrollToItem(conversation.messages.lastIndex)
     }
-    LaunchedEffect(conversationId) { onMarkRead() }
+    LaunchedEffect(conversationId) {
+        onMarkRead()
+        onDismissSuggestions()
+    }
 
     Column(
         Modifier
@@ -166,26 +208,34 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(conversation.messages, key = { it.id }) { message ->
-                        MessageBubble(message)
+                        MessageBubble(message, onLoadAttachment)
                     }
                 }
             }
         }
 
-        if (state.suggestions.isNotEmpty()) {
+        // Drafts are a per-conversation aid: hidden when AI suggestions are off,
+        // and dismissible so a strip cannot linger over the composer.
+        if (state.suggestions.isNotEmpty() && snapshot.workspace.aiSuggestions) {
             SuggestionStrip(
                 suggestions = state.suggestions,
                 onPick = { draft = it },
                 onRefresh = onSuggest,
+                onDismiss = onDismissSuggestions,
             )
         }
 
         Composer(
             draft = draft,
             onDraftChange = { draft = it },
-            sending = state.busyAction == "message.send",
+            sending = state.busyAction == "message.send" || state.busyAction == "attachment.upload",
+            uploading = state.busyAction == "attachment.upload",
             aiEnabled = snapshot.workspace.aiSuggestions,
             suggestionBusy = state.suggestionBusy,
+            onPickImage = {
+                imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onPickFile = { filePicker.launch(arrayOf("*/*")) },
             onSuggest = onSuggest,
             onSend = {
                 val body = draft.trim()
@@ -310,7 +360,7 @@ private fun ChatHeader(
 }
 
 @Composable
-private fun MessageBubble(message: Message) {
+private fun MessageBubble(message: Message, onLoad: suspend (String) -> ByteArray?) {
     if (message.isNote) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Surface(
@@ -358,11 +408,17 @@ private fun MessageBubble(message: Message) {
                     ),
             ) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
-                    Text(
-                        message.text,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (inbound) MaterialTheme.colorScheme.onSurface else Color.White,
-                    )
+                    message.attachments.forEach { attachment ->
+                        AttachmentView(attachment, onLoad)
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    if (message.text.isNotBlank()) {
+                        Text(
+                            message.text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (inbound) MaterialTheme.colorScheme.onSurface else Color.White,
+                        )
+                    }
                     message.translation?.let { translated ->
                         Spacer(Modifier.height(6.dp))
                         Text(
@@ -407,8 +463,76 @@ private fun MessageBubble(message: Message) {
     }
 }
 
+/** Inline image thumbnail, or a file chip when the bytes are not an image. */
 @Composable
-private fun SuggestionStrip(suggestions: List<String>, onPick: (String) -> Unit, onRefresh: () -> Unit) {
+private fun AttachmentView(attachment: Attachment, onLoad: suspend (String) -> ByteArray?) {
+    if (attachment.isImage) {
+        var bitmap by remember(attachment.url) { mutableStateOf<ImageBitmap?>(null) }
+        var failed by remember(attachment.url) { mutableStateOf(false) }
+        LaunchedEffect(attachment.url) {
+            val bytes = onLoad(attachment.url)
+            if (bytes == null) {
+                failed = true
+            } else {
+                val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                if (decoded == null) failed = true else bitmap = decoded.asImageBitmap()
+            }
+        }
+        val image = bitmap
+        if (image != null) {
+            Image(
+                bitmap = image,
+                contentDescription = attachment.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .widthIn(max = 220.dp)
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+            )
+            return
+        }
+        if (!failed) {
+            Box(
+                Modifier
+                    .widthIn(max = 220.dp)
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+            }
+            return
+        }
+    }
+    FileChip(attachment)
+}
+
+@Composable
+private fun FileChip(attachment: Attachment) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.Black.copy(alpha = 0.08f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Description, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.widthIn(max = 200.dp)) {
+            Text(attachment.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(formatBytes(attachment.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun SuggestionStrip(
+    suggestions: List<String>,
+    onPick: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -421,6 +545,10 @@ private fun SuggestionStrip(suggestions: List<String>, onPick: (String) -> Unit,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clickable(onClick = onRefresh),
                 )
+                Spacer(Modifier.width(12.dp))
+                IconButton(onClick = onDismiss, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Rounded.Close, contentDescription = "关闭草稿", modifier = Modifier.size(14.dp))
+                }
             }
             Spacer(Modifier.height(6.dp))
             suggestions.forEach { suggestion ->
@@ -451,11 +579,15 @@ private fun Composer(
     draft: String,
     onDraftChange: (String) -> Unit,
     sending: Boolean,
+    uploading: Boolean,
     aiEnabled: Boolean,
     suggestionBusy: Boolean,
+    onPickImage: () -> Unit,
+    onPickFile: () -> Unit,
     onSuggest: () -> Unit,
     onSend: () -> Unit,
 ) {
+    var attachOpen by remember { mutableStateOf(false) }
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
         Row(
             Modifier
@@ -464,6 +596,21 @@ private fun Composer(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
+            Box {
+                IconButton(onClick = { attachOpen = true }, enabled = !sending) {
+                    Icon(Icons.Rounded.AttachFile, contentDescription = "添加附件", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = attachOpen, onDismissRequest = { attachOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("照片") },
+                        onClick = { attachOpen = false; onPickImage() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("文件") },
+                        onClick = { attachOpen = false; onPickFile() },
+                    )
+                }
+            }
             if (aiEnabled) {
                 IconButton(onClick = onSuggest, enabled = !suggestionBusy) {
                     if (suggestionBusy) {
@@ -490,6 +637,12 @@ private fun Composer(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 if (sending) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                } else if (uploading) {
                     CircularProgressIndicator(
                         strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.onPrimary,

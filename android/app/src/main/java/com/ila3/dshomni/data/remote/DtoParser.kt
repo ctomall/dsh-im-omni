@@ -1,6 +1,7 @@
 package com.ila3.dshomni.data.remote
 
 import com.ila3.dshomni.data.model.Agent
+import com.ila3.dshomni.data.model.Attachment
 import com.ila3.dshomni.data.model.Channel
 import com.ila3.dshomni.data.model.Contact
 import com.ila3.dshomni.data.model.ContactIdentity
@@ -176,6 +177,16 @@ object DtoParser {
                 createdAt = isoToMillis(message.str("createdAt")),
                 error = message.str("error"),
                 translation = message.obj("translation")?.str("text")?.takeIf { it.isNotBlank() },
+                attachments = message.arr("attachments").objects().mapNotNull { item ->
+                    val url = item.str("url")
+                    if (url.isBlank()) null else Attachment(
+                        id = item.str("id"),
+                        name = item.str("name").ifBlank { "attachment" },
+                        type = item.str("type").ifBlank { "application/octet-stream" },
+                        size = item.long("size"),
+                        url = url,
+                    )
+                },
             )
         }
         return Conversation(
@@ -191,6 +202,7 @@ object DtoParser {
             updatedAt = isoToMillis(json.str("updatedAt")),
             lastInboundAt = isoToMillis(json.str("lastInboundAt")).takeIf { it > 0L },
             botPaused = json.bool("botPaused"),
+            customerLanguage = json.str("customerLanguage"),
         )
     }
 

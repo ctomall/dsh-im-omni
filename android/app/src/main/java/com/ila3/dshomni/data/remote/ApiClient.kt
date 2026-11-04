@@ -1,5 +1,6 @@
 package com.ila3.dshomni.data.remote
 
+import com.ila3.dshomni.data.model.Attachment
 import com.ila3.dshomni.data.model.CommandResult
 import com.ila3.dshomni.data.model.Snapshot
 import com.ila3.dshomni.data.model.UpdateInfo
@@ -73,6 +74,42 @@ class ApiClient(cookieJar: CookieJar) {
         val state = json.optJSONObject("state")
             ?: throw ApiException("bad-state", "Host 返回的状态为空。", 0)
         DtoParser.parseSnapshot(state)
+    }
+
+    /**
+     * Upload one file; the Host stores it and returns the descriptor the
+     * message will reference.
+     */
+    suspend fun upload(base: String, bytes: ByteArray, name: String, type: String): Attachment =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(base + "api/im-omni.upload")
+                .header("x-file-name", java.net.URLEncoder.encode(name, "UTF-8"))
+                .post(bytes.toRequestBody(type.toMediaType()))
+                .build()
+            val json = execute(request)
+            val record = json.optJSONObject("result")?.optJSONObject("attachment")
+                ?: throw ApiException("bad-upload", "Host 没有返回附件信息。", 0)
+            Attachment(
+                id = record.optString("id"),
+                name = record.optString("name").ifBlank { name },
+                type = record.optString("type").ifBlank { type },
+                size = record.optLong("size", bytes.size.toLong()),
+                url = record.optString("url"),
+            )
+        }
+
+    /** Fetch attachment bytes with the paired cookie; null when unavailable. */
+    suspend fun download(base: String, url: String): ByteArray? = withContext(Dispatchers.IO) {
+        val absolute = if (url.startsWith("http")) url else base + url.trimStart('/')
+        val request = Request.Builder().url(absolute).get().build()
+        try {
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) null else response.body?.bytes()
+            }
+        } catch (_: IOException) {
+            null
+        }
     }
 
     /** Run one serialized Host command. */

@@ -1,4 +1,4 @@
-# 全渠道 IM（dsh-im-omni 2.7.2）
+# 全渠道 IM（dsh-im-omni 2.8.0）
 
 一个带左侧栏入口的 DSH Web 插件：把 WhatsApp Business、WhatsApp/微信个人号扫码、企业微信、Telegram、飞书、Slack、Discord、LINE、钉钉和自建 HTTP 桥接统一到一套收件箱、联系人、快捷回复、群发、自动化和分析里。
 
@@ -56,7 +56,7 @@ $DSH_PROFILE_DIR/.im-omni/state.json
 
 - **客户详情默认隐藏**：右侧栏初始不占宽度；点会话头部的「会话详情」打开，右上角 × 关闭；窄屏下以抽屉覆盖显示。
 - **自动全语言翻译**：设置 → 翻译与 AI 选择目标语言（默认 `zh-CN`）。打开会话时自动把客户消息译为目标语言，原文与译文同时保留；标题栏「译文」可一键隐藏。Host 优先使用 DSH `translator` 服务；未挂载时回退到 Google Translate 公共端点，并记录检测到的源语言。
-- **AI 建议回复**：回复框右侧「AI 建议」使用 DSH 当前默认模型，结合最近会话生成 3 条草稿；检测到客户语言时用客户语言生成，否则用目标语言；点击草稿填入输入框，**不会自动发送**。可在设置中关闭。
+- **AI 建议回复**：回复框右侧「AI 建议」使用 DSH 当前默认模型，结合最近会话生成 3 条草稿；**默认跟随客户语言**（Host 传 `targetLanguage: auto`，已知 `customerLanguage` 时直接使用，未知则由模型从对话中判断），点击草稿填入输入框，**不会自动发送**。可在设置中关闭，关闭后已生成的草稿一并清除。
 - **自动接待机器人**：设置中启用后，新客户消息由默认模型自动回复；支持接待规则、欢迎语、转人工关键词、最大自动轮次。命中关键词/达到轮次/模型判断需要人工时，会话转「待跟进」并暂停机器人；人工发送回复会自动接管，可在会话头「恢复 AI」。
 - 翻译/AI 走独立的 `/api/im-omni.ai` owner-authenticated 路由，不阻塞收发命令。
 
@@ -130,6 +130,20 @@ CAPTURE=1 ./build.sh    # 顺带重跑 Robolectric 截图到 android/docs/
 ```
 
 **升级链路**：`GET /api/im-omni.app.version` 返回 `{ versionCode, versionName, sha256, size, apkPath }`（读 `android/dist/latest.json`），`GET /api/im-omni.app.apk` 读同目录安装包。两个路由都注册在 `ctx.connection.fetch`，必须携带配对后的设备 cookie，安装包不会公开暴露。发布新版本只需改 `android/app/build.gradle` 的版本号并重跑 `build.sh`，**不必重新发布插件**。
+
+## 5.1.1 附件
+
+会话内可以收发图片与文件。Host 侧由 `lib/attachments.js` 保存到 `$DSH_PROFILE_DIR/.im-omni/attachments/<id>.bin`（上限 12 MB / 单条最多 5 个），消息里只暴露 `{ id, name, type, size, url }`，绝对路径不进快照。
+
+| 方向 | 渠道 | 状态 |
+| --- | --- | --- |
+| 发送 | WhatsApp 个人号（Baileys）、Telegram | ✅ 图片/视频/音频/文件 |
+| 发送 | 其他渠道 | ⛔ 明确报错「该渠道暂不支持附件发送」，不会静默丢消息 |
+| 接收 | WhatsApp 个人号（媒体自动下载入库） | ✅ |
+| 接收 | Telegram | 文本占位（媒体可读，尚未入库下载） |
+| 接收 | 企业微信图片、通用桥接 | ✅ 外部 URL 透传 |
+
+路由：`POST /api/im-omni.upload`（owner 认证，`x-file-name` 头 + 原始字节）、`GET /api/im-omni.attachment?id=`（owner 认证回读）。
 
 ## 5.2 插件自更新
 

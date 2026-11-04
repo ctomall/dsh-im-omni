@@ -215,6 +215,7 @@ object PreviewData {
         createdAt = minutesAgo(minutes),
         error = "",
         translation = translation,
+        attachments = emptyList(),
     )
 
     val conversations = listOf(
@@ -236,6 +237,7 @@ object PreviewData {
             updatedAt = minutesAgo(13),
             lastInboundAt = minutesAgo(13),
             botPaused = false,
+            customerLanguage = "zh-CN",
         ),
         Conversation(
             id = "cnv_chen",
@@ -254,6 +256,7 @@ object PreviewData {
             updatedAt = minutesAgo(62),
             lastInboundAt = minutesAgo(62),
             botPaused = false,
+            customerLanguage = "zh-CN",
         ),
         Conversation(
             id = "cnv_aisha",
@@ -270,6 +273,7 @@ object PreviewData {
             updatedAt = minutesAgo(5),
             lastInboundAt = minutesAgo(5),
             botPaused = true,
+            customerLanguage = "en",
         ),
         Conversation(
             id = "cnv_wang",
@@ -287,6 +291,7 @@ object PreviewData {
             updatedAt = minutesAgo(290),
             lastInboundAt = minutesAgo(300),
             botPaused = false,
+            customerLanguage = "zh-CN",
         ),
     )
 

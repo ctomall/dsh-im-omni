@@ -85,6 +85,18 @@ data class Contact(
     val identities: List<ContactIdentity>,
 )
 
+/** One file attached to a message; bytes live on the Host. */
+data class Attachment(
+    val id: String,
+    val name: String,
+    val type: String,
+    val size: Long,
+    val url: String,
+) {
+    val isImage: Boolean get() = type.startsWith("image/")
+    val isLocal: Boolean get() = id.isNotBlank()
+}
+
 /** One message inside a conversation. */
 data class Message(
     val id: String,
@@ -95,6 +107,7 @@ data class Message(
     val createdAt: Long,
     val error: String,
     val translation: String?,
+    val attachments: List<Attachment>,
 ) {
     val inbound: Boolean get() = direction == "in"
     val isNote: Boolean get() = kind == "note"
@@ -115,6 +128,8 @@ data class Conversation(
     val updatedAt: Long,
     val lastInboundAt: Long?,
     val botPaused: Boolean,
+    /** BCP-47 language the Host detected for the customer, empty until known. */
+    val customerLanguage: String,
 ) {
     val lastMessage: Message? get() = messages.lastOrNull()
     val needsAttention: Boolean get() = status == "pending" || status == "open"

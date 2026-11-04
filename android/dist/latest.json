@@ -1,9 +1,9 @@
 {
-  "versionCode": 3,
-  "versionName": "0.1.2",
+  "versionCode": 4,
+  "versionName": "0.2.0",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.1.2.apk",
-  "sha256": "667a8b845278578792bb2575327911d48f0efac4d8f56ddc55baa7c4b9969aff",
-  "notes": "修复：新增渠道时「连接方式」等下拉字段点不开、且必填校验拦住提交；现在下拉为可点卡片并预填平台默认值。",
-  "publishedAt": "2026-11-04T09:06:42.000Z"
+  "file": "dsh-im-omni-0.2.0.apk",
+  "sha256": "82176691c5366f7cb4d03501270910cd1cde7944ac580dae2b5780634c3632b1",
+  "notes": "新增：会话内发送/接收附件（照片与文件，WhatsApp 个人号与 Telegram 已打通）；AI 草稿可关闭、并按客户语言生成。",
+  "publishedAt": "2026-11-04T09:21:57.000Z"
 }

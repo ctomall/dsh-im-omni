@@ -193,11 +193,17 @@ fun RootApp(viewModel: OmniViewModel, deepLink: PairingTarget? = null) {
                         )
                     },
                     onSuggest = {
+                        val detected = state.snapshot?.conversation(current.conversationId)?.customerLanguage
                         viewModel.suggestReplies(
                             current.conversationId,
-                            state.snapshot?.workspace?.translationTarget ?: "zh-CN",
+                            detected?.takeIf { it.isNotBlank() } ?: "auto",
                         )
                     },
+                    onDismissSuggestions = viewModel::clearSuggestions,
+                    onUploadAttachment = { bytes, name, type, caption ->
+                        viewModel.uploadAttachment(current.conversationId, bytes, name, type, caption)
+                    },
+                    onLoadAttachment = { url -> viewModel.attachmentBytes(url) },
                     onDismissNotice = viewModel::clearError,
                 )
                 Route.Channels -> ChannelsScreen(

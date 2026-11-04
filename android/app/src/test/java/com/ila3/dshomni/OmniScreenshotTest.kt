@@ -85,6 +85,9 @@ class OmniScreenshotTest {
                     onSetBotPaused = { },
                     onTranslate = { },
                     onSuggest = { },
+                    onDismissSuggestions = { },
+                    onUploadAttachment = { _, _, _, _ -> },
+                    onLoadAttachment = { null },
                     onDismissNotice = { },
                 )
             }
@@ -220,6 +223,9 @@ class OmniDarkScreenshotTest {
                     onSetBotPaused = { },
                     onTranslate = { },
                     onSuggest = { },
+                    onDismissSuggestions = { },
+                    onUploadAttachment = { _, _, _, _ -> },
+                    onLoadAttachment = { null },
                     onDismissNotice = { },
                 )
             }
