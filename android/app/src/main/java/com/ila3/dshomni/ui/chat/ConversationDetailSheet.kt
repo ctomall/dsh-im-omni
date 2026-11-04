@@ -53,6 +53,7 @@ fun ConversationDetailSheet(
     onSetPriority: (String) -> Unit,
     onSetBotPaused: (Boolean) -> Unit,
     onMarkRead: () -> Unit,
+    onSetMuted: (Boolean) -> Unit = {},
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -157,6 +158,14 @@ fun ConversationDetailSheet(
             }
 
             Spacer(Modifier.height(Spacing.xs))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.detail_muted),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(checked = conversation.muted, onCheckedChange = onSetMuted)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.detail_bot_paused),

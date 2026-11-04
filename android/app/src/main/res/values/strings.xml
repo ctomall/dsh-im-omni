@@ -121,4 +121,5 @@
     <string name="notify_test_sent">测试卡片已发送</string>
     <string name="notify_hint">客户来消息时，企业微信群里会收到一张卡片。</string>
     <string name="notify_link">点击链接（{conversationId} 占位）</string>
+    <string name="detail_muted">免打扰</string>
 </resources>

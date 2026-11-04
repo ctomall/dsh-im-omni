@@ -163,13 +163,79 @@ export async function notifyInbound(tenantId, input, options = {}) {
   const settings = await notifySettings(tenantId)
   if (settings.enabled !== true) return { skipped: 'disabled' }
   if (!settings.wecom_webhook) return { skipped: 'no-webhook' }
-  if (inQuietHours(options.now ?? new Date(), settings.quiet_start, settings.quiet_end)) {
+  const now = options.now ?? new Date()
+  if (inQuietHours(now, settings.quiet_start, settings.quiet_end)) {
     return { skipped: 'quiet-hours' }
   }
+
+  const conversationId = input.conversationId ?? ''
+  if (conversationId === '') return { skipped: 'no-conversation' }
+
+  // A muted conversation never rings; the message still lands in the inbox.
+  const muted = await withTenant(tenantId, async (client) => {
+    const row = await client.query(
+      'SELECT muted FROM conversations WHERE tenant_id = $1 AND id = $2',
+      [tenantId, conversationId],
+    )
+    return row.rows[0]?.muted === true
+  })
+  if (muted) return { skipped: 'muted' }
+
+  // Aggregation: at most one card per conversation per 60 seconds. Messages that
+  // arrive inside the window bump a counter instead of pinging again.
+  const windowMs = Number(options.windowMs ?? 60_000)
+  const aggregated = await withTenant(tenantId, async (client) => {
+    const existing = await client.query(
+      'SELECT last_sent_at, suppressed FROM notify_log WHERE tenant_id = $1 AND conversation_id = $2',
+      [tenantId, conversationId],
+    )
+    if (existing.rowCount > 0) {
+      const last = new Date(existing.rows[0].last_sent_at).getTime()
+      if (now.getTime() - last < windowMs) {
+        await client.query(
+          'UPDATE notify_log SET suppressed = suppressed + 1 WHERE tenant_id = $1 AND conversation_id = $2',
+          [tenantId, conversationId],
+        )
+        return true
+      }
+      await client.query(
+        'UPDATE notify_log SET last_sent_at = $3, suppressed = 0 WHERE tenant_id = $1 AND conversation_id = $2',
+        [tenantId, conversationId, now],
+      )
+      return false
+    }
+    await client.query(
+      'INSERT INTO notify_log (tenant_id, conversation_id, last_sent_at) VALUES ($1, $2, $3)',
+      [tenantId, conversationId, now],
+    )
+    return false
+  })
+  if (aggregated) return { skipped: 'aggregated' }
   const link = typeof settings.link_template === 'string' && settings.link_template !== ''
     ? settings.link_template.replaceAll('{conversationId}', encodeURIComponent(input.conversationId ?? ''))
     : ''
   const payload = buildNotifyPayload({ ...input, privatePreview: settings.private_preview, link })
   const result = await postWecom(settings.wecom_webhook, payload, options.fetchImpl ?? fetch)
   return { ok: result.ok, status: result.status }
+}
+
+/**
+ * Send a fixed test card, bypassing aggregation and mute.
+ * @param {string} tenantId - tenant uuid.
+ * @param {typeof fetch} [fetchImpl] - injectable fetch.
+ * @returns {Promise<{skipped?: string, ok?: boolean, status?: number}>} outcome.
+ */
+export async function sendTestCard(tenantId, fetchImpl = fetch) {
+  const settings = await notifySettings(tenantId)
+  if (settings.enabled !== true) return { skipped: 'disabled' }
+  if (!settings.wecom_webhook) return { skipped: 'no-webhook' }
+  const payload = buildNotifyPayload({
+    contactName: '测试',
+    channelName: 'DSH Omni',
+    text: '通知测试：配置成功，收到新消息时会在这里提醒。',
+    unread: 1,
+    privatePreview: settings.private_preview,
+  })
+  const result = await postWecom(settings.wecom_webhook, payload, fetchImpl)
+  return { ok: result.ok, status: result.status, body: result.body }
 }

@@ -21,6 +21,7 @@ import { inc, render as renderMetrics } from './metrics.mjs'
 import { InboundError, handleInbound } from './inbound.mjs'
 import {
   notifyInbound as notifyInboundMessage,
+  sendTestCard,
   notifySettings,
   publicNotifySettings,
   saveNotifySettings,
@@ -669,12 +670,7 @@ route('POST', '/v1/settings/notify/test', async (request, response) => {
   if (claims.role !== 'owner' && claims.role !== 'admin') {
     return fail(response, 403, 'forbidden', '只有管理员可以测试通知。')
   }
-  const outcome = await notifyInboundMessage(claims.tenantId, {
-    contactName: '测试',
-    channelName: 'DSH Omni',
-    text: '通知测试：配置成功，收到新消息时会在这里提醒。',
-    unread: 1,
-  })
+  const outcome = await sendTestCard(claims.tenantId)
   if (outcome.skipped) return fail(response, 409, 'notify-' + outcome.skipped, outcome.skipped === 'disabled' ? '通知未开启。' : '还没有配置机器人地址。')
   if (!outcome.ok) return fail(response, 502, 'notify-failed', `企业微信返回 ${outcome.status}`)
   send(response, 200, { sent: true })
@@ -838,7 +834,7 @@ route('GET', '/v1/conversations', async (request, response) => {
   const rows = await withTenant(claims.tenantId, async (client) => {
     const result = await client.query(
       `SELECT id, channel_id, contact_id, subject, status, priority, unread, tags,
-              bot_paused, last_inbound_at, updated_at
+              bot_paused, muted, last_inbound_at, updated_at
          FROM conversations ORDER BY updated_at DESC LIMIT 50`,
     )
     return result.rows

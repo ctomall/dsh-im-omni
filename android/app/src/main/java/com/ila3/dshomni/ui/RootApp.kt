@@ -305,6 +305,9 @@ fun RootApp(
                     onMarkRead = { viewModel.markRead(current.conversationId) },
                     onSetStatus = { viewModel.setConversationStatus(current.conversationId, it) },
                     onSetBotPaused = { viewModel.setBotPaused(current.conversationId, it) },
+                    onSetAssignee = { agentId -> viewModel.setConversationAssignee(current.conversationId, agentId) },
+                    onSetPriority = { priority -> viewModel.setConversationPriority(current.conversationId, priority) },
+                    onSetMuted = { paused -> viewModel.setMuted(current.conversationId, paused) },
                     onTranslate = {
                         viewModel.translateConversation(
                             current.conversationId,

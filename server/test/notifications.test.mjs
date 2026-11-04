@@ -193,3 +193,75 @@ test('the card hides the text when private preview is on', () => {
   assert.match(payload.markdown.content, /你有一条新消息/)
   assert.doesNotMatch(payload.markdown.content, /订单破损/)
 })
+
+test('a muted conversation never rings', async () => {
+  const session = await register('notify-mute')
+  const tenantId = session.tenants[0].tenant_id
+  await admin.query(
+    `INSERT INTO tenant_notify (tenant_id, enabled, wecom_webhook)
+     VALUES ($1, true, $2)
+     ON CONFLICT (tenant_id) DO UPDATE SET enabled = true, wecom_webhook = EXCLUDED.wecom_webhook`,
+    [tenantId, `http://127.0.0.1:${robot.address().port}/send`],
+  )
+  const channel = await admin.query(
+    "INSERT INTO channels (tenant_id, type, name) VALUES ($1,'telegram','静音通道') RETURNING id",
+    [tenantId],
+  )
+  const before = received.length
+  await fetch(`${base}/v1/webhooks/${channel.rows[0].id}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone: '+8613800000011', name: '静音客户', text: '第一条', externalId: 'mute-1' }),
+  })
+  for (let attempt = 0; attempt < 20 && received.length === before; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  assert.ok(received.length > before, 'first card should go out')
+
+  // Mute the conversation, then send again.
+  await admin.query(
+    `UPDATE conversations SET muted = true
+      WHERE tenant_id = $1 AND contact_id IN (SELECT id FROM contacts WHERE phone = '+8613800000011')`,
+    [tenantId],
+  )
+  const afterFirst = received.length
+  await fetch(`${base}/v1/webhooks/${channel.rows[0].id}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone: '+8613800000011', name: '静音客户', text: '第二条', externalId: 'mute-2' }),
+  })
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  assert.equal(received.length, afterFirst, 'a muted conversation must not notify')
+})
+
+test('two messages within the window send one card', async () => {
+  const session = await register('notify-agg')
+  const tenantId = session.tenants[0].tenant_id
+  await admin.query(
+    `INSERT INTO tenant_notify (tenant_id, enabled, wecom_webhook)
+     VALUES ($1, true, $2)
+     ON CONFLICT (tenant_id) DO UPDATE SET enabled = true, wecom_webhook = EXCLUDED.wecom_webhook`,
+    [tenantId, `http://127.0.0.1:${robot.address().port}/send`],
+  )
+  const channel = await admin.query(
+    "INSERT INTO channels (tenant_id, type, name) VALUES ($1,'telegram','聚合通道') RETURNING id",
+    [tenantId],
+  )
+  const before = received.length
+  for (const [index, text] of ['第一条', '第二条'].entries()) {
+    await fetch(`${base}/v1/webhooks/${channel.rows[0].id}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone: '+8613800000012', name: '聚合客户', text, externalId: `agg-${index}` }),
+    })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+  }
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  assert.equal(received.length - before, 1, 'aggregation should suppress the second card')
+
+  const log = await admin.query(
+    'SELECT suppressed FROM notify_log WHERE tenant_id = $1',
+    [tenantId],
+  )
+  assert.ok(log.rows[0].suppressed >= 1)
+})

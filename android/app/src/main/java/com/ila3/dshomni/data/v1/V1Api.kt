@@ -145,6 +145,25 @@ class V1Api(
             post(baseUrl, "/v1/settings/notify/test", accessToken, JSONObject()).optBoolean("sent", false)
         }
 
+    /** Toggle mute for one conversation. */
+    suspend fun setMuted(baseUrl: String, accessToken: String, conversationId: String, muted: Boolean) =
+        withContext(Dispatchers.IO) {
+            patch(baseUrl, "/v1/conversations/$conversationId", accessToken, JSONObject().put("muted", muted))
+        }
+
+    private fun patch(baseUrl: String, path: String, token: String, body: JSONObject): JSONObject {
+        val request = Request.Builder()
+            .url(baseUrl.trimEnd('/') + path)
+            .header("authorization", "Bearer $token")
+            .patch(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        http.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) error("服务器返回 ${response.code}")
+            return runCatching { JSONObject(text) }.getOrDefault(JSONObject())
+        }
+    }
+
     private fun put(baseUrl: String, path: String, token: String, body: JSONObject): JSONObject {
         val request = Request.Builder()
             .url(baseUrl.trimEnd('/') + path)
@@ -252,6 +271,7 @@ class V1Api(
         lastInboundAt = millis(item.optString("last_inbound_at")).takeIf { it > 0 },
         botPaused = item.optBoolean("bot_paused", false),
         customerLanguage = "",
+        muted = item.optBoolean("muted", false),
     )
 
     private fun millis(value: String): Long = runCatching { Instant.parse(value).toEpochMilli() }.getOrDefault(0L)

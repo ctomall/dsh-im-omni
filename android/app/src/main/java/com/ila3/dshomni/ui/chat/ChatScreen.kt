@@ -146,6 +146,7 @@ fun ChatScreen(
     onSetBotPaused: (Boolean) -> Unit,
     onSetAssignee: (String) -> Unit = {},
     onSetPriority: (String) -> Unit = {},
+    onSetMuted: (Boolean) -> Unit = {},
     onTranslate: () -> Unit,
     onSuggest: () -> Unit,
     onDismissSuggestions: () -> Unit,
@@ -319,6 +320,7 @@ fun ChatScreen(
                 onSetPriority = onSetPriority,
                 onSetBotPaused = onSetBotPaused,
                 onMarkRead = onMarkRead,
+                onSetMuted = onSetMuted,
             )
         }
 

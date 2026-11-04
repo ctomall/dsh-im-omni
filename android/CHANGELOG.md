@@ -39,6 +39,10 @@ versioned separately; this file tracks `com.ila3.dshomni`.
   对应会话（App 注册了 dshomni://chat 的 intent-filter，冷/热启动都覆盖）。
 - Screenshots: docs/v1-deeplink.png, docs/v1-notify-link.png.
 
+- 通知降噪：会话详情新增「免打扰」开关（PATCH /v1/conversations/{id}），服务端对静音会话
+  不发卡片；同一会话 60 秒内的后续消息只累加 suppressed，不连发。
+- Screenshots: docs/v1-muted.png.
+
 - Inbound messages now appear in the app: a provider webhook lands in Postgres,
   the inbox shows the new contact with an unread badge and the chat renders the
   customer bubble (docs/v1-inbound-inbox.png, docs/v1-inbound.png).

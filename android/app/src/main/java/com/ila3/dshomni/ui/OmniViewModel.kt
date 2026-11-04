@@ -432,6 +432,30 @@ private fun fail(error: Throwable) {
         }
     }
 
+    /** Toggle mute for a conversation (v1 tenants only). */
+    fun setMuted(conversationId: String, muted: Boolean) {
+        val active = _state.value.connection ?: return
+        if (!active.id.startsWith("v1:")) return
+        val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return
+        viewModelScope.launch {
+            runCatching {
+                val token = ensureFreshToken(active.baseUrl, session.accessToken)
+                V1Api().setMuted(active.baseUrl, token, conversationId, muted)
+            }.onSuccess {
+                _state.update { state ->
+                    val snapshot = state.snapshot ?: return@update state
+                    state.copy(
+                        snapshot = snapshot.copy(
+                            conversations = snapshot.conversations.map {
+                                if (it.id == conversationId) it.copy(muted = muted) else it
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
     /** Load notification settings for the active v1 tenant. */
     fun loadNotify() {
         val active = _state.value.connection ?: return

@@ -136,6 +136,8 @@ data class Conversation(
     val firstResponseAt: Long? = null,
     /** Snooze deadline, when the conversation is parked. */
     val snoozedUntil: Long? = null,
+    /** Muted conversations stay in the inbox but never notify. */
+    val muted: Boolean = false,
 ) {
     val lastMessage: Message? get() = messages.lastOrNull()
     val needsAttention: Boolean get() = status == "pending" || status == "open"

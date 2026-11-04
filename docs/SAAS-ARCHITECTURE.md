@@ -357,6 +357,15 @@ server/src/app.mjs                          GET/PUT /v1/settings/notify、POST /
 - 验证：48 个服务端用例全绿；模拟器 `am start -a VIEW -d dshomni://chat/<id>` 直接落在
   「王小雨」会话（三条入站消息可见）。
 
+## 17. 通知降噪：聚合与免打扰
+
+- 免打扰：会话 `muted=true` 时入站照常落库，但不发卡片（服务端在通知前查会话状态）。
+- 聚合：`notify_log` 记录每个 (租户, 会话) 的最后发送时间；60 秒窗口内的后续消息只累加
+  `suppressed`，不再连发卡片。
+- App：会话详情抽屉新增「免打扰」开关，走 `PATCH /v1/conversations/{id}`，本地即时回写。
+- 验证：50 个服务端用例全绿（新增：静音会话不响、窗口内两条只发一张且 suppressed>=1）；
+  模拟器实拍：开关打开后 `conversations.muted=t`，再打入站消息，本地桥日志行数不变（9→9）。
+
 ## 17. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
