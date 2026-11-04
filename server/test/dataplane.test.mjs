@@ -52,9 +52,9 @@ before(async () => {
     [tenantId, channel.rows[0].id, contact.rows[0].id],
   )
   await admin.query(
-    `INSERT INTO messages (tenant_id, conversation_id, direction, kind, body, status) VALUES
-      ($1,$2,'in','text','你好，订单破损','received'),
-      ($1,$2,'out','text','收到，我来处理','sent')`,
+    `INSERT INTO messages (tenant_id, conversation_id, direction, kind, body, status, created_at) VALUES
+      ($1,$2,'in','text','你好，订单破损','received', now() - interval '2 minutes'),
+      ($1,$2,'out','text','收到，我来处理','sent', now() - interval '1 minute')`,
     [tenantId, conversation.rows[0].id],
   )
   fixture = { token: registered.accessToken, tenantId, conversationId: conversation.rows[0].id }

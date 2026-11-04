@@ -28,17 +28,22 @@ function expand(path) {
 /** Normalise a declared route to the documented shape. */
 function normalise(routePath) {
   return routePath
-    .replace(/\(\[0-9a-f-\]\{36\}\)/g, '{id}')
-    .replace(/\(\[0-9a-z-\]\+\)/g, '{id}')
+    .replace(/\(\[0-9a-f-\]\{36\}\)/g, '{param}')
+    .replace(/\(\[0-9a-z-\]\+\)/g, '{param}')
+}
+
+/** Collapse any `{name}` placeholder to `{param}` so naming cannot drift. */
+function canonical(path) {
+  return path.replace(/\{[^}]+\}/g, '{param}')
 }
 
 const routes = [...appSource.matchAll(/route\('([A-Z]+)',\s*'([^']+)'/g)].map((match) => ({
   method: match[1],
-  key: `${match[1]} ${normalise(match[2])}`,
+  key: `${match[1]} ${canonical(normalise(match[2]))}`,
 }))
 
 const documented = [...apiDoc.matchAll(/`(GET|POST|PATCH|DELETE) (\/v1\/[^`]+|\/healthz|\/metrics)`/g)]
-  .flatMap((match) => expand(match[2]).map((path) => `${match[1]} ${path}`))
+  .flatMap((match) => expand(match[2]).map((path) => `${match[1]} ${canonical(path)}`))
 
 test('every implemented route appears in the API document', () => {
   const missing = routes.filter(({ key }) => !documented.includes(key))
@@ -47,7 +52,7 @@ test('every implemented route appears in the API document', () => {
 
 test('the document does not claim unimplemented routes as implemented', () => {
   const docRoutes = [...apiDoc.matchAll(/`(GET|POST|PATCH|DELETE) (\/v1\/[^`]+|\/healthz|\/metrics)`/g)]
-    .flatMap((match) => expand(match[2]).map((path) => `${match[1]} ${path}`))
+    .flatMap((match) => expand(match[2]).map((path) => `${match[1]} ${canonical(path)}`))
   const unknown = docRoutes.filter((key) => !routes.some((route) => route.key === key))
   // Planned endpoints are allowed, but only outside the "✅ 已实现" table rows.
   const wronglyImplemented = unknown.filter((key) => {

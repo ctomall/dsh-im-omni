@@ -18,6 +18,7 @@ import {
   setInvoiceStatus,
 } from './usage.mjs'
 import { inc, render as renderMetrics } from './metrics.mjs'
+import { InboundError, handleInbound } from './inbound.mjs'
 import {
   ACCESS_TTL,
   hashPassword,
@@ -731,6 +732,33 @@ route('PATCH', '/v1/conversations/([0-9a-f-]{36})', async (request, response, pa
   })
   if (updated === null) return fail(response, 404, 'not-found', '会话不存在。')
   send(response, 200, { conversation: updated })
+})
+
+// Provider callback. Authenticated by the channel credential (HMAC), not by a
+// session: WhatsApp/Telegram cannot log in.
+route('POST', '/v1/webhooks/([0-9a-f-]{36})', async (request, response, params) => {
+  const chunks = []
+  for await (const chunk of request) chunks.push(chunk)
+  const raw = Buffer.concat(chunks).toString('utf8')
+  let payload
+  try {
+    payload = raw === '' ? {} : JSON.parse(raw)
+  } catch {
+    return fail(response, 422, 'invalid-json', 'Body must be JSON.')
+  }
+  try {
+    const result = await handleInbound(params[0], payload, {
+      rawBody: raw,
+      signature: request.headers['x-dsh-signature'],
+    })
+    if (!result.duplicate && result.conversationId) {
+      inc('im_omni_inbound_total', {})
+    }
+    send(response, result.duplicate ? 200 : 201, result)
+  } catch (error) {
+    if (error instanceof InboundError) return fail(response, error.status, error.code, error.message)
+    throw error
+  }
 })
 
 route('GET', '/v1/conversations', async (request, response) => {
