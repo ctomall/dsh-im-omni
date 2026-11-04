@@ -116,6 +116,49 @@ class V1Api(
         }
     }
 
+    /** Notification settings for the current tenant (webhook masked by the server). */
+    suspend fun notifySettings(baseUrl: String, accessToken: String): JSONObject =
+        withContext(Dispatchers.IO) { get(baseUrl, "/v1/settings/notify", accessToken).optJSONObject("notify") ?: JSONObject() }
+
+    /** Save notification settings; only the fields given are changed. */
+    suspend fun saveNotifySettings(
+        baseUrl: String,
+        accessToken: String,
+        enabled: Boolean,
+        webhook: String,
+        quietStart: String,
+        quietEnd: String,
+    ): JSONObject = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("enabled", enabled)
+            .put("quietStart", quietStart)
+            .put("quietEnd", quietEnd)
+        if (webhook.isNotBlank()) body.put("wecomWebhook", webhook)
+        put(baseUrl, "/v1/settings/notify", accessToken, body).optJSONObject("notify") ?: JSONObject()
+    }
+
+    /** Ask the server to send a test card. */
+    suspend fun testNotify(baseUrl: String, accessToken: String): Boolean =
+        withContext(Dispatchers.IO) {
+            post(baseUrl, "/v1/settings/notify/test", accessToken, JSONObject()).optBoolean("sent", false)
+        }
+
+    private fun put(baseUrl: String, path: String, token: String, body: JSONObject): JSONObject {
+        val request = Request.Builder()
+            .url(baseUrl.trimEnd('/') + path)
+            .header("authorization", "Bearer $token")
+            .put(body.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        http.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            val json = runCatching { JSONObject(text) }.getOrNull()
+            if (!response.isSuccessful) {
+                error(json?.optJSONObject("error")?.optString("message")?.takeIf { it.isNotBlank() } ?: "服务器返回 ${response.code}")
+            }
+            return json ?: JSONObject()
+        }
+    }
+
     private fun get(baseUrl: String, path: String, token: String): JSONObject {
         val request = Request.Builder()
             .url(baseUrl.trimEnd('/') + path)

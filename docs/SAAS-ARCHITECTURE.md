@@ -333,7 +333,23 @@ server/src/app.mjs                 POST /v1/webhooks/{channelId}
 - 计量：入站同样写 usage_events(type=message)，与出站共用配额。
 - 验证：40 个服务端用例全绿；模拟器实拍：curl 打一条回调 → App 刷新出现「王小雨」新会话（未读 1）→ 会话内白色气泡。
 
-## 16. 风险与取舍
+## 16. 已落地（通知）
+
+```
+server/migrations/008_notify_settings.sql   tenant_notify（RLS，每租户一条）
+server/src/notifications.mjs                设置读写、webhook 脱敏、安静时段、卡片构造、发送
+server/src/app.mjs                          GET/PUT /v1/settings/notify、POST /v1/settings/notify/test
+                                            入站 webhook 提交后异步通知（不阻塞 ack）
+```
+
+- 设置里的 webhook 只回显掩码（key=****），保存时空值表示“保持原值”，避免把掩码写回。
+- 校验 https；安静时段支持跨零点；privatePreview 时卡片只显示“你有一条新消息”。
+- 入站 → 通知是 fire-and-forget，慢机器人不会拖住 provider ack；发送失败只记日志。
+- 验证：47 个服务端用例全绿（新增 7 条通知用例）；App 实拍：我 → 企业微信通知，
+  点发送测试收到 Test card sent，本地桥收到 markdown 卡片；再打一条入站，
+  桥收到 王小雨 · 售后 WhatsApp / 换成蓝色的话还有货吗？。
+
+## 17. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
 | --- | --- | --- |

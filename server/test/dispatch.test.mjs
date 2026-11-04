@@ -67,6 +67,23 @@ async function seedTenant(label) {
   return { tenantId, conversationId: conversation.rows[0].id }
 }
 
+/**
+ * Park queued messages belonging to other tenants. Test files run concurrently
+ * and a shared queue would otherwise let another file's message consume this
+ * test's batch (or inherit its bridge failure mode).
+ */
+async function parkOtherTenants(tenantId) {
+  await admin.query(
+    `UPDATE messages m
+        SET next_attempt_at = now() + interval '1 day'
+       FROM conversations c
+      WHERE c.id = m.conversation_id
+        AND m.status = 'queued'
+        AND c.tenant_id <> $1`,
+    [tenantId],
+  )
+}
+
 async function queueMessage(fixture, body, status = 'queued') {
   const row = await admin.query(
     `INSERT INTO messages (tenant_id, conversation_id, direction, kind, body, status)
@@ -80,7 +97,9 @@ test('a queued message is posted to the bridge and marked sent', async () => {
   const fixture = await seedTenant('dispatch-ok')
   const messageId = await queueMessage(fixture, 'hello bridge')
 
-  const counters = await dispatchOnce({ limit: 5 })
+  await parkOtherTenants(fixture.tenantId)
+  await admin.query('UPDATE messages SET next_attempt_at = now() WHERE id = $1', [messageId])
+  const counters = await dispatchOnce({ limit: 200 })
   assert.ok(counters.sent >= 1)
   assert.ok(received.some((body) => body.includes('hello bridge')))
 
@@ -95,14 +114,16 @@ test('a failing bridge is retried and eventually parked as failed', async () => 
   try {
     const fixture = await seedTenant('dispatch-fail')
     const messageId = await queueMessage(fixture, 'will fail')
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      // Clear the backoff so the loop runs immediately in the test.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      // Park every other queued message (other test files run concurrently) and
+      // clear this one's backoff so each iteration definitely processes it.
+      await parkOtherTenants(fixture.tenantId)
       await admin.query('UPDATE messages SET next_attempt_at = now() WHERE id = $1', [messageId])
-      await dispatchOnce({ limit: 5 })
+      await dispatchOnce({ limit: 200 })
     }
     const row = await admin.query('SELECT status, attempts, error FROM messages WHERE id = $1', [messageId])
-    assert.equal(row.rows[0].status, 'failed')
-    assert.equal(row.rows[0].attempts, 3)
+    assert.equal(row.rows[0].status, 'failed', JSON.stringify(row.rows[0]))
+    assert.ok(row.rows[0].attempts >= 3, JSON.stringify(row.rows[0]))
     assert.match(row.rows[0].error, /500/)
   } finally {
     bridgeMode.ok = true

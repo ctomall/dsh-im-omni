@@ -20,6 +20,12 @@ import {
 import { inc, render as renderMetrics } from './metrics.mjs'
 import { InboundError, handleInbound } from './inbound.mjs'
 import {
+  notifyInbound as notifyInboundMessage,
+  notifySettings,
+  publicNotifySettings,
+  saveNotifySettings,
+} from './notifications.mjs'
+import {
   ACCESS_TTL,
   hashPassword,
   randomToken,
@@ -635,6 +641,45 @@ route('POST', '/v1/messages', async (request, response) => {
   send(response, 201, { message })
 })
 
+route('GET', '/v1/settings/notify', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  send(response, 200, { notify: publicNotifySettings(await notifySettings(claims.tenantId)) })
+})
+
+route('PUT', '/v1/settings/notify', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (claims.role !== 'owner' && claims.role !== 'admin') {
+    return fail(response, 403, 'forbidden', '只有管理员可以修改通知设置。')
+  }
+  const input = await body(request)
+  try {
+    const saved = await saveNotifySettings(claims.tenantId, input)
+    send(response, 200, { notify: publicNotifySettings(saved) })
+  } catch (error) {
+    if (error?.code === 'invalid-webhook') return fail(response, 422, error.code, error.message)
+    throw error
+  }
+})
+
+route('POST', '/v1/settings/notify/test', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (claims.role !== 'owner' && claims.role !== 'admin') {
+    return fail(response, 403, 'forbidden', '只有管理员可以测试通知。')
+  }
+  const outcome = await notifyInboundMessage(claims.tenantId, {
+    contactName: '测试',
+    channelName: 'DSH Omni',
+    text: '通知测试：配置成功，收到新消息时会在这里提醒。',
+    unread: 1,
+  })
+  if (outcome.skipped) return fail(response, 409, 'notify-' + outcome.skipped, outcome.skipped === 'disabled' ? '通知未开启。' : '还没有配置机器人地址。')
+  if (!outcome.ok) return fail(response, 502, 'notify-failed', `企业微信返回 ${outcome.status}`)
+  send(response, 200, { sent: true })
+})
+
 route('GET', '/v1/contacts', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
@@ -753,6 +798,28 @@ route('POST', '/v1/webhooks/([0-9a-f-]{36})', async (request, response, params) 
     })
     if (!result.duplicate && result.conversationId) {
       inc('im_omni_inbound_total', {})
+      // Fire-and-forget: a slow robot must never delay the provider ack.
+      void (async () => {
+        try {
+          const channel = await db().query('SELECT * FROM channel_lookup($1)', [params[0]])
+          const tenantId = channel.rows[0]?.tenant_id
+          if (!tenantId) return
+          const details = await withTenant(tenantId, async (client) => {
+            const contact = await client.query(
+              'SELECT name FROM contacts WHERE tenant_id = $1 AND id = $2',
+              [tenantId, result.contactId],
+            )
+            const channelRow = await client.query(
+              'SELECT name FROM channels WHERE tenant_id = $1 AND id = $2',
+              [tenantId, params[0]],
+            )
+            return { contactName: contact.rows[0]?.name, channelName: channelRow.rows[0]?.name }
+          })
+          await notifyInboundMessage(tenantId, { ...details, text: String(payload.text ?? '') })
+        } catch (error) {
+          console.warn('notify failed:', error instanceof Error ? error.message : String(error))
+        }
+      })()
     }
     send(response, result.duplicate ? 200 : 201, result)
   } catch (error) {

@@ -156,6 +156,10 @@ fun RootApp(
     }
 
     var route by remember { mutableStateOf<Route>(Route.Inbox) }
+
+    LaunchedEffect(route is Route.Settings, session?.accessToken) {
+        if (route is Route.Settings) viewModel.loadNotify()
+    }
     var pairingOpen by remember { mutableStateOf(false) }
     var scanned by remember { mutableStateOf<PairingTarget?>(null) }
 
@@ -372,6 +376,12 @@ fun RootApp(
                     onDismissNotice = viewModel::clearError,
                 )
                 Route.Settings -> SettingsScreen(
+                    notify = state.notify,
+                    onLoadNotify = { viewModel.loadNotify() },
+                    onSaveNotify = { enabled, webhook, quietStart, quietEnd ->
+                        viewModel.saveNotify(enabled, webhook, quietStart, quietEnd)
+                    },
+                    onTestNotify = { viewModel.testNotify() },
                     account = AccountInfo(
                         email = session?.email.orEmpty(),
                         tenantId = session?.tenantId.orEmpty(),

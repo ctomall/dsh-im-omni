@@ -54,9 +54,22 @@ data class UiState(
     /** Channel the QR image belongs to. */
     val qrChannelId: String? = null,
     val busyAction: String? = null,
+    /** WeCom robot settings for the signed-in tenant (v1 only). */
+    val notify: NotifyUiState = NotifyUiState(),
 ) {
     val paired: Boolean get() = connection != null && snapshot != null
 }
+
+/** Tenant notification settings shown in 我 → 通知. */
+data class NotifyUiState(
+    val enabled: Boolean = false,
+    val configured: Boolean = false,
+    val webhook: String = "",
+    val quietStart: String = "",
+    val quietEnd: String = "",
+    val busy: Boolean = false,
+    val message: String? = null,
+)
 
 /** Version check and APK transfer state for the settings screen. */
 data class UpdateState(
@@ -415,6 +428,82 @@ private fun fail(error: Throwable) {
                 result.session.accessToken
             }
             is com.ila3.dshomni.data.auth.AuthResult.Failure -> current
+        }
+    }
+
+    /** Load notification settings for the active v1 tenant. */
+    fun loadNotify() {
+        val active = _state.value.connection ?: return
+        if (!active.id.startsWith("v1:")) return
+        val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return
+        viewModelScope.launch {
+            runCatching {
+                val token = ensureFreshToken(active.baseUrl, session.accessToken)
+                V1Api().notifySettings(active.baseUrl, token)
+            }.onSuccess { json ->
+                _state.update {
+                    it.copy(
+                        notify = NotifyUiState(
+                            enabled = json.optBoolean("enabled", false),
+                            configured = json.optBoolean("configured", false),
+                            webhook = json.optString("wecomWebhook"),
+                            quietStart = json.optString("quietStart"),
+                            quietEnd = json.optString("quietEnd"),
+                        ),
+                    )
+                }
+            }.onFailure { error ->
+                _state.update { it.copy(notify = it.notify.copy(message = error.message)) }
+            }
+        }
+    }
+
+    /** Persist notification settings. */
+    fun saveNotify(enabled: Boolean, webhook: String, quietStart: String, quietEnd: String) {
+        val active = _state.value.connection ?: return
+        if (!active.id.startsWith("v1:")) return
+        val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return
+        _state.update { it.copy(notify = it.notify.copy(busy = true, message = null)) }
+        viewModelScope.launch {
+            runCatching {
+                val token = ensureFreshToken(active.baseUrl, session.accessToken)
+                V1Api().saveNotifySettings(active.baseUrl, token, enabled, webhook, quietStart, quietEnd)
+            }.onSuccess { json ->
+                _state.update {
+                    it.copy(
+                        notify = NotifyUiState(
+                            enabled = json.optBoolean("enabled", false),
+                            configured = json.optBoolean("configured", false),
+                            webhook = json.optString("wecomWebhook"),
+                            quietStart = json.optString("quietStart"),
+                            quietEnd = json.optString("quietEnd"),
+                            message = getApplication<android.app.Application>().getString(com.ila3.dshomni.R.string.notify_saved),
+                        ),
+                    )
+                }
+            }.onFailure { error ->
+                _state.update { it.copy(notify = it.notify.copy(busy = false, message = error.message)) }
+            }
+        }
+    }
+
+    /** Send a test card through the configured robot. */
+    fun testNotify() {
+        val active = _state.value.connection ?: return
+        if (!active.id.startsWith("v1:")) return
+        val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return
+        _state.update { it.copy(notify = it.notify.copy(busy = true, message = null)) }
+        viewModelScope.launch {
+            runCatching {
+                val token = ensureFreshToken(active.baseUrl, session.accessToken)
+                V1Api().testNotify(active.baseUrl, token)
+            }.onSuccess {
+                _state.update {
+                    it.copy(notify = it.notify.copy(busy = false, message = getApplication<android.app.Application>().getString(com.ila3.dshomni.R.string.notify_test_sent)))
+                }
+            }.onFailure { error ->
+                _state.update { it.copy(notify = it.notify.copy(busy = false, message = error.message)) }
+            }
         }
     }
 

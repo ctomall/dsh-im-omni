@@ -109,4 +109,15 @@
     <string name="account_sign_out">退出登录</string>
     <string name="login_legacy">使用旧版扫码配对</string>
     <string name="msg_status_submitted">已提交</string>
+    <string name="notify_title">企业微信通知</string>
+    <string name="notify_enable">开启新消息通知</string>
+    <string name="notify_webhook">群机器人地址</string>
+    <string name="notify_quiet">安静时段（HH:mm）</string>
+    <string name="notify_quiet_start">开始</string>
+    <string name="notify_quiet_end">结束</string>
+    <string name="notify_save">保存</string>
+    <string name="notify_test">发送测试</string>
+    <string name="notify_saved">已保存</string>
+    <string name="notify_test_sent">测试卡片已发送</string>
+    <string name="notify_hint">客户来消息时，企业微信群里会收到一张卡片。</string>
 </resources>

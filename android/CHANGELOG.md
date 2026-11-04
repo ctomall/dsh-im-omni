@@ -31,6 +31,10 @@ versioned separately; this file tracks `com.ila3.dshomni`.
 - Screenshots: `docs/v1-{inbox,chat,contacts,me,send,delivered}.png` captured on
   an emulator against the seeded demo tenant.
 
+- 我 → 企业微信通知：开关、群机器人地址（服务端掩码回显）、安静时段、发送测试；
+  入站消息会自动往该群机器人推一张卡片（服务端异步，不阻塞 ack）。
+- Screenshots: docs/v1-notify-settings.png, docs/v1-notify-test.png.
+
 - Inbound messages now appear in the app: a provider webhook lands in Postgres,
   the inbox shows the new contact with an unread badge and the chat renders the
   customer bubble (docs/v1-inbound-inbox.png, docs/v1-inbound.png).

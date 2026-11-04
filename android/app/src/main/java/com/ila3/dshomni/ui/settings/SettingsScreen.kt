@@ -73,6 +73,7 @@ import com.ila3.dshomni.ui.theme.Radius
 import com.ila3.dshomni.ui.theme.Spacing
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.OutlinedTextField
 
 /** Translation targets the Host accepts; the field itself is free-form. */
 private val Languages = listOf(
@@ -114,6 +115,10 @@ data class AccountInfo(
 fun SettingsScreen(
     state: UiState,
     account: AccountInfo? = null,
+    notify: com.ila3.dshomni.ui.NotifyUiState = com.ila3.dshomni.ui.NotifyUiState(),
+    onLoadNotify: () -> Unit = {},
+    onSaveNotify: (Boolean, String, String, String) -> Unit = { _, _, _, _ -> },
+    onTestNotify: () -> Unit = {},
     onSwitchTenant: (String) -> Unit = {},
     onSignOut: () -> Unit = {},
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -226,6 +231,80 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(onClick = onSignOut) {
                         Text(stringResource(R.string.account_sign_out))
+                    }
+                }
+            }
+
+            SectionCard(stringResource(R.string.notify_title)) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.notify_enable),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(checked = notify.enabled, onCheckedChange = { onSaveNotify(it, "", notify.quietStart, notify.quietEnd) })
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.notify_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    var webhook by remember(notify.webhook) { mutableStateOf(notify.webhook) }
+                    OutlinedTextField(
+                        value = webhook,
+                        onValueChange = { webhook = it },
+                        label = { Text(stringResource(R.string.notify_webhook)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.notify_quiet),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = notify.quietStart,
+                            onValueChange = { onSaveNotify(notify.enabled, "", it, notify.quietEnd) },
+                            label = { Text(stringResource(R.string.notify_quiet_start)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = notify.quietEnd,
+                            onValueChange = { onSaveNotify(notify.enabled, "", notify.quietStart, it) },
+                            label = { Text(stringResource(R.string.notify_quiet_end)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedButton(
+                            onClick = {
+                                // An unchanged field still holds the masked value;
+                                // passing "" keeps the stored secret untouched.
+                                val candidate = if (webhook == notify.webhook) "" else webhook
+                                onSaveNotify(notify.enabled, candidate, notify.quietStart, notify.quietEnd)
+                            },
+                            enabled = !notify.busy,
+                        ) {
+                            Text(stringResource(R.string.notify_save))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedButton(onClick = onTestNotify, enabled = !notify.busy) {
+                            Text(stringResource(R.string.notify_test))
+                        }
+                    }
+                    notify.message?.let {
+                        Spacer(Modifier.height(6.dp))
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = BrandBlue)
                     }
                 }
             }

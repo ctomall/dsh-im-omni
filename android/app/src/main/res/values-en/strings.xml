@@ -103,4 +103,15 @@
     <string name="account_sign_out">Sign out</string>
     <string name="login_legacy">Use legacy QR pairing</string>
     <string name="msg_status_submitted">Submitted</string>
+    <string name="notify_title">WeCom notifications</string>
+    <string name="notify_enable">Notify on new messages</string>
+    <string name="notify_webhook">Group robot webhook</string>
+    <string name="notify_quiet">Quiet hours (HH:mm)</string>
+    <string name="notify_quiet_start">From</string>
+    <string name="notify_quiet_end">To</string>
+    <string name="notify_save">Save</string>
+    <string name="notify_test">Send test</string>
+    <string name="notify_saved">Saved</string>
+    <string name="notify_test_sent">Test card sent</string>
+    <string name="notify_hint">A card lands in your WeCom group when a customer writes.</string>
 </resources>
