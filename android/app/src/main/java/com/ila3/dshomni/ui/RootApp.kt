@@ -135,6 +135,7 @@ fun RootApp(
                                 val effective = (bound as? AuthResult.Success)?.session ?: result.session
                                 store.save(effective)
                                 session = effective
+                                viewModel.adoptSession(effective.baseUrl, effective.accessToken, effective.email)
                             }
                             is AuthResult.Failure -> loginError = result.message
                         }
@@ -145,6 +146,13 @@ fun RootApp(
             onSkip = { legacyMode = true },
         )
         return
+    }
+
+    // A restored session loads its tenant immediately: the inbox is the whole
+    // point of opening the app, and the legacy pairing gate must not appear.
+    LaunchedEffect(session?.accessToken) {
+        val current = session ?: return@LaunchedEffect
+        viewModel.adoptSession(current.baseUrl, current.accessToken, current.email)
     }
 
     var route by remember { mutableStateOf<Route>(Route.Inbox) }
@@ -264,7 +272,14 @@ fun RootApp(
                         viewModel.markRead(conversationId)
                         route = Route.Chat(conversationId)
                     },
-                    onRefresh = { viewModel.refresh() },
+                    onRefresh = {
+                        val current = session
+                        if (current != null) {
+                            viewModel.adoptSession(current.baseUrl, current.accessToken, current.email)
+                        } else {
+                            viewModel.refresh()
+                        }
+                    },
                     onDismiss = viewModel::clearError,
                 )
                 Route.Inbox -> InboxScreen(

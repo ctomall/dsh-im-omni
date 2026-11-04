@@ -634,12 +634,112 @@ route('POST', '/v1/messages', async (request, response) => {
   send(response, 201, { message })
 })
 
+route('GET', '/v1/contacts', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const items = await withTenant(claims.tenantId, async (client) => {
+    const result = await client.query(
+      'SELECT id, name, company, phone, email, hue, updated_at FROM contacts ORDER BY name LIMIT 500',
+    )
+    return result.rows
+  })
+  send(response, 200, { items })
+})
+
+route('GET', '/v1/channels', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const items = await withTenant(claims.tenantId, async (client) => {
+    const result = await client.query(
+      'SELECT id, name, type, status, health, created_at FROM channels ORDER BY name',
+    )
+    return result.rows
+  })
+  send(response, 200, { items })
+})
+
+route('GET', '/v1/conversations/([0-9a-f-]{36})/messages', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const url = new URL(request.url ?? '/', 'http://localhost')
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? 50) || 50, 100)
+  const before = url.searchParams.get('before')
+  const items = await withTenant(claims.tenantId, async (client) => {
+    const result = before === null
+      ? await client.query(
+        `SELECT id, conversation_id, direction, kind, body, status, client_id, created_at
+           FROM messages WHERE tenant_id = $1 AND conversation_id = $2
+          ORDER BY created_at DESC, id DESC LIMIT $3`,
+        [claims.tenantId, params[0], limit],
+      )
+      : await client.query(
+        `SELECT id, conversation_id, direction, kind, body, status, client_id, created_at
+           FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND created_at < $3
+          ORDER BY created_at DESC, id DESC LIMIT $4`,
+        [claims.tenantId, params[0], before, limit],
+      )
+    return result.rows.reverse()
+  })
+  send(response, 200, { items })
+})
+
+route('POST', '/v1/conversations/([0-9a-f-]{36})/read', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const updated = await withTenant(claims.tenantId, async (client) => {
+    const result = await client.query(
+      'UPDATE conversations SET unread = 0, updated_at = now() WHERE id = $1 RETURNING id, unread',
+      [params[0]],
+    )
+    return result.rows[0] ?? null
+  })
+  if (updated === null) return fail(response, 404, 'not-found', '会话不存在。')
+  send(response, 200, { conversation: updated })
+})
+
+route('PATCH', '/v1/conversations/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const input = await body(request)
+  const updated = await withTenant(claims.tenantId, async (client) => {
+    const sets = []
+    const values = [claims.tenantId, params[0]]
+    const push = (column, value) => {
+      values.push(value)
+      sets.push(`${column} = $${values.length}`)
+    }
+    if (['open', 'pending', 'resolved', 'snoozed'].includes(input.status)) push('status', input.status)
+    if (['low', 'normal', 'high', 'urgent'].includes(input.priority)) push('priority', input.priority)
+    if (typeof input.botPaused === 'boolean') push('bot_paused', input.botPaused)
+    if (typeof input.muted === 'boolean') push('muted', input.muted)
+    if (Array.isArray(input.tags)) push('tags', input.tags.map(String).slice(0, 20))
+    if (typeof input.assigneeId === 'string') push('assignee_id', input.assigneeId === '' ? null : input.assigneeId)
+    if (sets.length === 0) {
+      const current = await client.query(
+        'SELECT id, status, priority, unread, tags, bot_paused FROM conversations WHERE tenant_id = $1 AND id = $2',
+        [claims.tenantId, params[0]],
+      )
+      return current.rows[0] ?? null
+    }
+    sets.push('updated_at = now()')
+    const result = await client.query(
+      `UPDATE conversations SET ${sets.join(', ')} WHERE tenant_id = $1 AND id = $2
+       RETURNING id, status, priority, unread, tags, bot_paused, updated_at`,
+      values,
+    )
+    return result.rows[0] ?? null
+  })
+  if (updated === null) return fail(response, 404, 'not-found', '会话不存在。')
+  send(response, 200, { conversation: updated })
+})
+
 route('GET', '/v1/conversations', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
   const rows = await withTenant(claims.tenantId, async (client) => {
     const result = await client.query(
-      `SELECT id, subject, status, priority, unread, updated_at
+      `SELECT id, channel_id, contact_id, subject, status, priority, unread, tags,
+              bot_paused, last_inbound_at, updated_at
          FROM conversations ORDER BY updated_at DESC LIMIT 50`,
     )
     return result.rows

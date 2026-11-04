@@ -26,6 +26,8 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+import com.ila3.dshomni.data.v1.V1Api
+import com.ila3.dshomni.data.model.EntryKind
 
 /** Everything the screens render. */
 data class UiState(
@@ -205,6 +207,48 @@ private fun fail(error: Throwable) {
         }
     }
 
+    /**
+     * Load the signed-in tenant from the SaaS backend.
+     *
+     * The synthetic `Connection` keeps `state.paired` true so the legacy pairing
+     * gate steps aside; nothing is written to the legacy connection store.
+     */
+    fun adoptSession(baseUrl: String, accessToken: String, label: String) {
+        _state.update { it.copy(loading = true, error = null) }
+        viewModelScope.launch {
+            runCatching { V1Api().snapshot(baseUrl, accessToken, label) }
+                .onSuccess { snapshot ->
+                    _state.update {
+                        it.copy(
+                            snapshot = snapshot,
+                            connection = Connection(
+                                id = "v1:" + baseUrl,
+                                label = label,
+                                baseUrl = baseUrl,
+                                entry = EntryKind.PUBLIC,
+                                pairedAt = System.currentTimeMillis(),
+                                lastSyncAt = System.currentTimeMillis(),
+                            ),
+                            loading = false,
+                            refreshing = false,
+                            error = null,
+                            unauthorized = false,
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            refreshing = false,
+                            error = error.message ?: "加载失败",
+                            unauthorized = error.message?.contains("401") == true,
+                        )
+                    }
+                }
+        }
+    }
+
     /** Activate one saved entry and load it. */
     fun connect(connection: Connection) {
         store.setCurrent(connection.id)
@@ -348,6 +392,28 @@ private fun fail(error: Throwable) {
 
     /** Clear the unread badge of a conversation. */
     fun markRead(conversationId: String) {
+        val current = _state.value.connection
+        if (current != null && current.id.startsWith("v1:")) {
+            val token = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load()?.accessToken
+            if (token != null) {
+                viewModelScope.launch {
+                    runCatching { V1Api().markRead(current.baseUrl, token, conversationId) }
+                        .onSuccess {
+                            _state.update { state ->
+                                val snapshot = state.snapshot ?: return@update state
+                                state.copy(
+                                    snapshot = snapshot.copy(
+                                        conversations = snapshot.conversations.map {
+                                            if (it.id == conversationId) it.copy(unread = 0) else it
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                }
+                return
+            }
+        }
         val unread = _state.value.snapshot?.conversation(conversationId)?.unread ?: 0
         if (unread == 0) return
         run("conversation.read", JSONObject().put("conversationId", conversationId))

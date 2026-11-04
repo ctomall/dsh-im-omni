@@ -3,6 +3,23 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.7.1 — 2024-11-04 (versionCode 16)
+
+### Data plane read from the SaaS backend
+
+- New `data/v1/V1Api.kt` maps `/v1/contacts`, `/v1/channels`,
+  `/v1/conversations`, `/v1/conversations/{id}/messages` onto the existing
+  `Snapshot` model, so every Compose screen renders the Postgres data unchanged.
+- After sign-in (and on cold start with a stored session) the app calls
+  `OmniViewModel.adoptSession`, which loads the tenant and marks
+  `state.paired`; the legacy pairing gate no longer appears for signed-in users.
+- Mark-read goes through `POST /v1/conversations/{id}/read` when the active
+  connection is a v1 one, and updates the local unread count.
+- Screenshots: `docs/v1-{inbox,chat,contacts,me}.png` captured on an emulator
+  against the seeded demo tenant (three conversations, real messages).
+
+Version stays 0.7.1 (code 16). Server: 33 tests green.
+
 ## 0.7.0 — 2024-11-04 (versionCode 16)
 
 ### S1 (app side) — sign-in gate, accounts and tenant switching
