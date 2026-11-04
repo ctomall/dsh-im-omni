@@ -220,7 +220,27 @@ applied 001_init.sql
 pass 5 / fail 0
 ```
 
-## 11. 风险与取舍
+## 11. 已落地（S1 后端）
+
+```
+server/src/auth.mjs   argon2id 口令、HS256 access token（node:crypto）、
+                      refresh/device/invite 令牌只存 SHA-256
+server/src/app.mjs    POST /v1/auth/{register,login,refresh,switch}
+                      GET  /v1/me、GET /v1/tenants/:id/members
+                      POST /v1/tenants、POST /v1/tenants/:id/invites、POST /v1/invites/accept
+                      POST /v1/devices/code、POST /v1/devices/link
+                      GET  /v1/devices、DELETE /v1/devices/:id
+                      GET  /v1/conversations（租户隔离）
+```
+
+- 登录前需要"先找行、后定租户"的查询（登录列租户、刷新令牌、邀请码、设备码）走
+  `SECURITY DEFINER` 函数，函数属主 `im_omni_owner` 具备 BYPASSRLS；API 运行时仍用
+  无 BYPASSRLS 的 `im_omni_app`，所以业务路径始终受 RLS 约束。
+- 设备令牌就是带 `did` 声明的 access token + refresh token；每次请求校验设备未被撤销，
+  撤销立即 401。
+- 验证：`node --test` 共 12 个用例（5 RLS + 7 账号/邀请/设备），全绿；注册→me 的 curl 冒烟通过。
+
+## 12. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
 | --- | --- | --- |
