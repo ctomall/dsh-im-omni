@@ -83,12 +83,17 @@ import com.ila3.dshomni.ui.common.Banner
 import com.ila3.dshomni.ui.common.HealthDot
 import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.common.PlatformBadge
+import com.ila3.dshomni.ui.theme.HealthWarn
+import com.ila3.dshomni.ui.theme.OnBrandMuted
+import com.ila3.dshomni.ui.theme.warningInk
 import com.ila3.dshomni.ui.theme.BrandBlue
 import com.ila3.dshomni.ui.theme.BrandTeal
 import com.ila3.dshomni.ui.theme.aiGradient
 import com.ila3.dshomni.util.Labels
 import com.ila3.dshomni.util.Times
 import com.ila3.dshomni.util.formatBytes
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /**
  * One conversation: read, translate, draft with AI, and reply.
@@ -195,7 +200,7 @@ fun ChatScreen(
                 Column(
                     Modifier
                         .fillMaxSize()
-                        .padding(32.dp),
+                        .padding(Spacing.xxl),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -292,7 +297,7 @@ private fun ChatHeader(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
+                    .padding(start = Spacing.xxs, end = 4.dp, top = 4.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
@@ -328,7 +333,7 @@ private fun ChatHeader(
                     }
                 }
                 if (conversation.status == "pending") {
-                    Pill("跟进中", color = Color(0xFFFFB020), background = Color(0xFFFFB020).copy(alpha = 0.12f))
+                    Pill("跟进中", color = HealthWarn, background = HealthWarn.copy(alpha = 0.12f))
                     Spacer(Modifier.width(4.dp))
                 }
                 Box {
@@ -387,15 +392,15 @@ private fun MessageBubble(
     if (message.isNote) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Surface(
-                color = Color(0xFFFFB020).copy(alpha = 0.10f),
-                shape = RoundedCornerShape(10.dp),
+                color = HealthWarn.copy(alpha = 0.10f),
+                shape = RoundedCornerShape(Radius.xs),
                 modifier = Modifier.fillMaxWidth(0.92f),
             ) {
                 Column(Modifier.padding(10.dp)) {
                     Text(
                         "内部备注",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFB07A00),
+                        color = warningInk(),
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(message.text, style = MaterialTheme.typography.bodyMedium)
@@ -430,7 +435,7 @@ private fun MessageBubble(
                         ) else Brush.linearGradient(listOf(BrandBlue, BrandTeal)),
                     ),
             ) {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+                Column(Modifier.padding(horizontal = Spacing.sm, vertical = 9.dp)) {
                     message.attachments.forEach { attachment ->
                         AttachmentView(attachment, onLoad)
                         Spacer(Modifier.height(6.dp))
@@ -475,7 +480,7 @@ private fun MessageBubble(
                                     else -> "已发送"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (message.failed) Color(0xFFFFD9DD) else Color.White.copy(alpha = 0.72f),
+                                color = if (message.failed) OnBrandMuted else OnBrandMuted,
                                 fontWeight = if (message.failed) FontWeight.Medium else FontWeight.Normal,
                             )
                             if (message.failed) {
@@ -486,10 +491,10 @@ private fun MessageBubble(
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(999.dp))
+                                        .clip(RoundedCornerShape(Radius.full))
                                         .background(Color.White.copy(alpha = 0.22f))
                                         .clickable { onRetry(message.id) }
-                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                        .padding(horizontal = Spacing.xs, vertical = 2.dp),
                                 )
                             }
                         }
@@ -509,7 +514,7 @@ private fun TemplateSheet(
     onDismiss: () -> Unit,
 ) {
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Column(Modifier.padding(horizontal = Spacing.md, vertical = 4.dp)) {
             Text("快捷回复", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             if (templates.isEmpty()) {
@@ -523,13 +528,13 @@ private fun TemplateSheet(
                     items(templates, key = { it.id }) { template ->
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(Radius.sm),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = Spacing.xxs)
                                 .clickable { onPick(template.body) },
                         ) {
-                            Column(Modifier.padding(12.dp)) {
+                            Column(Modifier.padding(Spacing.sm)) {
                                 Text(template.name, style = MaterialTheme.typography.titleSmall)
                                 Spacer(Modifier.height(2.dp))
                                 Text(
@@ -574,14 +579,14 @@ private fun AttachmentView(attachment: Attachment, onLoad: suspend (String) -> B
                 modifier = Modifier
                     .widthIn(max = 220.dp)
                     .height(140.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(Radius.sm))
                     .clickable { previewing = true },
             )
             if (previewing) {
                 Dialog(onDismissRequest = { previewing = false }) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.92f),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(Radius.xl),
                     ) {
                         Image(
                             bitmap = image,
@@ -589,7 +594,7 @@ private fun AttachmentView(attachment: Attachment, onLoad: suspend (String) -> B
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp)
+                                .padding(Spacing.sm)
                                 .clickable { previewing = false },
                         )
                     }
@@ -602,7 +607,7 @@ private fun AttachmentView(attachment: Attachment, onLoad: suspend (String) -> B
                 Modifier
                     .widthIn(max = 220.dp)
                     .height(140.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(Radius.sm))
                     .background(Color.Black.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -618,7 +623,7 @@ private fun AttachmentView(attachment: Attachment, onLoad: suspend (String) -> B
 private fun FileChip(attachment: Attachment) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(Radius.xs))
             .background(Color.Black.copy(alpha = 0.08f))
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -660,7 +665,7 @@ private fun SuggestionStrip(
             suggestions.forEach { suggestion ->
                 Surface(
                     color = BrandBlue.copy(alpha = 0.07f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(Radius.sm),
                     border = androidx.compose.foundation.BorderStroke(1.dp, BrandBlue.copy(alpha = 0.18f)),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -709,7 +714,7 @@ private fun Composer(
                 Icon(
                     if (noteMode) Icons.Rounded.Notes else Icons.Rounded.Description,
                     contentDescription = if (noteMode) "退出备注模式" else "内部备注",
-                    tint = if (noteMode) Color(0xFFB07A00) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (noteMode) warningInk() else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = onOpenTemplates, enabled = !sending) {

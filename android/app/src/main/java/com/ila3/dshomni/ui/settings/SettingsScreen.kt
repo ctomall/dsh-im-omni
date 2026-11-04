@@ -67,6 +67,8 @@ import com.ila3.dshomni.util.Times
 import com.ila3.dshomni.util.formatBytes
 import com.ila3.dshomni.util.installApk
 import org.json.JSONObject
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /** Translation targets the Host accepts; the field itself is free-form. */
 private val Languages = listOf(
@@ -140,7 +142,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onRefresh, enabled = !state.refreshing, shape = RoundedCornerShape(12.dp)) {
+            OutlinedButton(onClick = onRefresh, enabled = !state.refreshing, shape = RoundedCornerShape(Radius.sm)) {
                 Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(5.dp))
                 Text("同步")
@@ -151,7 +153,7 @@ fun SettingsScreen(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = Spacing.md)
                 .navigationBarsPadding(),
         ) {
             state.error?.let {
@@ -170,7 +172,7 @@ fun SettingsScreen(
                         FieldValue("状态", "未连接")
                     } else {
                         Row(
-                            Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            Modifier.padding(horizontal = Spacing.md, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
@@ -205,15 +207,15 @@ fun SettingsScreen(
                         }
                     }
                     Row(
-                        Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        Modifier.padding(horizontal = Spacing.md, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Button(onClick = onSwitchServer, shape = RoundedCornerShape(12.dp)) {
+                        Button(onClick = onSwitchServer, shape = RoundedCornerShape(Radius.sm)) {
                             Icon(Icons.Rounded.SwapHoriz, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("切换 / 新增配对")
                         }
-                        OutlinedButton(onClick = onDisconnect, shape = RoundedCornerShape(12.dp)) {
+                        OutlinedButton(onClick = onDisconnect, shape = RoundedCornerShape(Radius.sm)) {
                             Text("断开")
                         }
                     }
@@ -222,7 +224,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             SectionCard("外观") {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Column(Modifier.padding(horizontal = Spacing.md, vertical = 12.dp)) {
                     Text("主题", style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -265,7 +267,7 @@ fun SettingsScreen(
                         Modifier
                             .fillMaxWidth()
                             .clickable(enabled = snapshot != null) { languageOpen = !languageOpen }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = Spacing.md, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
@@ -280,14 +282,14 @@ fun SettingsScreen(
                         Text("更改", style = MaterialTheme.typography.labelSmall, color = BrandBlue)
                     }
                     if (languageOpen) {
-                        Column(Modifier.padding(horizontal = 16.dp)) {
+                        Column(Modifier.padding(horizontal = Spacing.md)) {
                             Languages.chunked(2).forEach { row ->
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     row.forEach { (code, label) ->
                                         val selected = snapshot?.workspace?.translationTarget == code
                                         Surface(
                                             color = if (selected) BrandBlue.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant,
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(Radius.xs),
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .padding(vertical = 3.dp)
@@ -362,7 +364,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
             SectionCard("客户端更新") {
-                Column(Modifier.padding(16.dp)) {
+                Column(Modifier.padding(Spacing.md)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("当前版本", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -374,7 +376,7 @@ fun SettingsScreen(
                         Button(
                             onClick = onCheckUpdate,
                             enabled = !update.checking && !update.downloading,
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(Radius.sm),
                         ) {
                             if (update.checking) {
                                 CircularProgressIndicator(
@@ -397,10 +399,10 @@ fun SettingsScreen(
                         Spacer(Modifier.height(10.dp))
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(Radius.sm),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Column(Modifier.padding(12.dp)) {
+                            Column(Modifier.padding(Spacing.sm)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         "主机上有 ${info.versionName} (${info.versionCode})",
@@ -428,7 +430,7 @@ fun SettingsScreen(
                                     update.ready != null -> {
                                         Button(
                                             onClick = { installApk(context, update.ready) },
-                                            shape = RoundedCornerShape(12.dp),
+                                            shape = RoundedCornerShape(Radius.sm),
                                             modifier = Modifier.fillMaxWidth(),
                                         ) {
                                             Text("安装 ${info.versionName}")
@@ -456,7 +458,7 @@ fun SettingsScreen(
                                         Button(
                                             onClick = onDownloadUpdate,
                                             enabled = info.versionCode > BuildConfig.VERSION_CODE,
-                                            shape = RoundedCornerShape(12.dp),
+                                            shape = RoundedCornerShape(Radius.sm),
                                             modifier = Modifier.fillMaxWidth(),
                                         ) {
                                             Text(if (info.versionCode > BuildConfig.VERSION_CODE) "下载并安装" else "无需更新")
@@ -487,7 +489,7 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.Top) {
+            Row(Modifier.padding(horizontal = Spacing.xxs), verticalAlignment = Alignment.Top) {
                 Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
@@ -516,7 +518,7 @@ private fun SwitchRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.md, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

@@ -45,6 +45,8 @@ import com.ila3.dshomni.ui.theme.HealthOk
 import com.ila3.dshomni.ui.theme.HealthWarn
 import com.ila3.dshomni.util.hueColor
 import com.ila3.dshomni.util.initialsOf
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /** Square platform chip using the catalog badge and hue. */
 @Composable
@@ -117,13 +119,13 @@ fun Pill(
     background: Color = MaterialTheme.colorScheme.surfaceVariant,
     modifier: Modifier = Modifier,
 ) {
-    Surface(color = background, shape = RoundedCornerShape(999.dp), modifier = modifier) {
+    Surface(color = background, shape = RoundedCornerShape(Radius.full), modifier = modifier) {
         Text(
             text = text,
             color = color,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = Spacing.xs, vertical = 3.dp),
             maxLines = 1,
         )
     }
@@ -142,12 +144,12 @@ fun SectionCard(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                modifier = Modifier.padding(start = Spacing.xxs, bottom = 8.dp),
             )
         }
         Surface(
             color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(Radius.xl),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -163,7 +165,7 @@ fun FieldValue(label: String, value: String, mono: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 11.dp),
+            .padding(horizontal = Spacing.md, vertical = 11.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Text(
@@ -193,7 +195,7 @@ fun EmptyState(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 56.dp),
+            .padding(horizontal = Spacing.xxl, vertical = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -242,7 +244,7 @@ fun Banner(message: String, error: Boolean, onDismiss: () -> Unit) {
     val accent = if (error) MaterialTheme.colorScheme.error else BrandTeal
     Surface(
         color = accent.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(Radius.md),
         border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.3f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -278,7 +280,7 @@ fun SectionHeader(title: String, action: (@Composable () -> Unit)? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 2.dp),
+            .padding(top = Spacing.xxs, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

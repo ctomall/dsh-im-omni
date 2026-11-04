@@ -64,6 +64,8 @@ import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.theme.BrandBlue
 import com.ila3.dshomni.ui.theme.BrandTeal
 import com.ila3.dshomni.util.Times
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /**
  * Onboarding and reconnection: pick a saved server or pair a new one.
@@ -110,7 +112,7 @@ fun PairingScreen(
             .systemBarsPadding()
             .imePadding()
             .verticalScroll(scroll)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = Spacing.lg),
     ) {
         if (onBack != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -150,7 +152,7 @@ fun PairingScreen(
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(Modifier.padding(16.dp)) {
+            Column(Modifier.padding(Spacing.md)) {
                 OutlinedTextField(
                     value = address,
                     onValueChange = { address = it; workaround = false },
@@ -159,7 +161,7 @@ fun PairingScreen(
                     singleLine = false,
                     maxLines = 3,
                     leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(Radius.md),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(10.dp))
@@ -171,7 +173,7 @@ fun PairingScreen(
                     singleLine = true,
                     leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(Radius.md),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(10.dp))
@@ -181,7 +183,7 @@ fun PairingScreen(
                     label = { Text("备注（可选）") },
                     placeholder = { Text("家里 Wi-Fi / 公司内网 / 公网") },
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(Radius.md),
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -215,7 +217,7 @@ fun PairingScreen(
                     Button(
                         onClick = { parsed?.let { onPair(it, label) } },
                         enabled = parsed != null && code.isNotBlank() && !state.loading,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(Radius.md),
                         modifier = Modifier.weight(1.4f),
                     ) {
                         if (state.loading) {
@@ -258,7 +260,7 @@ private fun Hero() {
         Box(
             modifier = Modifier
                 .size(58.dp)
-                .background(Brush.linearGradient(listOf(BrandBlue, BrandTeal)), RoundedCornerShape(18.dp)),
+                .background(Brush.linearGradient(listOf(BrandBlue, BrandTeal)), RoundedCornerShape(Radius.xl)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -290,7 +292,7 @@ private fun SavedConnection(
 ) {
     Surface(
         color = if (current) BrandBlue.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Radius.lg),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
             if (current) BrandBlue.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant,
@@ -364,7 +366,7 @@ private fun SavedConnection(
 private fun HowToCard(expanded: Boolean, onToggle: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Radius.lg),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle),
@@ -416,7 +418,7 @@ private fun OutlinedFieldButton(
 ) {
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(Radius.md),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurface,

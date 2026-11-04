@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -78,6 +79,17 @@ private val LightScheme = lightColorScheme(
     error = Color(0xFFC92A3C),
     onError = Color.White,
 )
+
+/** Text/icon colour on top of a warning-tinted surface, per scheme. */
+@Composable
+fun warningInk(): Color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+    Color(0xFFFFD9A0)
+} else {
+    Color(0xFFB07A00)
+}
+
+/** Muted white used on the brand gradient (headline subtitle, sent stamp). */
+val OnBrandMuted = Color(0xB8FFFFFF)
 
 /** The decorative gradient used by avatars, headers, and the send button. */
 @Composable

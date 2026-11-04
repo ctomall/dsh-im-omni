@@ -59,9 +59,14 @@ import com.ila3.dshomni.ui.common.EmptyState
 import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.common.PlatformBadge
 import com.ila3.dshomni.ui.theme.BrandBlue
+import com.ila3.dshomni.ui.theme.HealthOk
+import com.ila3.dshomni.ui.theme.HealthWarn
+import com.ila3.dshomni.ui.theme.warningInk
 import com.ila3.dshomni.ui.theme.BrandTeal
 import com.ila3.dshomni.util.Labels
 import com.ila3.dshomni.util.Times
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /** Inbox filters; `all` keeps the Host order. */
 private val InboxFilters = listOf("all" to "全部", "unread" to "未读", "open" to "待处理", "pending" to "跟进中", "solved" to "已解决")
@@ -119,7 +124,7 @@ fun InboxScreen(
             onSwitchServer = onSwitchServer,
         )
 
-        Column(Modifier.padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(horizontal = Spacing.md)) {
             if (state.unauthorized) {
                 Spacer(Modifier.height(10.dp))
                 Banner("这台设备的登录已失效，请重新配对。", error = true, onDismiss = onDismiss)
@@ -135,7 +140,7 @@ fun InboxScreen(
                 placeholder = { Text("搜索客户、公司或消息") },
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.md),
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -149,7 +154,7 @@ fun InboxScreen(
                         selected = filter == key,
                         onClick = { filter = key },
                         label = { Text(label, fontSize = 12.sp) },
-                        shape = RoundedCornerShape(999.dp),
+                        shape = RoundedCornerShape(Radius.full),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = BrandBlue.copy(alpha = 0.16f),
                             selectedLabelColor = BrandBlue,
@@ -245,7 +250,7 @@ private fun HeroHeader(
                         Box(
                             Modifier
                                 .size(6.dp)
-                                .background(if (snapshot != null) Color(0xFFB7FFE9) else Color(0xFFFFD9A0), CircleShape),
+                                .background(if (snapshot != null) HealthOk else warningInk(), CircleShape),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
@@ -272,7 +277,7 @@ private fun HeroHeader(
                     }
                 }
                 if (snapshot != null && snapshot.unreadTotal > 0) {
-                    Surface(color = Color.White.copy(alpha = 0.22f), shape = RoundedCornerShape(999.dp)) {
+                    Surface(color = Color.White.copy(alpha = 0.22f), shape = RoundedCornerShape(Radius.full)) {
                         Text(
                             "${snapshot.unreadTotal} 未读",
                             color = Color.White,
@@ -315,13 +320,13 @@ private fun ConversationRow(conversation: Conversation, snapshot: Snapshot, onCl
     }
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Radius.lg),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+        Row(Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
             Avatar(contact?.name ?: "客户", contact?.hue ?: 210)
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
@@ -339,7 +344,7 @@ private fun ConversationRow(conversation: Conversation, snapshot: Snapshot, onCl
                             Modifier
                                 .size(6.dp)
                                 .background(
-                                    if (conversation.priority == "urgent") MaterialTheme.colorScheme.error else Color(0xFFFFB020),
+                                    if (conversation.priority == "urgent") MaterialTheme.colorScheme.error else HealthWarn,
                                     CircleShape,
                                 ),
                         )
@@ -365,7 +370,7 @@ private fun ConversationRow(conversation: Conversation, snapshot: Snapshot, onCl
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(999.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(Radius.full))
                                 .padding(horizontal = 7.dp, vertical = 2.dp),
                         ) {
                             PlatformBadge(channel.badge, channel.hue, size = 14.dp)
@@ -380,7 +385,7 @@ private fun ConversationRow(conversation: Conversation, snapshot: Snapshot, onCl
                         Spacer(Modifier.width(6.dp))
                     }
                     if (conversation.status == "pending") {
-                        Pill("跟进中", color = Color(0xFFFFB020), background = Color(0xFFFFB020).copy(alpha = 0.12f))
+                        Pill("跟进中", color = HealthWarn, background = HealthWarn.copy(alpha = 0.12f))
                         Spacer(Modifier.width(6.dp))
                     }
                     if (conversation.tags.isNotEmpty()) {
@@ -390,7 +395,7 @@ private fun ConversationRow(conversation: Conversation, snapshot: Snapshot, onCl
                     if (conversation.unread > 0) {
                         Box(
                             modifier = Modifier
-                                .background(BrandBlue, RoundedCornerShape(999.dp))
+                                .background(BrandBlue, RoundedCornerShape(Radius.full))
                                 .padding(horizontal = 7.dp, vertical = 1.dp),
                         ) {
                             Text(

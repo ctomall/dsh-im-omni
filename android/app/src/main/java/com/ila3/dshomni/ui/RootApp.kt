@@ -54,6 +54,8 @@ import com.ila3.dshomni.ui.theme.BrandBlue
 import com.ila3.dshomni.ui.theme.ThemeMode
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /** Where the app currently is. Chat, channel detail, and the wizard stack on the tabs. */
 sealed interface Route {
@@ -304,7 +306,7 @@ private fun BottomBar(tabs: List<BottomTab>) {
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = Spacing.sm, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             for (tab in tabs) {
@@ -312,7 +314,7 @@ private fun BottomBar(tabs: List<BottomTab>) {
                 Box(
                     Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(Radius.md))
                         .background(
                             if (active) BrandBlue.copy(alpha = 0.12f) else Color.Transparent,
                         )
@@ -333,8 +335,8 @@ private fun BottomBar(tabs: List<BottomTab>) {
                                     Modifier
                                         .align(Alignment.TopEnd)
                                         .offset(x = 10.dp, y = (-6).dp)
-                                        .background(MaterialTheme.colorScheme.error, RoundedCornerShape(999.dp))
-                                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                                        .background(MaterialTheme.colorScheme.error, RoundedCornerShape(Radius.full))
+                                        .padding(horizontal = Spacing.xxs, vertical = 1.dp),
                                 ) {
                                     Text(
                                         if (tab.badge > 99) "99+" else "${tab.badge}",

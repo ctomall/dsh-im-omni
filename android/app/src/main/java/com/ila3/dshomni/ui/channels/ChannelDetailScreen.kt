@@ -69,6 +69,8 @@ import com.ila3.dshomni.ui.theme.HealthOk
 import com.ila3.dshomni.util.Labels
 import com.ila3.dshomni.util.decodeDataUrlImage
 import kotlinx.coroutines.delay
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /**
  * One channel: probe it, bind a personal account by QR, reveal or rotate its
@@ -124,7 +126,7 @@ fun ChannelDetailScreen(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
+                .padding(start = Spacing.xxs, end = 6.dp, top = 6.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, contentDescription = "返回") }
@@ -149,7 +151,7 @@ fun ChannelDetailScreen(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = Spacing.md),
         ) {
             state.error?.let {
                 Banner(it, error = true, onDismiss = onDismissNotice)
@@ -229,8 +231,8 @@ fun ChannelDetailScreen(
                                     contentDescription = "登录二维码",
                                     modifier = Modifier
                                         .size(228.dp)
-                                        .background(Color.White, RoundedCornerShape(12.dp))
-                                        .padding(8.dp),
+                                        .background(Color.White, RoundedCornerShape(Radius.sm))
+                                        .padding(Spacing.xs),
                                 )
                                 Spacer(Modifier.height(10.dp))
                                 Text(
@@ -252,7 +254,7 @@ fun ChannelDetailScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Spacer(Modifier.height(10.dp))
-                                Button(onClick = onQrLogin, enabled = !busy, shape = RoundedCornerShape(14.dp)) {
+                                Button(onClick = onQrLogin, enabled = !busy, shape = RoundedCornerShape(Radius.md)) {
                                     if (busy) {
                                         CircularProgressIndicator(
                                             strokeWidth = 2.dp,
@@ -332,7 +334,7 @@ fun ChannelDetailScreen(
                         )
                     }
                     Row(
-                        Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        Modifier.padding(horizontal = Spacing.md, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         OutlinedButton(
@@ -348,7 +350,7 @@ fun ChannelDetailScreen(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = Spacing.md, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
@@ -395,7 +397,7 @@ fun ChannelDetailScreen(
                         onValueChange = { name = it.take(40) },
                         label = { Text("名称") },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(Radius.sm),
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
@@ -403,7 +405,7 @@ fun ChannelDetailScreen(
                         onValueChange = { description = it.take(140) },
                         label = { Text("备注") },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(Radius.sm),
                     )
                 }
             },
@@ -424,7 +426,7 @@ fun ChannelDetailScreen(
 /** Two-line row for long credential keys, which never fit one label column. */
 @Composable
 private fun StackedValue(label: String, value: String, mono: Boolean = false) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 9.dp)) {
+    Column(Modifier.padding(horizontal = Spacing.md, vertical = 9.dp)) {
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
@@ -450,12 +452,12 @@ private fun ActionTile(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(Radius.md),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier.clickable(enabled = enabled, onClick = onClick),
     ) {
         Column(
-            Modifier.padding(vertical = 12.dp),
+            Modifier.padding(vertical = Spacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(icon, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(19.dp))

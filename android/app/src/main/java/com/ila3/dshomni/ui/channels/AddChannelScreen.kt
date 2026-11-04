@@ -61,6 +61,8 @@ import com.ila3.dshomni.ui.common.PlatformBadge
 import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.theme.BrandBlue
 import com.ila3.dshomni.ui.theme.BrandTeal
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /**
  * Bind a new channel from the phone.
@@ -107,7 +109,7 @@ fun AddChannelScreen(
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                .padding(start = Spacing.xxs, end = 12.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { if (selected == null) onBack() else selected = null }) {
@@ -153,17 +155,17 @@ fun AddChannelScreen(
             Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = Spacing.md),
         ) {
             Spacer(Modifier.height(4.dp))
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.md),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { setupExpanded = !setupExpanded },
             ) {
-                Column(Modifier.padding(12.dp)) {
+                Column(Modifier.padding(Spacing.sm)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "平台侧配置步骤",
@@ -205,7 +207,7 @@ fun AddChannelScreen(
                 label = { Text("渠道名称") },
                 placeholder = { Text("例如：售后 WhatsApp") },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.md),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(10.dp))
@@ -214,7 +216,7 @@ fun AddChannelScreen(
                 onValueChange = { description = it.take(140) },
                 label = { Text("备注（可选）") },
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.md),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(14.dp))
@@ -256,7 +258,7 @@ fun AddChannelScreen(
                     }
                 },
                 enabled = !submitting,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.md),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (submitting) {
@@ -278,13 +280,13 @@ fun AddChannelScreen(
 private fun PlatformCard(platform: Platform, onClick: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Radius.lg),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
     ) {
-        Column(Modifier.padding(12.dp)) {
+        Column(Modifier.padding(Spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PlatformBadge(platform.badge, platform.hue, size = 34.dp)
                 Spacer(Modifier.weight(1f))
@@ -335,7 +337,7 @@ private fun FieldInput(
             // the dropdown never opened; a card makes the affordance honest too.
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.md),
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -416,7 +418,7 @@ private fun FieldInput(
                 }
             }
         },
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(Radius.md),
         modifier = Modifier.fillMaxWidth(),
     )
 }

@@ -41,17 +41,23 @@ object Spacing {
 
 /** Corner radii. Keep every rounded corner on one of these five values. */
 object Radius {
-    /** 10dp — chips, inputs. */
-    val sm = 10.dp
+    /** 10dp — small chips and inputs. */
+    val xs = 10.dp
 
-    /** 14dp — list cards. */
+    /** 12dp — message bubbles and thumbnails. */
+    val sm = 12.dp
+
+    /** 14dp — list cards and search fields. */
     val md = 14.dp
 
-    /** 18dp — sheets, hero cards. */
-    val lg = 18.dp
+    /** 16dp — dialogs and sheets. */
+    val lg = 16.dp
 
-    /** 24dp — full sheets and the composer. */
-    val xl = 24.dp
+    /** 18dp — hero cards. */
+    val xl = 18.dp
+
+    /** 24dp — the composer. */
+    val xxl = 24.dp
 
     /** Pills and avatars. */
     val full = 999.dp

@@ -42,6 +42,8 @@ import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.common.PlatformBadge
 import com.ila3.dshomni.ui.theme.BrandBlue
 import com.ila3.dshomni.util.Labels
+import com.ila3.dshomni.ui.theme.Radius
+import com.ila3.dshomni.ui.theme.Spacing
 
 /** Channel list with health, traffic, and a path into binding a new one. */
 @Composable
@@ -70,7 +72,7 @@ fun ChannelsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Button(onClick = onAdd, shape = RoundedCornerShape(14.dp)) {
+            Button(onClick = onAdd, shape = RoundedCornerShape(Radius.md)) {
                 Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("添加")
@@ -82,7 +84,7 @@ fun ChannelsScreen(
             channels.isEmpty() -> Column(
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = Spacing.lg),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -91,7 +93,7 @@ fun ChannelsScreen(
                     hint = "添加 WhatsApp、Telegram、企业微信等渠道，客户消息就会进入收件箱。",
                     icon = Icons.Rounded.Hub,
                 )
-                Button(onClick = onAdd, shape = RoundedCornerShape(14.dp)) {
+                Button(onClick = onAdd, shape = RoundedCornerShape(Radius.md)) {
                     Text("添加第一个渠道")
                 }
             }
@@ -114,13 +116,13 @@ fun ChannelsScreen(
 fun ChannelRow(channel: Channel, onClick: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Radius.lg),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
             PlatformBadge(channel.badge, channel.hue, size = 42.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
