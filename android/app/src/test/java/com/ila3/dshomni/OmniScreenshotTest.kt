@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.ila3.dshomni.ui.PreviewData
 import com.ila3.dshomni.ui.channels.AddChannelScreen
+import com.ila3.dshomni.ui.contacts.ContactsScreen
 import com.ila3.dshomni.ui.channels.ChannelDetailScreen
 import com.ila3.dshomni.ui.channels.ChannelsScreen
 import com.ila3.dshomni.ui.chat.ChatScreen
@@ -180,6 +181,23 @@ class OmniScreenshotTest {
         }
         capture(activity, "omni-settings.png")
     }
+
+    @Test
+    fun captureContacts() {
+        val activity = activity()
+        activity.setContent {
+            DshOmniTheme {
+                ContactsScreen(
+                    state = PreviewData.paired,
+                    onOpenConversation = { },
+                    onRefresh = { },
+                    onDismiss = { },
+                )
+            }
+        }
+        capture(activity, "omni-contacts.png")
+    }
+
 
     private fun activity(): ComponentActivity =
         Robolectric.buildActivity(ComponentActivity::class.java).setup().get()

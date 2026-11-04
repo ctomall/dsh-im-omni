@@ -56,10 +56,16 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.ila3.dshomni.ui.theme.Radius
 import com.ila3.dshomni.ui.theme.Spacing
+import androidx.compose.material.icons.rounded.Contacts
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.ui.res.stringResource
+import com.ila3.dshomni.R
+import com.ila3.dshomni.ui.contacts.ContactsScreen
 
 /** Where the app currently is. Chat, channel detail, and the wizard stack on the tabs. */
 sealed interface Route {
     data object Inbox : Route
+    data object Contacts : Route
     data object Channels : Route
     data object Settings : Route
     data class Chat(val conversationId: String) : Route
@@ -159,21 +165,28 @@ fun RootApp(
                 tabs = listOf(
                     BottomTab(
                         icon = Icons.Rounded.Inbox,
-                        label = "收件箱",
+                        label = stringResource(R.string.tab_chats),
                         selected = route is Route.Inbox || route is Route.Chat,
                         badge = state.snapshot?.unreadTotal ?: 0,
                         onClick = { route = Route.Inbox },
                     ),
                     BottomTab(
+                        icon = Icons.Rounded.Contacts,
+                        label = stringResource(R.string.tab_contacts),
+                        selected = route is Route.Contacts,
+                        badge = 0,
+                        onClick = { route = Route.Contacts },
+                    ),
+                    BottomTab(
                         icon = Icons.Rounded.Hub,
-                        label = "渠道",
+                        label = stringResource(R.string.tab_channels),
                         selected = route is Route.Channels || route is Route.ChannelDetail || route is Route.AddChannel,
                         badge = 0,
                         onClick = { route = Route.Channels },
                     ),
                     BottomTab(
                         icon = Icons.Rounded.Settings,
-                        label = "设置",
+                        label = stringResource(R.string.tab_me),
                         selected = route is Route.Settings,
                         badge = 0,
                         onClick = { route = Route.Settings },
@@ -184,6 +197,15 @@ fun RootApp(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
             when (val current = route) {
+                Route.Contacts -> ContactsScreen(
+                    state = state,
+                    onOpenConversation = { conversationId ->
+                        viewModel.markRead(conversationId)
+                        route = Route.Chat(conversationId)
+                    },
+                    onRefresh = { viewModel.refresh() },
+                    onDismiss = viewModel::clearError,
+                )
                 Route.Inbox -> InboxScreen(
                     state = state,
                     onMarkAllRead = viewModel::markAllRead,

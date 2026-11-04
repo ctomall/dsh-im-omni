@@ -3,6 +3,30 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.5.1 — 2024-11-04 (versionCode 11)
+
+### P1 — IM information architecture
+
+- Bottom navigation is now the four IM tabs: **会话 / 联系人 / 渠道 / 我**.
+  Chat, channel detail and the add-channel wizard still stack on top of them.
+- New **联系人** tab: every customer from the workspace snapshot, searchable by
+  name / company / phone / handle / email, each row showing its channels.
+  Tapping a contact opens that contact's newest conversation (falling back to
+  the inbox when there is none yet).
+- Pairing is the app's login: with no saved host the app opens the pairing gate,
+  and a saved host still opens straight into 会话. Pairing failures are now
+  classified instead of surfacing one generic sentence:
+  `pair-code` (invalid/expired), `pair-rate` (too many attempts),
+  `pair-tls` (certificate), `pair-dns` (unknown host), `pair-timeout`,
+  `pair-network`, `pair-failed`.
+- Tab labels, contacts copy and pairing messages moved to `strings.xml`
+  (zh + en).
+
+### Notes
+
+- No `/api/im-omni.*` contract, data model or route semantics changed.
+- Contacts grouping/empty-state polish lands with P2.
+
 ## 0.5.0 — 2024-11-04 (versionCode 10)
 
 ### WeChat-style visual direction

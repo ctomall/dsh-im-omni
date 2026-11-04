@@ -99,7 +99,38 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Report a failure once, without dropping the last good snapshot. */
-    private fun fail(error: Throwable) {
+    
+/**
+ * Turn a pairing failure into the category the UI can act on.
+ *
+ * @param error thrown by the pairing exchange or the follow-up state call.
+ * @returns a stable code plus the sentence shown to the user.
+ */
+private fun classifyPairFailure(error: Throwable): PairFailure {
+    val api = error as? ApiException
+    return when {
+        api?.code == "pair-code-invalid" ->
+            PairFailure("pair-code", getApplication<android.app.Application>().getString(R.string.pair_err_code))
+        api?.code == "pair-too-many" ->
+            PairFailure("pair-rate", getApplication<android.app.Application>().getString(R.string.pair_err_rate))
+        error is java.security.cert.CertificateException ||
+            error is javax.net.ssl.SSLException ->
+            PairFailure("pair-tls", getApplication<android.app.Application>().getString(R.string.pair_err_tls))
+        error is java.net.UnknownHostException ->
+            PairFailure("pair-dns", getApplication<android.app.Application>().getString(R.string.pair_err_dns))
+        error is java.net.SocketTimeoutException ->
+            PairFailure("pair-timeout", getApplication<android.app.Application>().getString(R.string.pair_err_timeout))
+        error is java.io.IOException ->
+            PairFailure("pair-network", getApplication<android.app.Application>().getString(R.string.pair_err_net))
+        else ->
+            PairFailure("pair-failed", api?.message ?: error.message ?: "配对失败。")
+    }
+}
+
+/** One classified pairing failure. */
+private data class PairFailure(val code: String, val message: String)
+
+private fun fail(error: Throwable) {
         val exception = error as? ApiException
         _state.update {
             it.copy(
@@ -159,7 +190,17 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
                 startPolling()
                 onPaired()
             } catch (error: Throwable) {
-                fail(error)
+                // Pairing is the app's login, so its failures need to explain
+                // themselves: "wrong code" and "cannot reach the server" are
+                // different problems with different next steps.
+                val failure = classifyPairFailure(error)
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        error = failure.message,
+                        errorCode = failure.code,
+                    )
+                }
             }
         }
     }

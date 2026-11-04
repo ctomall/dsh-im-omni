@@ -1,9 +1,9 @@
 {
-  "versionCode": 10,
-  "versionName": "0.5.0",
+  "versionCode": 11,
+  "versionName": "0.5.1",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.5.0.apk",
-  "sha256": "c54c3e49558447deb8df3c57f0cb48170292a184dc058aecb3a25ad85567a44f",
-  "notes": "0.5.0：微信风格视觉重构（调色板 / 列表行 / 会话气泡 / 输入区）。",
-  "publishedAt": "2026-11-04T13:10:33.000Z"
+  "file": "dsh-im-omni-0.5.1.apk",
+  "sha256": "a97b7a480b0db73e19f900300861521ad66ed7d0bb1efce5fadf10c9124d63ad",
+  "notes": "0.5.1（P1 信息架构）：四 tab（会话/联系人/渠道/我）、联系人页、扫码定位为登录并对失败分类。",
+  "publishedAt": "2026-11-04T13:34:23.000Z"
 }

@@ -14,4 +14,23 @@
     <string name="inbox_mark_all_failed">%1$d conversations could not be marked read — try again.</string>
 
     <string name="chat_preview_title">Image preview</string>
+
+    <string name="tab_chats">Chats</string>
+    <string name="tab_contacts">Contacts</string>
+    <string name="tab_channels">Accounts</string>
+    <string name="tab_me">Me</string>
+
+    <string name="contacts_title">Contacts</string>
+    <string name="contacts_search_hint">Search name, company or phone</string>
+    <string name="contacts_empty">No contacts yet</string>
+    <string name="contacts_empty_hint">A contact appears after the first customer message.</string>
+    <string name="contacts_open_chat">Open chat</string>
+
+    <string name="pair_err_code">This pairing code is invalid or expired — generate a new one on the desktop.</string>
+    <string name="pair_err_rate">Too many attempts. Try again in 10 minutes.</string>
+    <string name="pair_err_tls">Cannot verify the server certificate — self-signed cert or wrong address.</string>
+    <string name="pair_err_dns">Server address not found. Check the domain or your network.</string>
+    <string name="pair_err_timeout">Connecting to the server timed out. Check the network or whether the host is online.</string>
+    <string name="pair_err_net">Network unavailable. Try again later.</string>
+    <string name="pair_err_address">That server address is not valid.</string>
 </resources>
