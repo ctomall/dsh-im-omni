@@ -240,7 +240,23 @@ server/src/app.mjs    POST /v1/auth/{register,login,refresh,switch}
   撤销立即 401。
 - 验证：`node --test` 共 12 个用例（5 RLS + 7 账号/邀请/设备），全绿；注册→me 的 curl 冒烟通过。
 
-## 12. 风险与取舍
+## 12. 已落地（S2 计量与配额）
+
+```
+server/migrations/004_plans_quotas.sql  plans 目录（trial/team/business/enterprise）
+                                        tenant_period_usage(tenant, period)
+server/src/usage.mjs                    planOf / usageOf / assertQuota / recordUsage / billingSnapshot
+server/src/app.mjs                      GET /v1/billing/plan、GET /v1/billing/usage
+                                        POST /v1/messages（配额校验 + 幂等 + 计量）
+```
+
+- **先校验后写入**：`assertQuota` 在插入前执行，超限直接 402（`code=quota-exceeded`，带 kind/limit/used），不会留下半条数据。
+- **计量与写入同事务**：`recordUsage` 与消息插入在同一事务，回滚不会留下幽灵用量。
+- **幂等不重复计费**：重复 `clientId` 返回原消息（200, `idempotent:true`），不再加一条用量。
+- 席位配额在邀请接受时校验（`assertQuota(tenant,'seat',1)`）。
+- 验证：`node --test` 共 **17** 个用例（5 RLS + 8 账号/设备 + 4 计量配额），全绿。
+
+## 13. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
 | --- | --- | --- |

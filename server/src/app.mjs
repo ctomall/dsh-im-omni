@@ -7,6 +7,7 @@
  */
 import { createServer } from 'node:http'
 import { db, withTenant } from './db.mjs'
+import { QuotaError, assertQuota, billingSnapshot, recordUsage } from './usage.mjs'
 import {
   ACCESS_TTL,
   hashPassword,
@@ -328,6 +329,7 @@ route('POST', '/v1/invites/accept', async (request, response) => {
   const claimed = await db().query('SELECT * FROM claim_invite($1)', [sha256(code)])
   if (claimed.rowCount === 0) return fail(response, 401, 'invite-invalid', '邀请码无效或已过期。')
   const invite = claimed.rows[0]
+  await assertQuota(invite.tenant_id, 'seat', 1)
   const existing = await db().query('SELECT * FROM user_by_email($1)', [invite.email])
   const client = await db().connect()
   try {
@@ -488,6 +490,80 @@ route('DELETE', '/v1/devices/([0-9a-f-]{36})', async (request, response, params)
   send(response, 200, { ok: true })
 })
 
+route('GET', '/v1/billing/plan', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  send(response, 200, await billingSnapshot(claims.tenantId))
+})
+
+route('GET', '/v1/billing/usage', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const snapshot = await billingSnapshot(claims.tenantId)
+  send(response, 200, { usage: snapshot.usage, limits: snapshot.limits, period: snapshot.period })
+})
+
+route('POST', '/v1/messages', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const input = await body(request)
+  const conversationId = String(input.conversationId ?? '')
+  const clientId = String(input.clientId ?? '')
+  const kind = ['text', 'note', 'attachment', 'system'].includes(input.kind) ? input.kind : 'text'
+  const text = String(input.text ?? '')
+  if (conversationId === '' || (text === '' && kind === 'text')) {
+    return fail(response, 422, 'invalid', '缺少会话或消息正文。')
+  }
+
+  // Idempotency: a retried send returns the stored message instead of a second one.
+  if (clientId !== '') {
+    const existing = await withTenant(claims.tenantId, async (client) => {
+      const row = await client.query(
+        'SELECT message_id FROM client_requests WHERE tenant_id = $1 AND client_id = $2',
+        [claims.tenantId, clientId],
+      )
+      return row.rowCount === 0 ? null : row.rows[0].message_id
+    })
+    if (existing !== null) {
+      const message = await withTenant(claims.tenantId, async (client) => {
+        const row = await client.query(
+          'SELECT id, conversation_id, direction, kind, body, status, created_at FROM messages WHERE id = $1 LIMIT 1',
+          [existing],
+        )
+        return row.rows[0] ?? null
+      })
+      return send(response, 200, { message, idempotent: true })
+    }
+  }
+
+  await assertQuota(claims.tenantId, 'message', 1)
+
+  const message = await withTenant(claims.tenantId, async (client) => {
+    await client.query('BEGIN')
+    try {
+      const inserted = await client.query(
+        `INSERT INTO messages (tenant_id, conversation_id, direction, kind, body, status, client_id)
+         VALUES ($1, $2, 'out', $3, $4, 'queued', $5)
+         RETURNING id, conversation_id, direction, kind, body, status, created_at`,
+        [claims.tenantId, conversationId, kind, text, clientId],
+      )
+      if (clientId !== '') {
+        await client.query(
+          'INSERT INTO client_requests (tenant_id, client_id, message_id) VALUES ($1, $2, $3)',
+          [claims.tenantId, clientId, inserted.rows[0].id],
+        )
+      }
+      await recordUsage(client, claims.tenantId, 'message', 1)
+      await client.query('COMMIT')
+      return inserted.rows[0]
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {})
+      throw error
+    }
+  })
+  send(response, 201, { message })
+})
+
 route('GET', '/v1/conversations', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
@@ -515,6 +591,18 @@ export function createApp() {
       }
       fail(response, 404, 'not-found', '未知接口。')
     } catch (error) {
+      if (error instanceof QuotaError) {
+        send(response, 402, {
+          error: {
+            code: error.code,
+            message: error.message,
+            kind: error.kind,
+            limit: error.limit,
+            used: error.used,
+          },
+        })
+        return
+      }
       fail(response, 500, 'server-error', error instanceof Error ? error.message : String(error))
     }
   })
