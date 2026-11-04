@@ -3,6 +3,12 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def keystoreFile = rootProject.file('keystore/keystore.properties')
+def keystoreProps = new Properties()
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
     namespace 'com.ila3.dshomni'
     compileSdk 34
@@ -11,9 +17,20 @@ android {
         applicationId 'com.ila3.dshomni'
         minSdk 26
         targetSdk 34
-        versionCode 5
-        versionName '0.3.0'
+        versionCode 7
+        versionName '0.4.0'
         resourceConfigurations += ['zh', 'en']
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
     }
 
     buildFeatures {
@@ -42,7 +59,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
+            // 在线升级要求同一 applicationId 始终用同一个证书签名；缺失时退回 debug，
+            // 那只用于本地验证（换机构建会因签名不同装不上）。
+            signingConfig keystoreFile.exists() ? signingConfigs.release : signingConfigs.debug
         }
     }
 

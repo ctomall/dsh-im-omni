@@ -338,10 +338,10 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
                     result.snapshot?.let { fresh -> _state.update { it.copy(snapshot = fresh) } }
                 } catch (error: Throwable) {
                     failed += 1
-                        if (error is ApiException && error.code == "unauthorized") {
-                            _state.update { it.copy(busyAction = null, unauthorized = true) }
-                            return@launch
-                        }
+                    if (error is ApiException && error.code == "unauthorized") {
+                        _state.update { it.copy(busyAction = null, unauthorized = true) }
+                        return@launch
+                    }
                 }
             }
             _state.update {

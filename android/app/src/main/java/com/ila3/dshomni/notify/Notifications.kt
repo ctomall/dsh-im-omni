@@ -1,6 +1,7 @@
 package com.ila3.dshomni.notify
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -78,7 +79,14 @@ object Notifications {
             .build()
     }
 
-    /** One notification per conversation, keyed so updates replace instead of stack. */
+    /**
+     * One notification per conversation, keyed so updates replace instead of stack.
+     *
+     * Lint cannot follow the [canPost] guard through this call, hence the
+     * suppression; the permission is checked at the top of the body and the
+     * post itself stays inside runCatching for a revoked-while-running grant.
+     */
+    @SuppressLint("MissingPermission")
     fun postMessage(
         context: Context,
         serverLabel: String,
