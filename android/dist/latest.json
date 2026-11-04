@@ -1,9 +1,9 @@
 {
-  "versionCode": 8,
-  "versionName": "0.4.1",
+  "versionCode": 9,
+  "versionName": "0.4.2",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.4.1.apk",
-  "sha256": "7cc431bc1c53d9f7128939f4d5d0e9ad732f1633cc3c14eda4ca70495641e4b0",
-  "notes": "0.4.1：新增文案进 strings.xml（中/英）；修复公网入口配对 POST 被反代缓冲卡住的问题。",
-  "publishedAt": "2026-11-04T12:11:05.000Z"
+  "file": "dsh-im-omni-0.4.2.apk",
+  "sha256": "b2fa504491135322f5082b98e8f066d6a49971a926903bc1fb9f38a4b6b11040",
+  "notes": "0.4.2：聊天页重构（输入区两段式、气泡按内容收窄、日期分隔、消息分组）。",
+  "publishedAt": "2026-11-04T12:27:40.000Z"
 }

@@ -94,6 +94,20 @@ import com.ila3.dshomni.util.Times
 import com.ila3.dshomni.util.formatBytes
 import com.ila3.dshomni.ui.theme.Radius
 import com.ila3.dshomni.ui.theme.Spacing
+import java.util.Locale
+import java.time.format.DateTimeFormatter
+import java.time.ZoneId
+import java.time.LocalDate
+import java.time.Instant
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.ila3.dshomni.ui.theme.Sizes
+import com.ila3.dshomni.ui.theme.IconSize
+import com.ila3.dshomni.ui.theme.Elevation
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.FilledIconButton
 
 /**
  * One conversation: read, translate, draft with AI, and reply.
@@ -216,12 +230,24 @@ fun ChatScreen(
                 LazyColumn(
                     state = listState,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        start = 14.dp, end = 14.dp, top = 10.dp, bottom = 14.dp,
+                        start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.sm,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(conversation.messages, key = { it.id }) { message ->
-                        MessageBubble(message, onLoadAttachment, onRetryMessage)
+                    itemsIndexed(conversation.messages, key = { _, item -> item.id }) { index, message ->
+                        val previous = conversation.messages.getOrNull(index - 1)
+                        val newDay = previous == null || !sameDay(previous.createdAt, message.createdAt)
+                        if (newDay) DaySeparator(dayLabel(message.createdAt))
+                        // Tight inside a burst from one speaker, looser when the
+                        // speaker changes, so the eye can group bubbles.
+                        val gap = when {
+                            previous == null || newDay -> 0.dp
+                            previous.inbound == message.inbound &&
+                                message.createdAt - previous.createdAt < 3 * 60_000L -> Spacing.xxs
+                            else -> Spacing.sm
+                        }
+                        Box(Modifier.padding(top = gap)) {
+                            MessageBubble(message, onLoadAttachment, onRetryMessage)
+                        }
                     }
                 }
             }
@@ -410,10 +436,14 @@ private fun MessageBubble(
         return
     }
     val inbound = message.inbound
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = if (inbound) Arrangement.Start else Arrangement.End,
-    ) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // Bubbles hug their text and only cap at 82% of the pane: a forced
+        // 84% width made every "好的" look like a wall of empty space.
+        val bubbleMax = maxWidth * 0.82f
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = if (inbound) Arrangement.Start else Arrangement.End,
+        ) {
         Surface(
             color = if (inbound) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
             shape = RoundedCornerShape(
@@ -422,7 +452,7 @@ private fun MessageBubble(
                 bottomStart = 16.dp,
                 bottomEnd = 16.dp,
             ),
-            modifier = Modifier.fillMaxWidth(0.84f),
+            modifier = Modifier.widthIn(max = bubbleMax),
         ) {
             Box(
                 Modifier
@@ -502,6 +532,48 @@ private fun MessageBubble(
                 }
             }
         }
+    }
+    }
+}
+
+
+/** Whether two timestamps fall on the same local calendar day. */
+private fun sameDay(a: Long, b: Long): Boolean {
+    val zone = ZoneId.systemDefault()
+    return Instant.ofEpochMilli(a).atZone(zone).toLocalDate() ==
+        Instant.ofEpochMilli(b).atZone(zone).toLocalDate()
+}
+
+/** `今天` / `昨天` / `11月3日` for a day separator. */
+private fun dayLabel(millis: Long): String {
+    val zone = ZoneId.systemDefault()
+    val day = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+    val today = LocalDate.now(zone)
+    return when (day) {
+        today -> "今天"
+        today.minusDays(1) -> "昨天"
+        else -> DateTimeFormatter.ofPattern("M月d日", Locale.SIMPLIFIED_CHINESE).format(day)
+    }
+}
+
+/** Centred pill between two days of a thread. */
+@Composable
+private fun DaySeparator(label: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clip(RoundedCornerShape(Radius.full))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = Spacing.sm, vertical = 2.dp),
+        )
     }
 }
 
@@ -702,80 +774,112 @@ private fun Composer(
     onSend: () -> Unit,
 ) {
     var attachOpen by remember { mutableStateOf(false) }
-    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
-        Row(
+    val busy = sending || uploading
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = Elevation.medium) {
+        Column(
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.Bottom,
+                .imePadding()
+                .padding(horizontal = Spacing.sm, vertical = Spacing.xs),
         ) {
-            IconButton(onClick = onToggleNoteMode, enabled = !sending) {
-                Icon(
-                    if (noteMode) Icons.Rounded.Notes else Icons.Rounded.Description,
-                    contentDescription = if (noteMode) "退出备注模式" else "内部备注",
+            // Secondary actions live on their own deck: five icon buttons next to
+            // the field used to leave it ~60dp wide on a 411dp screen and the
+            // text wrapped one character per line.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ComposerTool(
+                    icon = if (noteMode) Icons.Rounded.Notes else Icons.Rounded.Description,
+                    label = if (noteMode) "退出备注模式" else "内部备注",
                     tint = if (noteMode) warningInk() else MaterialTheme.colorScheme.onSurfaceVariant,
+                    enabled = !busy,
+                    onClick = onToggleNoteMode,
                 )
-            }
-            IconButton(onClick = onOpenTemplates, enabled = !sending) {
-                Icon(Icons.Rounded.Bolt, contentDescription = "快捷回复", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Box {
-                IconButton(onClick = { attachOpen = true }, enabled = !sending && !noteMode) {
-                    Icon(Icons.Rounded.AttachFile, contentDescription = "添加附件", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                DropdownMenu(expanded = attachOpen, onDismissRequest = { attachOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("照片") },
-                        onClick = { attachOpen = false; onPickImage() },
+                ComposerTool(
+                    icon = Icons.Rounded.Bolt,
+                    label = "快捷回复",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    enabled = !busy,
+                    onClick = onOpenTemplates,
+                )
+                Box {
+                    ComposerTool(
+                        icon = Icons.Rounded.AttachFile,
+                        label = "添加附件",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        enabled = !busy && !noteMode,
+                        onClick = { attachOpen = true },
                     )
-                    DropdownMenuItem(
-                        text = { Text("文件") },
-                        onClick = { attachOpen = false; onPickFile() },
+                    DropdownMenu(expanded = attachOpen, onDismissRequest = { attachOpen = false }) {
+                        DropdownMenuItem(text = { Text("照片") }, onClick = { attachOpen = false; onPickImage() })
+                        DropdownMenuItem(text = { Text("文件") }, onClick = { attachOpen = false; onPickFile() })
+                    }
+                }
+                if (aiEnabled) {
+                    ComposerTool(
+                        icon = Icons.Rounded.AutoAwesome,
+                        label = "AI 建议",
+                        tint = BrandBlue,
+                        enabled = !suggestionBusy && !busy,
+                        loading = suggestionBusy,
+                        onClick = onSuggest,
                     )
                 }
+                Spacer(Modifier.weight(1f))
+                if (noteMode) {
+                    Text("仅内部可见", style = MaterialTheme.typography.labelSmall, color = warningInk())
+                }
             }
-            if (aiEnabled) {
-                IconButton(onClick = onSuggest, enabled = !suggestionBusy) {
-                    if (suggestionBusy) {
-                        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.height(Spacing.xxs))
+            Row(verticalAlignment = Alignment.Bottom) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = onDraftChange,
+                    placeholder = { Text(if (noteMode) "输入内部备注（客户看不到）…" else "输入回复…") },
+                    shape = RoundedCornerShape(Radius.xxl),
+                    maxLines = 5,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                FilledIconButton(
+                    onClick = onSend,
+                    enabled = draft.isNotBlank() && !busy,
+                    modifier = Modifier.size(Sizes.touchTarget),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = BrandBlue,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(
+                            strokeWidth = 2.dp,
+                            color = Color.White,
+                            modifier = Modifier.size(18.dp),
+                        )
                     } else {
-                        Icon(Icons.Rounded.AutoAwesome, contentDescription = "AI 建议", tint = BrandBlue)
+                        Icon(Icons.Rounded.Send, contentDescription = "发送", modifier = Modifier.size(IconSize.md))
                     }
                 }
             }
-            OutlinedTextField(
-                value = draft,
-                onValueChange = onDraftChange,
-                placeholder = { Text(if (noteMode) "输入内部备注（客户看不到）…" else "输入回复…") },
-                shape = RoundedCornerShape(20.dp),
-                maxLines = 4,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = onSend,
-                enabled = draft.isNotBlank() && !sending,
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                if (sending) {
-                    CircularProgressIndicator(
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                } else if (uploading) {
-                    CircularProgressIndicator(
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                } else {
-                    Icon(Icons.Rounded.Send, contentDescription = "发送", modifier = Modifier.size(18.dp))
-                }
-            }
+        }
+    }
+}
+
+/** One 48dp tool button on the composer deck; keeps hit targets accessible. */
+@Composable
+private fun ComposerTool(
+    icon: ImageVector,
+    label: String,
+    tint: Color,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(Sizes.touchTarget)) {
+        if (loading) {
+            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+        } else {
+            Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(IconSize.md))
         }
     }
 }

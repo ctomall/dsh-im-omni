@@ -3,6 +3,28 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.4.2 — 2024-11-04 (versionCode 9)
+
+### Chat page redesign
+
+- **Composer rebuilt as two decks.** The old single row packed five 48dp icon
+  buttons next to the text field, which left it ~60dp wide on a 411dp screen and
+  wrapped the placeholder one character per line. Secondary actions (备注 /
+  快捷回复 / 附件 / AI) now sit on their own toolbar row; the field takes the
+  full width with a 48dp circular send button beside it.
+- **Bubbles hug their content** and cap at 82% of the pane instead of every
+  message occupying 84% (short replies used to look like empty walls).
+- **Day separators** (今天 / 昨天 / 11月3日) between calendar days, and bursts
+  from one speaker are spaced tightly (4dp) while speaker changes get 12dp.
+- The composer surfaces the note-mode hint (仅内部可见) and keeps every existing
+  callback, so sending, notes, templates, attachments and AI drafts behave as
+  before.
+
+### Notes
+
+- No business logic, API call or data model changed; only `ui/chat/ChatScreen.kt`
+  layout and styling.
+
 ## 0.4.1 — 2024-11-04 (versionCode 8)
 
 ### Changed
