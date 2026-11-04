@@ -14,6 +14,7 @@ import { ChannelRuntime } from './lib/channels/runtime.js'
 import { createIntelligence } from './lib/intelligence.js'
 import { ReceptionBot } from './lib/bot.js'
 import { APK_PATH, VERSION_PATH, apkResponse, versionResponse } from './lib/app.js'
+import { UpgradeError, applyUpgrade, checkUpgrade } from './lib/upgrade.js'
 import {
   ApiError,
   createSerial,
@@ -30,6 +31,8 @@ const STATE_PATH = '/api/im-omni.state'
 const COMMAND_PATH = '/api/im-omni.command'
 /** Browser API for translation and AI assistance. */
 const INTELLIGENCE_PATH = '/api/im-omni.ai'
+/** Owner API for the plugin's own Git update. */
+const UPGRADE_PATH = '/api/im-omni.upgrade'
 /** Public callback prefix, including the trailing slash used to read the channel id. */
 const WEBHOOK_PREFIX = '/api/im-omni.webhook/'
 /** Registered prefix route: the webserver matches `${path}/...`, so this form has no trailing slash. */
@@ -254,6 +257,35 @@ export async function apply(ctx) {
       },
     }),
     'im-omni: intelligence route',
+  )
+
+  ctx.effect(
+    () => ctx.connection.fetch.register({
+      path: UPGRADE_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        let body
+        try {
+          body = await request.json()
+        } catch {
+          return json({ ok: false, error: { code: 'bad-json', message: 'The request body is not valid JSON.' } }, 400)
+        }
+        const action = text(body?.action, 20)
+        try {
+          if (action === 'check') return json({ ok: true, result: { status: await checkUpgrade() } })
+          if (action === 'pull') return json({ ok: true, result: await applyUpgrade() })
+          return json({ ok: false, error: { code: 'unknown-action', message: 'Action must be "check" or "pull".' } }, 400)
+        } catch (error) {
+          if (error instanceof UpgradeError) {
+            return json({ ok: false, error: { code: error.code, message: error.message } }, error.status)
+          }
+          const failure = failureOf(error)
+          return json({ ok: false, error: { code: failure.code, message: failure.message } }, failure.status)
+        }
+      },
+    }),
+    'im-omni: plugin self-upgrade',
   )
 
   ctx.effect(

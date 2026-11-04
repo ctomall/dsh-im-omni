@@ -17,6 +17,8 @@ window.__ModuleLoader__.load({
     const STATE_PATH = '/api/im-omni.state'
     /** Authenticated command route. */
     const COMMAND_PATH = '/api/im-omni.command'
+    /** Owner route that checks and applies the plugin's own Git update. */
+    const UPGRADE_PATH = '/api/im-omni.upgrade'
     /** Authenticated translation/AI route. */
     const INTELLIGENCE_PATH = '/api/im-omni.ai'
     /** Sidebar and main panel id. */
@@ -897,6 +899,21 @@ window.__ModuleLoader__.load({
       'settings.end': '结束',
       'settings.days': '工作日',
       'settings.save': '保存设置',
+      'upgrade.title': '插件更新',
+      'upgrade.current': '当前',
+      'upgrade.check': '检查更新',
+      'upgrade.checking': '检查中…',
+      'upgrade.pull': '立即更新',
+      'upgrade.pulling': '更新中…',
+      'upgrade.upToDate': '已是最新',
+      'upgrade.behind': '个提交待拉取',
+      'upgrade.ahead': '个本地提交未推送',
+      'upgrade.dirty': '工作区有未提交改动，已暂停更新',
+      'upgrade.notRepo': '当前不是 Git 目录安装，无法自更新',
+      'upgrade.unknown': '尚未检查',
+      'upgrade.restart': '已更新，重载插件（或重启 DSH）后生效',
+      'upgrade.failed': '更新失败',
+      'upgrade.branch': '分支',
       'settings.saved': '设置已保存',
       'settings.team': '团队',
       'settings.teamHint': '坐席可在会话中被分配，并参与自动路由。',
@@ -1521,6 +1538,21 @@ window.__ModuleLoader__.load({
       'settings.end': 'End',
       'settings.days': 'Working days',
       'settings.save': 'Save settings',
+      'upgrade.title': 'Plugin update',
+      'upgrade.current': 'Current',
+      'upgrade.check': 'Check',
+      'upgrade.checking': 'Checking…',
+      'upgrade.pull': 'Update now',
+      'upgrade.pulling': 'Updating…',
+      'upgrade.upToDate': 'Up to date',
+      'upgrade.behind': 'commits to pull',
+      'upgrade.ahead': 'local commits not pushed',
+      'upgrade.dirty': 'Uncommitted changes block the update',
+      'upgrade.notRepo': 'Installed from a package, not a Git checkout',
+      'upgrade.unknown': 'Not checked yet',
+      'upgrade.restart': 'Updated; reload the plugin (or restart DSH) to apply',
+      'upgrade.failed': 'Update failed',
+      'upgrade.branch': 'branch',
       'settings.saved': 'Settings saved',
       'settings.team': 'Team',
       'settings.teamHint': 'Agents can be assigned conversations and participate in routing.',
@@ -4670,6 +4702,9 @@ window.__ModuleLoader__.load({
       const [saving, setSaving] = React.useState(false)
       const [member, setMember] = React.useState({ name: '', email: '', role: 'agent', availability: 'online' })
       const [adding, setAdding] = React.useState(false)
+      const [upgrade, setUpgrade] = React.useState(null)
+      const [upgradeBusy, setUpgradeBusy] = React.useState('')
+      const [upgradeNote, setUpgradeNote] = React.useState('')
 
       const workspaceSignature = JSON.stringify([
         workspace.name,
@@ -4830,6 +4865,61 @@ window.__ModuleLoader__.load({
         })
       }
 
+      /**
+       * Call the plugin's own upgrade route. It is not a workspace command, so
+       * it does not touch the snapshot and uses its own endpoint.
+       * @param {'check'|'pull'} action - requested operation.
+       * @returns {Promise<object>} result payload.
+       */
+      async function upgradeCall(action) {
+        const response = await fetch(UPGRADE_PATH, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action }),
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok || body?.ok !== true) {
+          const failure = new Error(body?.error?.message ?? `HTTP ${response.status}`)
+          failure.code = body?.error?.code ?? `http-${response.status}`
+          throw failure
+        }
+        return body.result ?? {}
+      }
+
+      async function loadUpgrade() {
+        setUpgradeBusy('check')
+        try {
+          const result = await upgradeCall('check')
+          setUpgrade(result.status ?? null)
+          setUpgradeNote('')
+        } catch (error) {
+          setUpgradeNote(`${t('upgrade.failed')}: ${error.message}`)
+        } finally {
+          setUpgradeBusy('')
+        }
+      }
+
+      async function runUpgrade() {
+        setUpgradeBusy('pull')
+        setUpgradeNote('')
+        try {
+          const result = await upgradeCall('pull')
+          setUpgrade(result.status ?? null)
+          setUpgradeNote(result.restartRequired ? t('upgrade.restart') : (result.message ?? ''))
+          if (result.restartRequired) notify(t('upgrade.restart'))
+        } catch (error) {
+          setUpgradeNote(`${t('upgrade.failed')}: ${error.message}`)
+          notify(errorText(t, error), 'error')
+        } finally {
+          setUpgradeBusy('')
+        }
+      }
+
+      React.useEffect(() => {
+        void loadUpgrade()
+      }, [])
+
       return h('div', { className: 'imoPage' },
         h('div', { className: 'imoPageHead' },
           h('div', null,
@@ -4938,10 +5028,53 @@ window.__ModuleLoader__.load({
             h('section', { className: 'imoSection' },
               h('div', { className: 'imoSectionTitle' }, t('settings.plugin')),
               h('div', { className: 'imoInfoGrid' },
-                h('div', { className: 'imoInfoCell' }, h('div', { className: 'imoInfoValue' }, '2.6.1'), h('div', { className: 'imoInfoLabel' }, t('settings.version'))),
+                h('div', { className: 'imoInfoCell' }, h('div', { className: 'imoInfoValue' }, upgrade?.version || '—'), h('div', { className: 'imoInfoLabel' }, t('settings.version'))),
                 h('div', { className: 'imoInfoCell' }, h('div', { className: 'imoInfoValue' }, t('app.bridge')), h('div', { className: 'imoInfoLabel' }, t('settings.bridge'))),
                 h('div', { className: 'imoInfoCell' }, h('div', { className: 'imoInfoValue' }, String(snapshot.channels.length)), h('div', { className: 'imoInfoLabel' }, t('analytics.channels'))),
                 h('div', { className: 'imoInfoCell' }, h('div', { className: 'imoInfoValue' }, String(snapshot.contacts.length)), h('div', { className: 'imoInfoLabel' }, t('analytics.contacts'))),
+              ),
+            ),
+            h('section', { className: 'imoSection' },
+              h('div', { className: 'imoSectionTitle' }, h(Icon, { name: 'bolt', size: 13 }), ' ', t('upgrade.title')),
+              h('div', { className: 'imoSmall', style: { lineHeight: 1.6 } },
+                upgrade === null
+                  ? t('upgrade.unknown')
+                  : upgrade.repo !== true
+                    ? t('upgrade.notRepo')
+                    : h('div', null,
+                      h('div', null, `${upgrade.current?.short ?? '—'} · ${upgrade.current?.subject ?? ''}`),
+                      h('div', { className: 'imoTiny imoMuted' },
+                        `${t('upgrade.branch')} ${upgrade.branch ?? '—'} · `,
+                        upgrade.behind > 0
+                          ? `${upgrade.behind} ${t('upgrade.behind')}`
+                          : upgrade.ahead > 0
+                            ? `${upgrade.ahead} ${t('upgrade.ahead')}`
+                            : upgrade.fetchError
+                              ? upgrade.fetchError
+                              : t('upgrade.upToDate'),
+                      ),
+                      upgrade.dirtyFiles?.length
+                        ? h('div', { className: 'imoTiny', style: { color: 'var(--dsw-alias-state-warning-primary, #b07a00)', marginTop: 4 } }, t('upgrade.dirty'))
+                        : null,
+                    ),
+              ),
+              upgrade?.commits?.length
+                ? h('div', { className: 'imoCodeBox', style: { marginTop: 8, maxHeight: 118, overflow: 'auto', whiteSpace: 'pre-wrap' } }, upgrade.commits.join('\n'))
+                : null,
+              upgradeNote ? h('div', { className: 'imoHelp', style: { marginTop: 8 } }, upgradeNote) : null,
+              h('div', { style: { display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 10 } },
+                h('button', {
+                  type: 'button',
+                  className: 'imoBtn',
+                  disabled: upgradeBusy !== '',
+                  onClick: () => { void loadUpgrade() },
+                }, upgradeBusy === 'check' ? h('span', { className: 'imoSpinner' }) : h(Icon, { name: 'refresh', size: 12 }), upgradeBusy === 'check' ? t('upgrade.checking') : t('upgrade.check')),
+                h('button', {
+                  type: 'button',
+                  className: 'imoBtn imoBtnPrimary',
+                  disabled: upgradeBusy !== '' || upgrade?.canPull !== true,
+                  onClick: () => { void runUpgrade() },
+                }, upgradeBusy === 'pull' ? h('span', { className: 'imoSpinner' }) : h(Icon, { name: 'bolt', size: 12 }), upgradeBusy === 'pull' ? t('upgrade.pulling') : t('upgrade.pull')),
               ),
             ),
             h('section', { className: 'imoSection' },

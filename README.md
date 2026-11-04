@@ -1,4 +1,4 @@
-# 全渠道 IM（dsh-im-omni 2.7.0）
+# 全渠道 IM（dsh-im-omni 2.7.1）
 
 一个带左侧栏入口的 DSH Web 插件：把 WhatsApp Business、WhatsApp/微信个人号扫码、企业微信、Telegram、飞书、Slack、Discord、LINE、钉钉和自建 HTTP 桥接统一到一套收件箱、联系人、快捷回复、群发、自动化和分析里。
 
@@ -130,7 +130,24 @@ CAPTURE=1 ./build.sh    # 顺带重跑 Robolectric 截图到 android/docs/
 
 **升级链路**：`GET /api/im-omni.app.version` 返回 `{ versionCode, versionName, sha256, size, apkPath }`（读 `android/dist/latest.json`），`GET /api/im-omni.app.apk` 读同目录安装包。两个路由都注册在 `ctx.connection.fetch`，必须携带配对后的设备 cookie，安装包不会公开暴露。发布新版本只需改 `android/app/build.gradle` 的版本号并重跑 `build.sh`，**不必重新发布插件**。
 
---- 
+## 5.2 插件自更新
+
+插件从 Git 目录安装（`link:` 或 `git+https://…`）时，「设置」页会出现**插件更新**卡片：
+
+- **检查更新**：在插件目录执行 `git fetch`，对比 `HEAD` 与 `origin/<branch>`，显示当前提交、落后/领先多少个提交，以及待拉取的提交列表。
+- **立即更新**：执行 `git pull --ff-only`，只允许快进合并。
+
+安全边界：
+
+- 路由 `POST /api/im-omni.upgrade` 挂在 `ctx.connection.fetch`，**只有 Owner 会话**能调用；请求体只接受 `check` / `pull` 两个动作，路径固定为插件自己的目录，不接受任何外部传入的路径或参数。
+- **工作区有未提交改动时一律拒绝更新**，避免覆盖正在改的代码；远程不可达时也不会伪装成「已是最新」。
+- 只做 `--ff-only`：出现分叉（本地领先且落后）不会自动合并，需要人工处理。
+
+**已知限制**：`git pull` 只改磁盘文件，Host 已加载的 JS 模块不会热替换。更新成功后卡片会提示「重载插件（或重启 DSH）后生效」；若 `client.js` 有变化，浏览器还需硬刷新。这也是更新按钮不假装已经生效的原因。
+
+如果插件是作为 npm 包安装的（没有 `.git`），卡片会直接说明「当前不是 Git 目录安装，无法自更新」。
+
+---
 
 ## 6. 新渠道怎么加
 
