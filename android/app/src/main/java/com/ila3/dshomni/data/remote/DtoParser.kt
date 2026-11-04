@@ -87,6 +87,8 @@ object DtoParser {
                 aiSuggestions = workspace?.bool("aiSuggestions", true) ?: true,
                 botEnabled = bot?.bool("enabled") ?: false,
                 botName = bot?.str("name")?.ifBlank { "AI 接待" } ?: "AI 接待",
+                defaultSlaMinutes = workspace?.int("defaultSlaMinutes", 30) ?: 30,
+                autoAssign = workspace?.bool("autoAssign", true) ?: true,
             ),
             agents = state.arr("agents").objects().map {
                 Agent(
@@ -214,6 +216,9 @@ object DtoParser {
             lastInboundAt = isoToMillis(json.str("lastInboundAt")).takeIf { it > 0L },
             botPaused = json.bool("botPaused"),
             customerLanguage = json.str("customerLanguage"),
+            assigneeId = json.str("assigneeId"),
+            firstResponseAt = isoToMillis(json.str("firstResponseAt")).takeIf { it > 0L },
+            snoozedUntil = isoToMillis(json.str("snoozedUntil")).takeIf { it > 0L },
         )
     }
 

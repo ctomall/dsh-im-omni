@@ -130,6 +130,12 @@ data class Conversation(
     val botPaused: Boolean,
     /** BCP-47 language the Host detected for the customer, empty until known. */
     val customerLanguage: String,
+    /** Teammate currently owning the conversation; empty when unassigned. */
+    val assigneeId: String = "",
+    /** When the first agent reply went out; null until the thread is answered. */
+    val firstResponseAt: Long? = null,
+    /** Snooze deadline, when the conversation is parked. */
+    val snoozedUntil: Long? = null,
 ) {
     val lastMessage: Message? get() = messages.lastOrNull()
     val needsAttention: Boolean get() = status == "pending" || status == "open"
@@ -158,6 +164,10 @@ data class Workspace(
     val aiSuggestions: Boolean,
     val botEnabled: Boolean,
     val botName: String,
+    /** First-response target the workspace promises, in minutes. */
+    val defaultSlaMinutes: Int = 30,
+    /** Whether the Host routes new conversations automatically. */
+    val autoAssign: Boolean = true,
 )
 
 /** One activity record. */

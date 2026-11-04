@@ -42,6 +42,7 @@ class ChatInteractionTest {
         conversationId: String = "cnv_lin",
         onSend: (String) -> Unit = {},
         onSendNote: (String) -> Unit = {},
+        onSetStatus: (String) -> Unit = {},
     ) {
         compose.setContent {
             DshOmniTheme {
@@ -51,7 +52,7 @@ class ChatInteractionTest {
                     onBack = { },
                     onSend = onSend,
                     onMarkRead = { },
-                    onSetStatus = { },
+                    onSetStatus = onSetStatus,
                     onSetBotPaused = { },
                     onTranslate = { },
                     onSuggest = { },
@@ -119,5 +120,17 @@ class ChatInteractionTest {
         compose.onNodeWithText(text).performTouchInput { longClick() }
         compose.onNodeWithText("本地隐藏").assertIsDisplayed().performClick()
         assertTrue(compose.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun theOverflowMenuOpensConversationDetailsAndStatusCanChange() {
+        var status = ""
+        chat(onSetStatus = { status = it })
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithText("会话详情").assertIsDisplayed().performClick()
+        // The sheet surfaces the business fields that used to clutter the chat.
+        compose.onNodeWithText("负责人").assertIsDisplayed()
+        compose.onNodeWithText("已解决").performClick()
+        assertEquals("solved", status)
     }
 }

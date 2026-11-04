@@ -1,9 +1,9 @@
 {
-  "versionCode": 13,
-  "versionName": "0.5.3",
+  "versionCode": 14,
+  "versionName": "0.6.0",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.5.3.apk",
-  "sha256": "02bd3d469551608a49987b37e3061dffe7f5944ef990602c6ef3b45d952d366a",
-  "notes": "0.5.3（P3 会话页）：长按菜单（复制/转发/本地隐藏）、发送状态图标。",
-  "publishedAt": "2026-11-04T14:00:46.000Z"
+  "file": "dsh-im-omni-0.6.0.apk",
+  "sha256": "97bbebe1ec6cf8d88c394ccd1b277ae8691a414d432bea86646db4eef8275172",
+  "notes": "0.6.0（P4 会话详情）：状态/负责人/优先级/标签/SLA/机器人开关收进底部抽屉。",
+  "publishedAt": "2026-11-04T14:14:52.000Z"
 }

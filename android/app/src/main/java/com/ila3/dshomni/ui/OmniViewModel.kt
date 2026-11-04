@@ -401,6 +401,22 @@ private fun fail(error: Throwable) {
         run("conversation.update", JSONObject().put("conversationId", conversationId).put("status", status))
     }
 
+    /** Assign the conversation to a teammate (empty string clears it). */
+    fun setConversationAssignee(conversationId: String, agentId: String) {
+        run(
+            "conversation.update",
+            JSONObject().put("conversationId", conversationId).put("assigneeId", agentId),
+        )
+    }
+
+    /** Set the conversation priority (`low`, `normal`, `high`, `urgent`). */
+    fun setConversationPriority(conversationId: String, priority: String) {
+        run(
+            "conversation.update",
+            JSONObject().put("conversationId", conversationId).put("priority", priority),
+        )
+    }
+
     /** Pause or resume the AI reception bot for one conversation. */
     fun setBotPaused(conversationId: String, paused: Boolean) {
         run("conversation.bot", JSONObject().put("conversationId", conversationId).put("paused", paused))

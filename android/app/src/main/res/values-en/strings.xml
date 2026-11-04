@@ -51,4 +51,25 @@
     <string name="msg_status_sent">Sent</string>
     <string name="msg_status_sending">Sending…</string>
     <string name="msg_status_failed">Failed</string>
+    <string name="detail_title">Conversation details</string>
+    <string name="detail_status">Status</string>
+    <string name="detail_status_open">Open</string>
+    <string name="detail_status_pending">Pending</string>
+    <string name="detail_status_solved">Solved</string>
+    <string name="detail_status_snoozed">Snoozed</string>
+    <string name="detail_assignee">Assignee</string>
+    <string name="detail_unassigned">Unassigned</string>
+    <string name="detail_priority">Priority</string>
+    <string name="detail_priority_low">Low</string>
+    <string name="detail_priority_normal">Normal</string>
+    <string name="detail_priority_high">High</string>
+    <string name="detail_priority_urgent">Urgent</string>
+    <string name="detail_tags">Tags</string>
+    <string name="detail_no_tags">No tags</string>
+    <string name="detail_sla">First response</string>
+    <string name="detail_sla_target">Target %1$d min</string>
+    <string name="detail_channel">Account</string>
+    <string name="detail_channel_unknown">Unknown account</string>
+    <string name="detail_bot_paused">Pause AI reception</string>
+    <string name="detail_mark_read">Mark as read</string>
 </resources>

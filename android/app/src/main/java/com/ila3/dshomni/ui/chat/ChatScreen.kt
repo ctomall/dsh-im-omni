@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -143,6 +144,8 @@ fun ChatScreen(
     onMarkRead: () -> Unit,
     onSetStatus: (String) -> Unit,
     onSetBotPaused: (Boolean) -> Unit,
+    onSetAssignee: (String) -> Unit = {},
+    onSetPriority: (String) -> Unit = {},
     onTranslate: () -> Unit,
     onSuggest: () -> Unit,
     onDismissSuggestions: () -> Unit,
@@ -167,6 +170,7 @@ fun ChatScreen(
     // delete, so the action says so and the row is gone until the app restarts.
     var hidden by remember(conversationId) { mutableStateOf(emptySet<String>()) }
     var menuOpen by remember { mutableStateOf(false) }
+    var detailOpen by remember(conversationId) { mutableStateOf(false) }
     // 回复 / 备注：备注只进 Host，不会发给客户。
     var noteMode by remember(conversationId) { mutableStateOf(false) }
     var templatesOpen by remember { mutableStateOf(false) }
@@ -219,6 +223,7 @@ fun ChatScreen(
             onMarkRead = onMarkRead,
             onSetStatus = onSetStatus,
             onSetBotPaused = onSetBotPaused,
+            onOpenDetail = { detailOpen = true },
             onTranslate = onTranslate,
             onSuggest = onSuggest,
             translating = state.translating,
@@ -303,6 +308,20 @@ fun ChatScreen(
             )
         }
 
+        if (detailOpen) {
+            ConversationDetailSheet(
+                conversation = conversation,
+                snapshot = snapshot,
+                channelName = channelNameOf(snapshot, conversation.channelId),
+                onDismiss = { detailOpen = false },
+                onSetStatus = onSetStatus,
+                onAssign = onSetAssignee,
+                onSetPriority = onSetPriority,
+                onSetBotPaused = onSetBotPaused,
+                onMarkRead = onMarkRead,
+            )
+        }
+
         Composer(
             draft = draft,
             noteMode = noteMode,
@@ -344,6 +363,7 @@ private fun ChatHeader(
     onMarkRead: () -> Unit,
     onSetStatus: (String) -> Unit,
     onSetBotPaused: (Boolean) -> Unit,
+    onOpenDetail: () -> Unit,
     onTranslate: () -> Unit,
     onSuggest: () -> Unit,
     translating: Boolean,
@@ -397,6 +417,11 @@ private fun ChatHeader(
                             text = { Text("标记已读") },
                             onClick = { onMenuOpenChange(false); onMarkRead() },
                             leadingIcon = { Icon(Icons.Rounded.Check, contentDescription = null) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.detail_title)) },
+                            onClick = { onMenuOpenChange(false); onOpenDetail() },
+                            leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null) },
                         )
                         DropdownMenuItem(
                             text = { Text(if (translating) "翻译中…" else "翻译客户消息") },
@@ -960,3 +985,7 @@ private fun ComposerTool(
         }
     }
 }
+
+/** Channel display name for the detail sheet. */
+private fun channelNameOf(snapshot: com.ila3.dshomni.data.model.Snapshot, channelId: String): String =
+    snapshot.channel(channelId)?.name.orEmpty()

@@ -57,4 +57,25 @@
     <string name="msg_status_sent">已发送</string>
     <string name="msg_status_sending">发送中…</string>
     <string name="msg_status_failed">发送失败</string>
+    <string name="detail_title">会话详情</string>
+    <string name="detail_status">状态</string>
+    <string name="detail_status_open">待处理</string>
+    <string name="detail_status_pending">跟进中</string>
+    <string name="detail_status_solved">已解决</string>
+    <string name="detail_status_snoozed">稍后处理</string>
+    <string name="detail_assignee">负责人</string>
+    <string name="detail_unassigned">未分配</string>
+    <string name="detail_priority">优先级</string>
+    <string name="detail_priority_low">低</string>
+    <string name="detail_priority_normal">普通</string>
+    <string name="detail_priority_high">高</string>
+    <string name="detail_priority_urgent">紧急</string>
+    <string name="detail_tags">标签</string>
+    <string name="detail_no_tags">没有标签</string>
+    <string name="detail_sla">首次响应</string>
+    <string name="detail_sla_target">目标 %1$d 分钟</string>
+    <string name="detail_channel">渠道</string>
+    <string name="detail_channel_unknown">未知渠道</string>
+    <string name="detail_bot_paused">暂停 AI 接待</string>
+    <string name="detail_mark_read">标记已读</string>
 </resources>

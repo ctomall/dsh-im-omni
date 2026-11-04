@@ -3,6 +3,25 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.6.0 — 2024-11-04 (versionCode 14)
+
+### P4 — conversation details drawer
+
+- New **会话详情** bottom sheet, opened from the chat overflow menu. The chat
+  header now carries only the name, the account and the overflow, which is what
+  an IM header looks like.
+- The sheet owns the support fields: 状态 (待处理 / 跟进中 / 已解决 / 稍后处理),
+  负责人 (teammate chips + 未分配), 优先级, 标签 (read-only chips), 首次响应
+  (elapsed vs the workspace goal, red when overdue), 渠道, 暂停 AI 接待 and
+  标记已读.
+- All controls reuse the existing commands (`conversation.update` for status /
+  assignee / priority, `conversation.bot`, `conversation.read`).
+- The app model gained `assigneeId`, `firstResponseAt`, `snoozedUntil`,
+  `defaultSlaMinutes` and `autoAssign` — parsed from fields the Host already
+  returns; the API contract is untouched.
+
+Version 0.6.0 (code 14). 41 tests, 0 failures; lint clean.
+
 ## 0.5.3 — 2024-11-04 (versionCode 13)
 
 ### P3 — chat page, IM behaviour
