@@ -311,6 +311,49 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
         run("conversation.read", JSONObject().put("conversationId", conversationId))
     }
 
+    /**
+     * Mark every unread conversation read.
+     *
+     * The Host has no bulk command, so this walks the unread rows one request
+     * at a time (the same `conversation.read` the per-row action uses). A
+     * partial failure keeps the successful rows and reports how many are left,
+     * because silently marking everything read after a timeout would hide lost
+     * conversations.
+     */
+    fun markAllRead() {
+        val connection = _state.value.connection ?: return
+        val snapshot = _state.value.snapshot ?: return
+        val unread = snapshot.conversations.filter { it.unread > 0 }
+        if (unread.isEmpty()) return
+        _state.update { it.copy(busyAction = "conversation.read", error = null) }
+        viewModelScope.launch {
+            var failed = 0
+            for (conversation in unread) {
+                try {
+                    val result = api.command(
+                        connection.baseUrl,
+                        "conversation.read",
+                        JSONObject().put("conversationId", conversation.id),
+                    )
+                    result.snapshot?.let { fresh -> _state.update { it.copy(snapshot = fresh) } }
+                } catch (error: Throwable) {
+                    failed += 1
+                        if (error is ApiException && error.code == "unauthorized") {
+                            _state.update { it.copy(busyAction = null, unauthorized = true) }
+                            return@launch
+                        }
+                }
+            }
+            _state.update {
+                it.copy(
+                    busyAction = null,
+                    error = if (failed > 0) "有 $failed 个会话没能标记已读，请重试。" else it.error,
+                )
+            }
+            if (failed == 0) refresh(silent = true)
+        }
+    }
+
     /** Change conversation status (`open`, `pending`, `solved`, `snoozed`). */
     fun setConversationStatus(conversationId: String, status: String) {
         run("conversation.update", JSONObject().put("conversationId", conversationId).put("status", status))

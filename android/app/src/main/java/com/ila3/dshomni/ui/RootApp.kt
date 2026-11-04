@@ -184,6 +184,7 @@ fun RootApp(
             when (val current = route) {
                 Route.Inbox -> InboxScreen(
                     state = state,
+                    onMarkAllRead = viewModel::markAllRead,
                     onOpen = { conversation ->
                         viewModel.markRead(conversation.id)
                         route = Route.Chat(conversation.id)

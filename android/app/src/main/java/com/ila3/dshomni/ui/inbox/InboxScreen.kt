@@ -36,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +76,7 @@ fun InboxScreen(
     onRefresh: () -> Unit,
     onSwitchServer: () -> Unit,
     onDismiss: () -> Unit,
+    onMarkAllRead: () -> Unit = {},
 ) {
     val snapshot = state.snapshot
     var query by remember { mutableStateOf("") }
@@ -97,6 +99,11 @@ fun InboxScreen(
                     append(contact?.name.orEmpty()).append(' ')
                     append(contact?.company.orEmpty()).append(' ')
                     append(conversation.lastMessage?.text.orEmpty())
+                    // 0.4.0: search the whole thread, not only the newest bubble.
+                    // Capped so a long history cannot stall typing.
+                    conversation.messages.takeLast(200).forEach { message ->
+                        append(' ').append(message.text)
+                    }
                 }
                 haystack.contains(query, ignoreCase = true)
             }
@@ -148,6 +155,20 @@ fun InboxScreen(
                             selectedLabelColor = BrandBlue,
                         ),
                     )
+                }
+            }
+            val unreadTotal = snapshot?.conversations?.sumOf { it.unread } ?: 0
+            if (unreadTotal > 0) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(
+                        onClick = onMarkAllRead,
+                        enabled = state.busyAction == null,
+                    ) {
+                        Text(
+                            if (state.busyAction == "conversation.read") "处理中…" else "全部标为已读（$unreadTotal）",
+                            fontSize = 12.sp,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
