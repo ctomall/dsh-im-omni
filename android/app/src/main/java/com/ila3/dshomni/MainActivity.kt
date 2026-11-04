@@ -23,17 +23,23 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: OmniViewModel by viewModels()
     private var deepLink by mutableStateOf<PairingTarget?>(null)
+    private var openConversation by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         deepLink = pairingFrom(intent)
+        openConversation = intent.getStringExtra(EXTRA_CONVERSATION_ID)
         setContent {
             DshOmniTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    RootApp(viewModel = viewModel, deepLink = deepLink)
+                    RootApp(
+                        viewModel = viewModel,
+                        deepLink = deepLink,
+                        openConversationId = openConversation,
+                    )
                 }
             }
         }
@@ -42,6 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pairingFrom(intent)?.let { deepLink = it }
+        intent.getStringExtra(EXTRA_CONVERSATION_ID)?.let { openConversation = it }
     }
 
     /**
@@ -56,5 +63,10 @@ class MainActivity : ComponentActivity() {
         if (base.isNullOrBlank()) return null
         val normalized = PairingTarget.normalizeBase(base) ?: return null
         return PairingTarget(normalized, code.filter { it.isLetterOrDigit() || it == '-' })
+    }
+
+    companion object {
+        /** Extra set by the notification so a tap lands on the conversation. */
+        const val EXTRA_CONVERSATION_ID = "com.ila3.dshomni.CONVERSATION_ID"
     }
 }

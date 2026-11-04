@@ -12,6 +12,7 @@ import com.ila3.dshomni.data.model.Message
 import com.ila3.dshomni.data.model.Platform
 import com.ila3.dshomni.data.model.PlatformField
 import com.ila3.dshomni.data.model.Snapshot
+import com.ila3.dshomni.data.model.Template
 import com.ila3.dshomni.data.model.Workspace
 
 /**
@@ -312,6 +313,10 @@ object PreviewData {
         contacts = contacts,
         conversations = conversations,
         platforms = platforms,
+        templates = listOf(
+            Template("tpl_refund", "退款处理", "您好，退款会在 3 个工作日内原路退回，请留意查收。", listOf("chn_wa")),
+            Template("tpl_ship", "物流查询", "请把订单号发我，我这边帮您查物流进度。", emptyList()),
+        ),
         events = emptyList(),
         dataFile = "/home/ubuntu/.dsh/profiles/web/.im-omni/state.json",
         serverTime = minutesAgo(0),

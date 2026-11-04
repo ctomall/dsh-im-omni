@@ -33,7 +33,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
@@ -105,6 +107,8 @@ fun ChatScreen(
     onTranslate: () -> Unit,
     onSuggest: () -> Unit,
     onDismissSuggestions: () -> Unit,
+    onSendNote: (String) -> Unit,
+    onRetryMessage: (String) -> Unit,
     onUploadAttachment: (ByteArray, String, String, String) -> Unit,
     onLoadAttachment: suspend (String) -> ByteArray?,
     onDismissNotice: () -> Unit,
@@ -121,6 +125,9 @@ fun ChatScreen(
     val channel = snapshot.channel(conversation.channelId)
     var draft by remember(conversationId) { mutableStateOf("") }
     var menuOpen by remember { mutableStateOf(false) }
+    // 回复 / 备注：备注只进 Host，不会发给客户。
+    var noteMode by remember(conversationId) { mutableStateOf(false) }
+    var templatesOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     /** Read a picked URI into bytes plus the display name the system knows. */
@@ -208,7 +215,7 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(conversation.messages, key = { it.id }) { message ->
-                        MessageBubble(message, onLoadAttachment)
+                        MessageBubble(message, onLoadAttachment, onRetryMessage)
                     }
                 }
             }
@@ -225,8 +232,19 @@ fun ChatScreen(
             )
         }
 
+        if (templatesOpen) {
+            TemplateSheet(
+                templates = snapshot.templates.filter { it.appliesTo(conversation.channelId) },
+                onPick = { body -> draft = if (draft.isBlank()) body else "$draft\n$body"; templatesOpen = false },
+                onDismiss = { templatesOpen = false },
+            )
+        }
+
         Composer(
             draft = draft,
+            noteMode = noteMode,
+            onToggleNoteMode = { noteMode = !noteMode },
+            onOpenTemplates = { templatesOpen = true },
             onDraftChange = { draft = it },
             sending = state.busyAction == "message.send" || state.busyAction == "attachment.upload",
             uploading = state.busyAction == "attachment.upload",
@@ -240,7 +258,7 @@ fun ChatScreen(
             onSend = {
                 val body = draft.trim()
                 if (body.isNotEmpty()) {
-                    onSend(body)
+                    if (noteMode) onSendNote(body) else onSend(body)
                     draft = ""
                 }
             },
@@ -360,7 +378,11 @@ private fun ChatHeader(
 }
 
 @Composable
-private fun MessageBubble(message: Message, onLoad: suspend (String) -> ByteArray?) {
+private fun MessageBubble(
+    message: Message,
+    onLoad: suspend (String) -> ByteArray?,
+    onRetry: (String) -> Unit,
+) {
     if (message.isNote) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Surface(
@@ -455,10 +477,73 @@ private fun MessageBubble(message: Message, onLoad: suspend (String) -> ByteArra
                                 color = if (message.failed) Color(0xFFFFD9DD) else Color.White.copy(alpha = 0.72f),
                                 fontWeight = if (message.failed) FontWeight.Medium else FontWeight.Normal,
                             )
+                            if (message.failed) {
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "重试",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(Color.White.copy(alpha = 0.22f))
+                                        .clickable { onRetry(message.id) }
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/** Bottom sheet with the workspace's canned replies, filtered to this channel. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun TemplateSheet(
+    templates: List<com.ila3.dshomni.data.model.Template>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Text("快捷回复", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            if (templates.isEmpty()) {
+                Text(
+                    "这个渠道还没有可用的快捷回复，可在电脑端的「快捷回复」里添加。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn {
+                    items(templates, key = { it.id }) { template ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clickable { onPick(template.body) },
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(template.name, style = MaterialTheme.typography.titleSmall)
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    template.body,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(18.dp))
         }
     }
 }
@@ -577,6 +662,9 @@ private fun SuggestionStrip(
 @Composable
 private fun Composer(
     draft: String,
+    noteMode: Boolean,
+    onToggleNoteMode: () -> Unit,
+    onOpenTemplates: () -> Unit,
     onDraftChange: (String) -> Unit,
     sending: Boolean,
     uploading: Boolean,
@@ -596,8 +684,18 @@ private fun Composer(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
+            IconButton(onClick = onToggleNoteMode, enabled = !sending) {
+                Icon(
+                    if (noteMode) Icons.Rounded.Notes else Icons.Rounded.Description,
+                    contentDescription = if (noteMode) "退出备注模式" else "内部备注",
+                    tint = if (noteMode) Color(0xFFB07A00) else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onOpenTemplates, enabled = !sending) {
+                Icon(Icons.Rounded.Bolt, contentDescription = "快捷回复", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Box {
-                IconButton(onClick = { attachOpen = true }, enabled = !sending) {
+                IconButton(onClick = { attachOpen = true }, enabled = !sending && !noteMode) {
                     Icon(Icons.Rounded.AttachFile, contentDescription = "添加附件", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DropdownMenu(expanded = attachOpen, onDismissRequest = { attachOpen = false }) {
@@ -623,7 +721,7 @@ private fun Composer(
             OutlinedTextField(
                 value = draft,
                 onValueChange = onDraftChange,
-                placeholder = { Text("输入回复…") },
+                placeholder = { Text(if (noteMode) "输入内部备注（客户看不到）…" else "输入回复…") },
                 shape = RoundedCornerShape(20.dp),
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),

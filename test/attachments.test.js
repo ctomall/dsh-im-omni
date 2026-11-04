@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
   MAX_ATTACHMENT_BYTES,
+  pruneAttachments,
+  referencedIds,
   attachmentBytes,
   configureAttachments,
   deleteAttachment,
@@ -107,4 +109,54 @@ test('only media-capable channels accept attachments', async () => {
     attachments: [],
   })
   assert.equal(typeof passthrough.ok, 'boolean')
+})
+
+
+test('pruning removes only unreferenced, expired attachments', async () => {
+  const { dir } = await workspace()
+  try {
+    const referenced = await saveAttachment(Buffer.from('keep me'), { name: 'keep.png', type: 'image/png' })
+    const orphanOld = await saveAttachment(Buffer.from('old orphan'), { name: 'old.txt', type: 'text/plain' })
+    const orphanNew = await saveAttachment(Buffer.from('new orphan'), { name: 'new.txt', type: 'text/plain' })
+
+    // Age the old orphan past retention, and point a message at the keeper.
+    const old = new Date(Date.now() - 60 * 86_400_000)
+    await (await import('node:fs/promises')).utimes(
+      path.join(dir, 'attachments', `${orphanOld.id}.bin`),
+      old,
+      old,
+    )
+    const state = { conversations: [{ messages: [{ attachments: [{ id: referenced.id }] }] }] }
+
+    assert.deepEqual([...referencedIds(state)], [referenced.id])
+    const summary = await pruneAttachments(state, { keepDays: 30 })
+    assert.equal(summary.removed, 1)
+    assert.equal(await readAttachment(referenced.id).then((found) => found !== null), true)
+    assert.equal(await readAttachment(orphanOld.id), null)
+    assert.equal(await readAttachment(orphanNew.id).then((found) => found !== null), true)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('the byte ceiling trims the oldest orphans and stops at referenced files', async () => {
+  const { dir } = await workspace()
+  try {
+    const keep = await saveAttachment(Buffer.alloc(400, 1), { name: 'keep.bin', type: 'application/octet-stream' })
+    const orphan = await saveAttachment(Buffer.alloc(400, 2), { name: 'orphan.bin', type: 'application/octet-stream' })
+    const old = new Date(Date.now() - 86_400_000)
+    await (await import('node:fs/promises')).utimes(path.join(dir, 'attachments', `${orphan.id}.bin`), old, old)
+
+    const state = { conversations: [{ messages: [{ attachments: [{ id: keep.id }] }] }] }
+    const summary = await pruneAttachments(state, { keepDays: 365, maxBytes: 500 })
+    assert.equal(summary.removed, 1)
+    assert.equal(await readAttachment(orphan.id), null)
+    assert.notEqual(await readAttachment(keep.id), null)
+    // Over the ceiling with only referenced bytes left: nothing more is deleted.
+    const again = await pruneAttachments(state, { keepDays: 365, maxBytes: 1 })
+    assert.equal(again.removed, 0)
+    assert.notEqual(await readAttachment(keep.id), null)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 })

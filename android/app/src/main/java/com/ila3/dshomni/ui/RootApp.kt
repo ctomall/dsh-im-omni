@@ -69,7 +69,11 @@ sealed interface Route {
  * plus whatever screen the user drilled into.
  */
 @Composable
-fun RootApp(viewModel: OmniViewModel, deepLink: PairingTarget? = null) {
+fun RootApp(
+    viewModel: OmniViewModel,
+    deepLink: PairingTarget? = null,
+    openConversationId: String? = null,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var route by remember { mutableStateOf<Route>(Route.Inbox) }
     var pairingOpen by remember { mutableStateOf(false) }
@@ -101,6 +105,13 @@ fun RootApp(viewModel: OmniViewModel, deepLink: PairingTarget? = null) {
     // The Host is polled only while the app has a paired server on screen.
     LaunchedEffect(state.paired) {
         if (state.paired) viewModel.startPolling() else viewModel.stopPolling()
+    }
+
+    LaunchedEffect(openConversationId, state.paired) {
+        if (openConversationId != null && state.paired) {
+            viewModel.markRead(openConversationId)
+            route = Route.Chat(openConversationId)
+        }
     }
 
     BackHandler(enabled = showPairing) {
@@ -200,6 +211,8 @@ fun RootApp(viewModel: OmniViewModel, deepLink: PairingTarget? = null) {
                         )
                     },
                     onDismissSuggestions = viewModel::clearSuggestions,
+                    onSendNote = { text -> viewModel.sendNote(current.conversationId, text) },
+                    onRetryMessage = { messageId -> viewModel.retryMessage(messageId) },
                     onUploadAttachment = { bytes, name, type, caption ->
                         viewModel.uploadAttachment(current.conversationId, bytes, name, type, caption)
                     },

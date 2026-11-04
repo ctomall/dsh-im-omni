@@ -1,9 +1,9 @@
 {
-  "versionCode": 4,
-  "versionName": "0.2.0",
+  "versionCode": 5,
+  "versionName": "0.3.0",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.2.0.apk",
-  "sha256": "82176691c5366f7cb4d03501270910cd1cde7944ac580dae2b5780634c3632b1",
-  "notes": "新增：会话内发送/接收附件（照片与文件，WhatsApp 个人号与 Telegram 已打通）；AI 草稿可关闭、并按客户语言生成。",
-  "publishedAt": "2026-11-04T09:21:57.000Z"
+  "file": "dsh-im-omni-0.3.0.apk",
+  "sha256": "3e5624572772de2a5e5845c7c365f252c37e3721fc76703fa84766b15044c9a8",
+  "notes": "0.3.0：内部备注、失败重试、快捷回复、后台通知（锁屏可收消息）；Web 端也能发附件。",
+  "publishedAt": "2026-11-04T09:47:40.000Z"
 }

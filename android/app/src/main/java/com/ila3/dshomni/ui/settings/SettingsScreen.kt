@@ -59,6 +59,8 @@ import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.common.SectionCard
 import com.ila3.dshomni.ui.theme.BrandBlue
 import com.ila3.dshomni.ui.theme.BrandTeal
+import com.ila3.dshomni.notify.NotificationService
+import com.ila3.dshomni.notify.Notifications
 import com.ila3.dshomni.util.Times
 import com.ila3.dshomni.util.formatBytes
 import com.ila3.dshomni.util.installApk
@@ -96,8 +98,22 @@ fun SettingsScreen(
     onDismissUpdate: () -> Unit,
     onDismissNotice: () -> Unit,
 ) {
-    val snapshot = state.snapshot
     val context = LocalContext.current
+    val notifyPrefs = remember { context.getSharedPreferences("dsh_omni_notify", Context.MODE_PRIVATE) }
+    var notificationsOn by remember { mutableStateOf(notifyPrefs.getBoolean("enabled", false)) }
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            notificationsOn = true
+            notifyPrefs.edit().putBoolean("enabled", true).apply()
+            NotificationService.start(context)
+        } else {
+            notificationsOn = false
+            notifyPrefs.edit().putBoolean("enabled", false).apply()
+        }
+    }
+    val snapshot = state.snapshot
     var languageOpen by remember { mutableStateOf(false) }
     val update = state.update
 
@@ -278,6 +294,33 @@ fun SettingsScreen(
                                 JSONObject().put("bot", JSONObject().put("enabled", it)),
                                 if (it) "AI 接待已开启" else "AI 接待已关闭",
                             )
+                        },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            SectionCard("后台通知") {
+                Column {
+                    SwitchRow(
+                        title = "锁屏也能收到新消息",
+                        hint = "前台服务每 30 秒同步一次；不走 FCM，内网/公网都可用。",
+                        checked = notificationsOn,
+                        enabled = true,
+                        onChange = { want ->
+                            if (!want) {
+                                notificationsOn = false
+                                notifyPrefs.edit().putBoolean("enabled", false).apply()
+                                NotificationService.stop(context)
+                                return@SwitchRow
+                            }
+                            if (Notifications.canPost(context)) {
+                                notificationsOn = true
+                                notifyPrefs.edit().putBoolean("enabled", true).apply()
+                                NotificationService.start(context)
+                            } else {
+                                permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            }
                         },
                     )
                 }

@@ -13,6 +13,7 @@ import com.ila3.dshomni.data.model.Message
 import com.ila3.dshomni.data.model.Platform
 import com.ila3.dshomni.data.model.PlatformField
 import com.ila3.dshomni.data.model.Snapshot
+import com.ila3.dshomni.data.model.Template
 import com.ila3.dshomni.data.model.UpdateInfo
 import com.ila3.dshomni.data.model.Workspace
 import org.json.JSONArray
@@ -98,6 +99,16 @@ object DtoParser {
             contacts = state.arr("contacts").objects().map { parseContact(it) },
             conversations = state.arr("conversations").objects().map { parseConversation(it) },
             platforms = state.arr("channelPlatforms").objects().map { parsePlatform(it) },
+            templates = state.arr("templates").objects().map {
+                Template(
+                    id = it.str("id"),
+                    name = it.str("name").ifBlank { "快捷回复" },
+                    body = it.str("body"),
+                    channelIds = it.arr("channelIds").let { array ->
+                        (0 until array.length()).mapNotNull { index -> array.optString(index).takeIf(String::isNotBlank) }
+                    },
+                )
+            },
             events = state.arr("events").objects().map {
                 FeedEvent(
                     id = it.str("id"),

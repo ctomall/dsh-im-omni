@@ -135,6 +135,17 @@ data class Conversation(
     val needsAttention: Boolean get() = status == "pending" || status == "open"
 }
 
+/** One canned reply the workspace exposes. */
+data class Template(
+    val id: String,
+    val name: String,
+    val body: String,
+    val channelIds: List<String>,
+) {
+    /** Whether this template applies to a conversation on the given channel. */
+    fun appliesTo(channelId: String): Boolean = channelIds.isEmpty() || channelIds.contains(channelId)
+}
+
 /** One teammate. */
 data class Agent(val id: String, val name: String, val hue: Int)
 
@@ -162,6 +173,7 @@ data class Snapshot(
     val contacts: List<Contact>,
     val conversations: List<Conversation>,
     val platforms: List<Platform>,
+    val templates: List<Template>,
     val events: List<FeedEvent>,
     val dataFile: String,
     val serverTime: Long?,

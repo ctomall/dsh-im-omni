@@ -15,7 +15,13 @@ import { createIntelligence } from './lib/intelligence.js'
 import { ReceptionBot } from './lib/bot.js'
 import { APK_PATH, VERSION_PATH, apkResponse, versionResponse } from './lib/app.js'
 import { UpgradeError, applyUpgrade, checkUpgrade } from './lib/upgrade.js'
-import { MAX_ATTACHMENT_BYTES, configureAttachments, readAttachment, saveAttachment } from './lib/attachments.js'
+import {
+  MAX_ATTACHMENT_BYTES,
+  configureAttachments,
+  pruneAttachments,
+  readAttachment,
+  saveAttachment,
+} from './lib/attachments.js'
 import {
   ApiError,
   createSerial,
@@ -378,6 +384,32 @@ export async function apply(ctx) {
     }),
     'im-omni: provider callback route',
   )
+
+  ctx.effect(() => {
+    // Referenced bytes are never deleted; this only reclaims orphans and the
+    // old end of the store, so the attachments directory cannot grow forever.
+    let running = false
+    const sweep = async () => {
+      if (running) return
+      running = true
+      try {
+        const summary = await pruneAttachments(store.state)
+        if (summary.removed > 0) {
+          ctx.logger?.info?.(`IM attachments pruned: ${summary.removed} files, ${summary.freedBytes} bytes`)
+        }
+      } catch (error) {
+        ctx.logger?.warn?.(`IM attachment pruning failed: ${error instanceof Error ? error.message : String(error)}`)
+      } finally {
+        running = false
+      }
+    }
+    const initial = setTimeout(() => { void sweep() }, 60_000)
+    const timer = setInterval(() => { void sweep() }, 6 * 60 * 60 * 1000)
+    return () => {
+      clearTimeout(initial)
+      clearInterval(timer)
+    }
+  }, 'im-omni: attachment retention')
 
   ctx.effect(() => {
     workers.sync()

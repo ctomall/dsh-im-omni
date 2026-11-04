@@ -291,6 +291,19 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
         return api.download(connection.baseUrl, url)
     }
 
+    /** Append an internal note: visible to the team, never sent to the customer. */
+    fun sendNote(conversationId: String, text: String) {
+        if (text.isBlank()) return
+        run("message.note", JSONObject().put("conversationId", conversationId).put("text", text.trim()))
+    }
+
+    /** Re-queue one failed outbound message. */
+    fun retryMessage(messageId: String) {
+        run("message.retry", JSONObject().put("messageId", messageId)) {
+            _state.update { it.copy(notice = "已重新排队") }
+        }
+    }
+
     /** Clear the unread badge of a conversation. */
     fun markRead(conversationId: String) {
         val unread = _state.value.snapshot?.conversation(conversationId)?.unread ?: 0
