@@ -199,6 +199,22 @@ class OmniScreenshotTest {
     }
 
 
+    @Test
+    fun captureAccounts() {
+        val activity = activity()
+        activity.setContent {
+            DshOmniTheme {
+                ChannelsScreen(
+                    state = PreviewData.paired,
+                    onOpen = { },
+                    onAdd = { },
+                )
+            }
+        }
+        capture(activity, "omni-accounts.png")
+    }
+
+
     private fun activity(): ComponentActivity =
         Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
 

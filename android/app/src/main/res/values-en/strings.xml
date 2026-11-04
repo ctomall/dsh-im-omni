@@ -72,4 +72,19 @@
     <string name="detail_channel_unknown">Unknown account</string>
     <string name="detail_bot_paused">Pause AI reception</string>
     <string name="detail_mark_read">Mark as read</string>
+    <string name="accounts_title">Accounts</string>
+    <string name="accounts_add">Add</string>
+    <string name="accounts_summary">%1$d accounts · %2$d connected</string>
+    <string name="accounts_empty_title">No accounts connected</string>
+    <string name="accounts_empty_hint">Connect WhatsApp, Telegram or WeCom and customer messages land in the inbox.</string>
+    <string name="accounts_empty_cta">Connect the first account</string>
+    <string name="accounts_no_server">No server yet</string>
+    <string name="accounts_no_server_hint">Your accounts appear here once pairing succeeds.</string>
+    <string name="accounts_paused">Paused</string>
+    <string name="accounts_official">Official</string>
+    <string name="accounts_pause">Pause receiving</string>
+    <string name="accounts_resume">Resume receiving</string>
+    <string name="accounts_test">Test connection</string>
+    <string name="accounts_config">View settings</string>
+    <string name="accounts_traffic">In %1$d · out %2$d</string>
 </resources>

@@ -21,7 +21,7 @@
     <!-- 主导航 -->
     <string name="tab_chats">会话</string>
     <string name="tab_contacts">联系人</string>
-    <string name="tab_channels">渠道</string>
+    <string name="tab_channels">账号</string>
     <string name="tab_me">我</string>
 
     <!-- 联系人页 -->
@@ -78,4 +78,19 @@
     <string name="detail_channel_unknown">未知渠道</string>
     <string name="detail_bot_paused">暂停 AI 接待</string>
     <string name="detail_mark_read">标记已读</string>
+    <string name="accounts_title">账号</string>
+    <string name="accounts_add">添加</string>
+    <string name="accounts_summary">%1$d 个账号 · %2$d 已连接</string>
+    <string name="accounts_empty_title">还没有接入账号</string>
+    <string name="accounts_empty_hint">接入 WhatsApp、Telegram、企业微信等账号后，客户消息会进入会话列表。</string>
+    <string name="accounts_empty_cta">接入第一个账号</string>
+    <string name="accounts_no_server">尚未连接服务器</string>
+    <string name="accounts_no_server_hint">配对成功后这里会列出全部账号。</string>
+    <string name="accounts_paused">已暂停</string>
+    <string name="accounts_official">官方</string>
+    <string name="accounts_pause">暂停接收</string>
+    <string name="accounts_resume">恢复接收</string>
+    <string name="accounts_test">连接测试</string>
+    <string name="accounts_config">查看配置</string>
+    <string name="accounts_traffic">收 %1$d · 发 %2$d</string>
 </resources>

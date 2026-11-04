@@ -3,6 +3,21 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.6.1 — 2024-11-04 (versionCode 15)
+
+### P5 — channels become accounts
+
+- The tab and page are now **账号** (Accounts): each row is one messaging account
+  with its platform badge, the access method (WhatsApp Cloud / Telegram bot /
+  WeCom app …), its health dot and traffic counters.
+- Per-row overflow keeps the operator actions in reach: 暂停接收 / 恢复接收
+  (channel.update status), 连接测试 (channel.test) and 查看配置 (channel detail).
+  Row tap still opens the existing configuration screen, so every account
+  setting stays where it was.
+- Empty and no-server states read as IM copy and offer 接入第一个账号.
+
+Version 0.6.1 (code 15). 44 tests, 0 failures; lint clean.
+
 ## 0.6.0 — 2024-11-04 (versionCode 14)
 
 ### P4 — conversation details drawer

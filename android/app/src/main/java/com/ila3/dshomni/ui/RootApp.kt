@@ -251,6 +251,15 @@ fun RootApp(
                     state = state,
                     onOpen = { route = Route.ChannelDetail(it.id) },
                     onAdd = { route = Route.AddChannel },
+                    onToggleStatus = { channel ->
+                        viewModel.updateChannel(
+                            channel,
+                            channel.name,
+                            channel.description,
+                            if (channel.isPaused) "active" else "paused",
+                        )
+                    },
+                    onTest = { channel -> viewModel.testChannel(channel.id) },
                 )
                 Route.AddChannel -> AddChannelScreen(
                     state = state,

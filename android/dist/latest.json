@@ -1,9 +1,9 @@
 {
-  "versionCode": 14,
-  "versionName": "0.6.0",
+  "versionCode": 15,
+  "versionName": "0.6.1",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.6.0.apk",
-  "sha256": "97bbebe1ec6cf8d88c394ccd1b277ae8691a414d432bea86646db4eef8275172",
-  "notes": "0.6.0（P4 会话详情）：状态/负责人/优先级/标签/SLA/机器人开关收进底部抽屉。",
-  "publishedAt": "2026-11-04T14:14:52.000Z"
+  "file": "dsh-im-omni-0.6.1.apk",
+  "sha256": "09acb317b09527e8dbbccab3a891d37556ea6549c6ece8d513a0d12445f67dd1",
+  "notes": "0.6.1（P5 账号）：渠道页改为账号语义，行内接入方式/健康度/流量，菜单含暂停、连接测试、查看配置。",
+  "publishedAt": "2026-11-04T14:23:21.000Z"
 }
