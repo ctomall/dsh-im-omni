@@ -36,6 +36,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="dshomni" android:host="pair" />
             </intent-filter>
+            <!-- Notification links: dshomni://chat/<conversationId> -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dshomni" android:host="chat" />
+            </intent-filter>
         </activity>
 
         <service

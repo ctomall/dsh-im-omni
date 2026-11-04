@@ -378,8 +378,8 @@ fun RootApp(
                 Route.Settings -> SettingsScreen(
                     notify = state.notify,
                     onLoadNotify = { viewModel.loadNotify() },
-                    onSaveNotify = { enabled, webhook, quietStart, quietEnd ->
-                        viewModel.saveNotify(enabled, webhook, quietStart, quietEnd)
+                    onSaveNotify = { enabled, webhook, quietStart, quietEnd, linkTemplate ->
+                        viewModel.saveNotify(enabled, webhook, quietStart, quietEnd, linkTemplate)
                     },
                     onTestNotify = { viewModel.testNotify() },
                     account = AccountInfo(

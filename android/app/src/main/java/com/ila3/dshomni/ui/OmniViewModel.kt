@@ -67,6 +67,7 @@ data class NotifyUiState(
     val webhook: String = "",
     val quietStart: String = "",
     val quietEnd: String = "",
+    val linkTemplate: String = "",
     val busy: Boolean = false,
     val message: String? = null,
 )
@@ -449,6 +450,7 @@ private fun fail(error: Throwable) {
                             webhook = json.optString("wecomWebhook"),
                             quietStart = json.optString("quietStart"),
                             quietEnd = json.optString("quietEnd"),
+                            linkTemplate = json.optString("linkTemplate"),
                         ),
                     )
                 }
@@ -459,7 +461,7 @@ private fun fail(error: Throwable) {
     }
 
     /** Persist notification settings. */
-    fun saveNotify(enabled: Boolean, webhook: String, quietStart: String, quietEnd: String) {
+    fun saveNotify(enabled: Boolean, webhook: String, quietStart: String, quietEnd: String, linkTemplate: String) {
         val active = _state.value.connection ?: return
         if (!active.id.startsWith("v1:")) return
         val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return
@@ -467,7 +469,7 @@ private fun fail(error: Throwable) {
         viewModelScope.launch {
             runCatching {
                 val token = ensureFreshToken(active.baseUrl, session.accessToken)
-                V1Api().saveNotifySettings(active.baseUrl, token, enabled, webhook, quietStart, quietEnd)
+                V1Api().saveNotifySettings(active.baseUrl, token, enabled, webhook, quietStart, quietEnd, linkTemplate)
             }.onSuccess { json ->
                 _state.update {
                     it.copy(
@@ -477,6 +479,7 @@ private fun fail(error: Throwable) {
                             webhook = json.optString("wecomWebhook"),
                             quietStart = json.optString("quietStart"),
                             quietEnd = json.optString("quietEnd"),
+                            linkTemplate = json.optString("linkTemplate"),
                             message = getApplication<android.app.Application>().getString(com.ila3.dshomni.R.string.notify_saved),
                         ),
                     )

@@ -128,11 +128,13 @@ class V1Api(
         webhook: String,
         quietStart: String,
         quietEnd: String,
+        linkTemplate: String,
     ): JSONObject = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("enabled", enabled)
             .put("quietStart", quietStart)
             .put("quietEnd", quietEnd)
+            .put("linkTemplate", linkTemplate)
         if (webhook.isNotBlank()) body.put("wecomWebhook", webhook)
         put(baseUrl, "/v1/settings/notify", accessToken, body).optJSONObject("notify") ?: JSONObject()
     }

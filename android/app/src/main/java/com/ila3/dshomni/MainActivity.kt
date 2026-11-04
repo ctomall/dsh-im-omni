@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         deepLink = pairingFrom(intent)
-        openConversation = intent.getStringExtra(EXTRA_CONVERSATION_ID)
+        openConversation = intent.getStringExtra(EXTRA_CONVERSATION_ID) ?: chatFrom(intent)
         setContent {
             var themeMode by remember { mutableStateOf(ThemeStore.load(this)) }
             DshOmniTheme(mode = themeMode) {
@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pairingFrom(intent)?.let { deepLink = it }
-        intent.getStringExtra(EXTRA_CONVERSATION_ID)?.let { openConversation = it }
+        (intent.getStringExtra(EXTRA_CONVERSATION_ID) ?: chatFrom(intent))?.let { openConversation = it }
     }
 
     /**
@@ -72,6 +72,16 @@ class MainActivity : ComponentActivity() {
         if (base.isNullOrBlank()) return null
         val normalized = PairingTarget.normalizeBase(base) ?: return null
         return PairingTarget(normalized, code.filter { it.isLetterOrDigit() || it == '-' })
+    }
+
+    /**
+     * Parse a `dshomni://chat/<conversationId>` link — the one the notification
+     * card carries. Returns null for any other intent.
+     */
+    private fun chatFrom(intent: Intent?): String? {
+        val data = intent?.data ?: return null
+        if (data.scheme != "dshomni" || data.host != "chat") return null
+        return data.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() }
     }
 
     companion object {

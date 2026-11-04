@@ -815,7 +815,11 @@ route('POST', '/v1/webhooks/([0-9a-f-]{36})', async (request, response, params) 
             )
             return { contactName: contact.rows[0]?.name, channelName: channelRow.rows[0]?.name }
           })
-          await notifyInboundMessage(tenantId, { ...details, text: String(payload.text ?? '') })
+          await notifyInboundMessage(tenantId, {
+            ...details,
+            text: String(payload.text ?? ''),
+            conversationId: result.conversationId,
+          })
         } catch (error) {
           console.warn('notify failed:', error instanceof Error ? error.message : String(error))
         }

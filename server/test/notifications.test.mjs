@@ -156,6 +156,32 @@ test('an inbound webhook notifies the robot', async () => {
   assert.ok(received.at(-1).includes('通知客户'))
 })
 
+test('a link template adds a deep link to the card', async () => {
+  const session = await register('notify-link')
+  const tenantId = session.tenants[0].tenant_id
+  await admin.query(
+    `INSERT INTO tenant_notify (tenant_id, enabled, wecom_webhook, link_template)
+     VALUES ($1, true, $2, 'dshomni://chat/{conversationId}')
+     ON CONFLICT (tenant_id) DO UPDATE SET wecom_webhook = EXCLUDED.wecom_webhook, link_template = EXCLUDED.link_template, enabled = true`,
+    [tenantId, `http://127.0.0.1:${robot.address().port}/send`],
+  )
+  const channel = await admin.query(
+    "INSERT INTO channels (tenant_id, type, name) VALUES ($1,'telegram','链接通道') RETURNING id",
+    [tenantId],
+  )
+  const before = received.length
+  await fetch(`${base}/v1/webhooks/${channel.rows[0].id}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone: '+8613800000010', name: '链接客户', text: '看得到链接吗', externalId: 'link-1' }),
+  })
+  for (let attempt = 0; attempt < 20 && received.length === before; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  assert.ok(received.length > before, 'robot did not receive the card')
+  assert.match(received.at(-1), /dshomni:\/\/chat\//)
+})
+
 test('quiet hours are evaluated with midnight wrap-around', () => {
   const at = (hour, minute = 0) => new Date(2026, 10, 4, hour, minute)
   assert.equal(inQuietHours(at(23), '22:00', '08:00'), true)

@@ -349,6 +349,14 @@ server/src/app.mjs                          GET/PUT /v1/settings/notify、POST /
   点发送测试收到 Test card sent，本地桥收到 markdown 卡片；再打一条入站，
   桥收到 王小雨 · 售后 WhatsApp / 换成蓝色的话还有货吗？。
 
+## 17. 通知深链
+
+- `tenant_notify.link_template`（默认空）里写 `dshomni://chat/{conversationId}`，卡片就带 [打开会话]。
+- App 注册了 `dshomni://chat` 的 intent-filter，MainActivity 解析 path 后直接跳到该会话；
+  冷启动（有会话）与热启动（onNewIntent）都覆盖。
+- 验证：48 个服务端用例全绿；模拟器 `am start -a VIEW -d dshomni://chat/<id>` 直接落在
+  「王小雨」会话（三条入站消息可见）。
+
 ## 17. 风险与取舍
 
 | 风险 | 说明 | 缓解 |

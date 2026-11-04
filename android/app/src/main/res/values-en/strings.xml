@@ -114,4 +114,5 @@
     <string name="notify_saved">Saved</string>
     <string name="notify_test_sent">Test card sent</string>
     <string name="notify_hint">A card lands in your WeCom group when a customer writes.</string>
+    <string name="notify_link">Tap-through link ({conversationId})</string>
 </resources>

@@ -117,7 +117,7 @@ fun SettingsScreen(
     account: AccountInfo? = null,
     notify: com.ila3.dshomni.ui.NotifyUiState = com.ila3.dshomni.ui.NotifyUiState(),
     onLoadNotify: () -> Unit = {},
-    onSaveNotify: (Boolean, String, String, String) -> Unit = { _, _, _, _ -> },
+    onSaveNotify: (Boolean, String, String, String, String) -> Unit = { _, _, _, _, _ -> },
     onTestNotify: () -> Unit = {},
     onSwitchTenant: (String) -> Unit = {},
     onSignOut: () -> Unit = {},
@@ -243,7 +243,12 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )
-                        Switch(checked = notify.enabled, onCheckedChange = { onSaveNotify(it, "", notify.quietStart, notify.quietEnd) })
+                        Switch(
+                            checked = notify.enabled,
+                            onCheckedChange = {
+                                onSaveNotify(it, "", notify.quietStart, notify.quietEnd, notify.linkTemplate)
+                            },
+                        )
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -270,7 +275,7 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = notify.quietStart,
-                            onValueChange = { onSaveNotify(notify.enabled, "", it, notify.quietEnd) },
+                            onValueChange = { onSaveNotify(notify.enabled, "", it, notify.quietEnd, notify.linkTemplate) },
                             label = { Text(stringResource(R.string.notify_quiet_start)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
@@ -278,12 +283,21 @@ fun SettingsScreen(
                         Spacer(Modifier.width(8.dp))
                         OutlinedTextField(
                             value = notify.quietEnd,
-                            onValueChange = { onSaveNotify(notify.enabled, "", notify.quietStart, it) },
+                            onValueChange = { onSaveNotify(notify.enabled, "", notify.quietStart, it, notify.linkTemplate) },
                             label = { Text(stringResource(R.string.notify_quiet_end)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
                     }
+                    Spacer(Modifier.height(8.dp))
+                    var linkTemplate by remember(notify.linkTemplate) { mutableStateOf(notify.linkTemplate) }
+                    OutlinedTextField(
+                        value = linkTemplate,
+                        onValueChange = { linkTemplate = it },
+                        label = { Text(stringResource(R.string.notify_link)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(
@@ -291,7 +305,7 @@ fun SettingsScreen(
                                 // An unchanged field still holds the masked value;
                                 // passing "" keeps the stored secret untouched.
                                 val candidate = if (webhook == notify.webhook) "" else webhook
-                                onSaveNotify(notify.enabled, candidate, notify.quietStart, notify.quietEnd)
+                                onSaveNotify(notify.enabled, candidate, notify.quietStart, notify.quietEnd, linkTemplate)
                             },
                             enabled = !notify.busy,
                         ) {

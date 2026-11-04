@@ -25,6 +25,7 @@ export async function notifySettings(tenantId) {
       quiet_start: '',
       quiet_end: '',
       private_preview: false,
+      link_template: '',
     }
   })
 }
@@ -42,6 +43,7 @@ export function publicNotifySettings(row) {
     quietStart: row.quiet_start ?? '',
     quietEnd: row.quiet_end ?? '',
     privatePreview: row.private_preview === true,
+    linkTemplate: row.link_template ?? '',
   }
 }
 
@@ -62,15 +64,17 @@ export async function saveNotifySettings(tenantId, input) {
     if (webhook !== undefined && webhook !== '' && !/^https:\/\//i.test(webhook)) {
       throw Object.assign(new Error('企业微信机器人地址必须以 https:// 开头。'), { status: 422, code: 'invalid-webhook' })
     }
+    const linkTemplate = typeof input.linkTemplate === 'string' ? input.linkTemplate.trim() : undefined
     const result = await client.query(
-      `INSERT INTO tenant_notify (tenant_id, enabled, wecom_webhook, quiet_start, quiet_end, private_preview, updated_at)
-       VALUES ($1, COALESCE($2, false), COALESCE($3, ''), COALESCE($4, ''), COALESCE($5, ''), COALESCE($6, false), now())
+      `INSERT INTO tenant_notify (tenant_id, enabled, wecom_webhook, quiet_start, quiet_end, private_preview, link_template, updated_at)
+       VALUES ($1, COALESCE($2, false), COALESCE($3, ''), COALESCE($4, ''), COALESCE($5, ''), COALESCE($6, false), COALESCE($8, ''), now())
        ON CONFLICT (tenant_id) DO UPDATE SET
          enabled = COALESCE(EXCLUDED.enabled, tenant_notify.enabled),
          wecom_webhook = CASE WHEN $3 IS NULL AND $7 THEN tenant_notify.wecom_webhook ELSE EXCLUDED.wecom_webhook END,
          quiet_start = CASE WHEN $4 IS NULL THEN tenant_notify.quiet_start ELSE EXCLUDED.quiet_start END,
          quiet_end = CASE WHEN $5 IS NULL THEN tenant_notify.quiet_end ELSE EXCLUDED.quiet_end END,
          private_preview = COALESCE(EXCLUDED.private_preview, tenant_notify.private_preview),
+         link_template = CASE WHEN $8 IS NULL THEN tenant_notify.link_template ELSE EXCLUDED.link_template END,
          updated_at = now()
        RETURNING *`,
       [
@@ -81,6 +85,7 @@ export async function saveNotifySettings(tenantId, input) {
         typeof input.quietEnd === 'string' ? input.quietEnd : null,
         typeof input.privatePreview === 'boolean' ? input.privatePreview : null,
         webhook === undefined,
+        linkTemplate === undefined ? null : linkTemplate,
       ],
     )
     return result.rows[0]
@@ -118,6 +123,7 @@ export function buildNotifyPayload(input) {
   const header = [input.contactName ?? '客户', input.channelName].filter(Boolean).join(' · ')
   const lines = [`**${header}**`.trim(), preview]
   if (typeof input.unread === 'number' && input.unread > 0) lines.push(`> 未读 ${input.unread}`)
+  if (typeof input.link === 'string' && input.link !== '') lines.push(`[打开会话](${input.link})`)
   return { msgtype: 'markdown', markdown: { content: lines.join('\n') } }
 }
 
@@ -160,7 +166,10 @@ export async function notifyInbound(tenantId, input, options = {}) {
   if (inQuietHours(options.now ?? new Date(), settings.quiet_start, settings.quiet_end)) {
     return { skipped: 'quiet-hours' }
   }
-  const payload = buildNotifyPayload({ ...input, privatePreview: settings.private_preview })
+  const link = typeof settings.link_template === 'string' && settings.link_template !== ''
+    ? settings.link_template.replaceAll('{conversationId}', encodeURIComponent(input.conversationId ?? ''))
+    : ''
+  const payload = buildNotifyPayload({ ...input, privatePreview: settings.private_preview, link })
   const result = await postWecom(settings.wecom_webhook, payload, options.fetchImpl ?? fetch)
   return { ok: result.ok, status: result.status }
 }
