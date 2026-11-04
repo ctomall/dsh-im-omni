@@ -366,6 +366,13 @@ server/src/app.mjs                          GET/PUT /v1/settings/notify、POST /
 - 验证：50 个服务端用例全绿（新增：静音会话不响、窗口内两条只发一张且 suppressed>=1）；
   模拟器实拍：开关打开后 `conversations.muted=t`，再打入站消息，本地桥日志行数不变（9→9）。
 
+## 18. 通知降噪的可读性
+
+- 聚合后的下一张卡片附带 `另有 N 条新消息`（读取 notify_log.suppressed 后清零）。
+- App 会话列表对被静音的会话显示「铃铛斜杠」图标，位置在未读徽标左侧。
+- 验证：51 个服务端用例全绿（新增：窗口外发送时带上 suppressed 计数并清零）；
+  模拟器实拍 docs/v1-mute-list.png。
+
 ## 17. 风险与取舍
 
 | 风险 | 说明 | 缓解 |

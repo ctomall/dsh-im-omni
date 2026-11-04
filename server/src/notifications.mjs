@@ -123,6 +123,7 @@ export function buildNotifyPayload(input) {
   const header = [input.contactName ?? '客户', input.channelName].filter(Boolean).join(' · ')
   const lines = [`**${header}**`.trim(), preview]
   if (typeof input.unread === 'number' && input.unread > 0) lines.push(`> 未读 ${input.unread}`)
+  if (typeof input.extra === 'number' && input.extra > 0) lines.push(`> 另有 ${input.extra} 条新消息`)
   if (typeof input.link === 'string' && input.link !== '') lines.push(`[打开会话](${input.link})`)
   return { msgtype: 'markdown', markdown: { content: lines.join('\n') } }
 }
@@ -198,11 +199,12 @@ export async function notifyInbound(tenantId, input, options = {}) {
         )
         return true
       }
+      const suppressed = Number(existing.rows[0].suppressed ?? 0)
       await client.query(
         'UPDATE notify_log SET last_sent_at = $3, suppressed = 0 WHERE tenant_id = $1 AND conversation_id = $2',
         [tenantId, conversationId, now],
       )
-      return false
+      return { suppressed }
     }
     await client.query(
       'INSERT INTO notify_log (tenant_id, conversation_id, last_sent_at) VALUES ($1, $2, $3)',
@@ -210,11 +212,12 @@ export async function notifyInbound(tenantId, input, options = {}) {
     )
     return false
   })
-  if (aggregated) return { skipped: 'aggregated' }
+  if (aggregated === true) return { skipped: 'aggregated' }
+  const extra = typeof aggregated === 'object' && aggregated !== null ? aggregated.suppressed : 0
   const link = typeof settings.link_template === 'string' && settings.link_template !== ''
     ? settings.link_template.replaceAll('{conversationId}', encodeURIComponent(input.conversationId ?? ''))
     : ''
-  const payload = buildNotifyPayload({ ...input, privatePreview: settings.private_preview, link })
+  const payload = buildNotifyPayload({ ...input, privatePreview: settings.private_preview, link, extra })
   const result = await postWecom(settings.wecom_webhook, payload, options.fetchImpl ?? fetch)
   return { ok: result.ok, status: result.status }
 }

@@ -265,3 +265,44 @@ test('two messages within the window send one card', async () => {
   )
   assert.ok(log.rows[0].suppressed >= 1)
 })
+
+test('the next card mentions how many were suppressed', async () => {
+  const session = await register('notify-count')
+  const tenantId = session.tenants[0].tenant_id
+  await admin.query(
+    `INSERT INTO tenant_notify (tenant_id, enabled, wecom_webhook)
+     VALUES ($1, true, $2)
+     ON CONFLICT (tenant_id) DO UPDATE SET enabled = true, wecom_webhook = EXCLUDED.wecom_webhook`,
+    [tenantId, `http://127.0.0.1:${robot.address().port}/send`],
+  )
+  const channel = await admin.query(
+    "INSERT INTO channels (tenant_id, type, name) VALUES ($1,'telegram','计数通道') RETURNING id",
+    [tenantId],
+  )
+  const before = received.length
+  for (const [index, text] of ['一', '二', '三'].entries()) {
+    await fetch(`${base}/v1/webhooks/${channel.rows[0].id}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone: '+8613800000013', name: '计数客户', text, externalId: `count-${index}` }),
+    })
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  assert.equal(received.length - before, 1)
+
+  // Move the window into the past, then one more message should report the two
+  // suppressed ones and reset the counter.
+  await admin.query(
+    "UPDATE notify_log SET last_sent_at = now() - interval '5 minutes' WHERE tenant_id = $1",
+    [tenantId],
+  )
+  await fetch(`${base}/v1/webhooks/${channel.rows[0].id}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone: '+8613800000013', name: '计数客户', text: '四', externalId: 'count-3' }),
+  })
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  assert.equal(received.length - before, 2)
+  assert.match(received.at(-1), /另有 2 条新消息/)
+})

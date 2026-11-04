@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -350,6 +351,15 @@ private fun ConversationRow(conversation: Conversation, snapshot: Snapshot, onCl
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (conversation.muted) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        Icons.Rounded.NotificationsOff,
+                        contentDescription = stringResource(R.string.detail_muted),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
                 if (conversation.unread > 0) {
                     Spacer(Modifier.width(6.dp))
                     Box(

@@ -43,6 +43,10 @@ versioned separately; this file tracks `com.ila3.dshomni`.
   不发卡片；同一会话 60 秒内的后续消息只累加 suppressed，不连发。
 - Screenshots: docs/v1-muted.png.
 
+- 会话列表对被静音的会话显示铃铛斜杠标记；聚合窗口结束后，下一张企业微信卡片会带上
+  「另有 N 条新消息」。
+- Screenshots: docs/v1-mute-list.png.
+
 - Inbound messages now appear in the app: a provider webhook lands in Postgres,
   the inbox shows the new contact with an unread badge and the chat renders the
   customer bubble (docs/v1-inbound-inbox.png, docs/v1-inbound.png).
