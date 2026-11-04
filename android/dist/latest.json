@@ -1,9 +1,9 @@
 {
-  "versionCode": 7,
-  "versionName": "0.4.0",
+  "versionCode": 8,
+  "versionName": "0.4.1",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.4.0.apk",
-  "sha256": "61574a8bc60cf76c36e533c4ce3883fa169b923c6ba5af7b019bdb6669494ba9",
-  "notes": "0.4.0：Harbor 视觉重构（深浅色、设计令牌、可关闭动效）；主题模式、全部已读、全线程搜索、附件全屏预览；稳定发布签名。",
-  "publishedAt": "2026-11-04T11:45:45.000Z"
+  "file": "dsh-im-omni-0.4.1.apk",
+  "sha256": "d45c6dd8e60f7d71f27abbf9aa530601c9cfae4e9d507d3619f071dc3436a666",
+  "notes": "0.4.1：新增文案进 strings.xml（中/英）；修复公网入口配对 POST 被反代缓冲卡住的问题。",
+  "publishedAt": "2026-11-04T12:10:28.000Z"
 }

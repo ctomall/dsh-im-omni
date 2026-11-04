@@ -3,6 +3,21 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.4.1 — 2024-11-04 (versionCode 8)
+
+### Changed
+
+- The strings added in 0.4.0 (theme card, bulk-read action, search hint, image
+  preview) now live in `res/values/strings.xml` with an English
+  `res/values-en/strings.xml`, instead of inline Kotlin literals. No visual
+  change in Chinese; English devices stop falling back to Chinese for these.
+
+### Fixed
+
+- Pairing over the public Cloudflare entry: `/phone` was proxied unbuffered, so
+  cloudflared stalled every `POST` to the pairing form and the app sat on
+  「配对中…」. nginx now buffers that location (server-side fix, no app change).
+
 ## 0.4.0 — 2024-11-04 (versionCode 7)
 
 ### Visual refresh (Harbor)

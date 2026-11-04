@@ -29,7 +29,7 @@ import org.robolectric.annotation.GraphicsMode
  * emulator smoke test covers rendering, this covers what a tap actually does.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(sdk = [34], qualifiers = "zh-rCN-w411dp-h891dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class UiInteractionTest {
 

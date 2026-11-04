@@ -3,6 +3,7 @@ package com.ila3.dshomni.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ila3.dshomni.R
 import com.ila3.dshomni.data.local.ConnectionStore
 import com.ila3.dshomni.data.local.CookieStore
 import com.ila3.dshomni.data.model.Attachment
@@ -347,7 +348,7 @@ class OmniViewModel(app: Application) : AndroidViewModel(app) {
             _state.update {
                 it.copy(
                     busyAction = null,
-                    error = if (failed > 0) "有 $failed 个会话没能标记已读，请重试。" else it.error,
+                    error = if (failed > 0) getApplication<android.app.Application>().getString(R.string.inbox_mark_all_failed, failed) else it.error,
                 )
             }
             if (failed == 0) refresh(silent = true)

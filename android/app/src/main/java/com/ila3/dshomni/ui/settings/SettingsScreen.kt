@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -54,6 +55,7 @@ import com.ila3.dshomni.BuildConfig
 import com.ila3.dshomni.data.model.EntryKind
 import com.ila3.dshomni.ui.UiState
 import com.ila3.dshomni.ui.UpdateState
+import com.ila3.dshomni.R
 import com.ila3.dshomni.ui.common.Banner
 import com.ila3.dshomni.ui.common.FieldValue
 import com.ila3.dshomni.ui.common.Pill
@@ -225,28 +227,28 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
             SectionCard("外观") {
                 Column(Modifier.padding(horizontal = Spacing.md, vertical = 12.dp)) {
-                    Text("主题", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.settings_theme_title), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = themeMode == ThemeMode.SYSTEM,
                             onClick = { onThemeMode(ThemeMode.SYSTEM) },
-                            label = { Text("跟随系统") },
+                            label = { Text(stringResource(R.string.settings_theme_system)) },
                         )
                         FilterChip(
                             selected = themeMode == ThemeMode.LIGHT,
                             onClick = { onThemeMode(ThemeMode.LIGHT) },
-                            label = { Text("浅色") },
+                            label = { Text(stringResource(R.string.settings_theme_light)) },
                         )
                         FilterChip(
                             selected = themeMode == ThemeMode.DARK,
                             onClick = { onThemeMode(ThemeMode.DARK) },
-                            label = { Text("深色") },
+                            label = { Text(stringResource(R.string.settings_theme_dark)) },
                         )
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "主题选择保存在本机，切换服务器不会改变它。",
+                        stringResource(R.string.settings_theme_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

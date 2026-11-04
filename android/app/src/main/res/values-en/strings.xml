@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Omni Inbox</string>
+
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_hint">Saved on this device; switching servers does not change it.</string>
+
+    <string name="inbox_search_hint">Search customers, companies or messages</string>
+    <string name="inbox_mark_all">Mark all read (%1$d)</string>
+    <string name="inbox_marking">Working…</string>
+    <string name="inbox_mark_all_failed">%1$d conversations could not be marked read — try again.</string>
+
+    <string name="chat_preview_title">Image preview</string>
+</resources>
