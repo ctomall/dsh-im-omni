@@ -170,6 +170,10 @@ ui/         compose：chat/ inbox/ contacts/ channels/ settings/
 
 ## 7. 与现有实现的兼容
 
+> 现状（S4 结束）：账号、租户、设备、计费、发消息已经在新服务 `server/`；
+> 会话/消息的**读取面**与 webhook 接入仍在 DSH 插件（`/api/im-omni.*`），
+> 插件端点为 deprecated，仅作开发壳与数据面过渡，计划在数据面迁移后下线。
+
 - 旧端点 `/api/im-omni.state`、`.command` 保留给 Web 控制台与旧版 App，标记 deprecated。
 - v1 是对旧命令的**薄封装**：`POST /v1/messages` → `message.send`，`PATCH /conversations/{id}` → `conversation.update`。
 - App 升级：`versionCode` 单调递增 + 应用内 updater 已有，继续沿用。

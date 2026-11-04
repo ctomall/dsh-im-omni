@@ -6,6 +6,30 @@
 > 多租户与账号体系见 `SAAS-ARCHITECTURE.md`。下文接口默认带租户上下文：
 > `Authorization: Bearer <accessToken>`，租户由 token 声明或 `X-Tenant-Id` 指定。
 
+## 0.0 实现状态
+
+本文件是**契约**，不等于全部已实现。状态以 `server/src/app.mjs` 的路由为准，
+并由 `server/test/docs-consistency.test.mjs` 自动校验（文档与代码不一致时测试失败）。
+
+| 能力 | 端点 | 状态 |
+| --- | --- | --- |
+| 注册 / 登录 / 刷新 | `POST /v1/auth/{register,login,refresh}` | ✅ 已实现 |
+| 切换租户 | `POST /v1/auth/switch` | ✅ 已实现 |
+| 我的信息 | `GET /v1/me` | ✅ 已实现 |
+| 租户 / 成员 | `POST /v1/tenants`、`GET /v1/tenants/{id}/members` | ✅ 已实现 |
+| 邀请 | `POST /v1/tenants/{id}/invites`、`POST /v1/invites/accept` | ✅ 已实现 |
+| 设备 | `POST /v1/devices/{code,link,register}`、`GET /v1/devices`、`DELETE /v1/devices/{id}` | ✅ 已实现 |
+| 会话列表 | `GET /v1/conversations` | ✅ 已实现（无分页，限 50 条） |
+| 发消息 | `POST /v1/messages` | ✅ 已实现（幂等 + 配额 + 计量） |
+| 计费 | `GET /v1/billing/{plan,usage,invoices}`、`POST /v1/billing/invoices`、`POST /v1/billing/invoices/{id}/status` | ✅ 已实现 |
+| 运维 | `GET /healthz`、`GET /metrics` | ✅ 已实现 |
+| 增量同步 | `GET /v1/sync`、`GET /v1/bootstrap` | ⏳ 规划中（S2 数据面迁移） |
+| 分页消息 | `GET /v1/conversations/{id}/messages` | ⏳ 规划中 |
+| 会话属性更新 | `PATCH /v1/conversations/{id}`、`POST /v1/conversations/{id}/read` | ⏳ 规划中 |
+| 搜索 | `GET /v1/messages?q=` | ⏳ 规划中 |
+| 附件 | `POST /v1/attachments`、`GET /v1/attachments/{id}` | ⏳ 规划中 |
+| 推送注册 | `POST /v1/devices/{id}/push` | ⏳ 规划中（当前用企业微信机器人） |
+
 ## 0. 通用
 
 - **Base**：`https://<host>/api/im-omni/v1`
