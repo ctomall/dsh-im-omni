@@ -24,9 +24,9 @@ import android.content.Context
 import android.content.ContextWrapper
 
 /** Plugin brand: the web sidebar icon's blue-to-teal sweep. */
-val BrandBlue = Color(0xFF2F6BFF)
-val BrandTeal = Color(0xFF16B8A6)
-val BrandViolet = Color(0xFF7B5CFF)
+val BrandBlue = Color(0xFF07C160)
+val BrandTeal = Color(0xFF06AD56)
+val BrandViolet = Color(0xFF576B95)
 
 /** Health colors shared by channel rows and dots. */
 val HealthOk = Color(0xFF2CD4A0)
@@ -34,51 +34,71 @@ val HealthWarn = Color(0xFFFFB020)
 val HealthBad = Color(0xFFFF5D6C)
 
 private val DarkScheme = darkColorScheme(
-    primary = Color(0xFF4C8DFF),
-    onPrimary = Color(0xFF04101F),
-    primaryContainer = Color(0xFF16335F),
-    onPrimaryContainer = Color(0xFFD8E6FF),
-    secondary = Color(0xFF2BC7B4),
-    onSecondary = Color(0xFF03231F),
-    secondaryContainer = Color(0xFF0F3A35),
-    onSecondaryContainer = Color(0xFFB7F1E8),
-    tertiary = Color(0xFF9A8CFF),
-    background = Color(0xFF0B1220),
-    onBackground = Color(0xFFE8EEF9),
-    surface = Color(0xFF121B2E),
-    onSurface = Color(0xFFE8EEF9),
-    surfaceVariant = Color(0xFF1A2438),
-    onSurfaceVariant = Color(0xFFA9B9D0),
-    surfaceContainer = Color(0xFF162034),
-    outline = Color(0xFF2A3A55),
-    outlineVariant = Color(0xFF1F2C42),
-    error = Color(0xFFFF6B7A),
-    onError = Color(0xFF2A0509),
+    primary = Color(0xFF07C160),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF123A24),
+    onPrimaryContainer = Color(0xFFB8F2CE),
+    secondary = Color(0xFF06AD56),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFF10301D),
+    onSecondaryContainer = Color(0xFFA9EAC4),
+    tertiary = Color(0xFF576B95),
+    background = Color(0xFF111111),
+    onBackground = Color(0xFFD6D6D6),
+    surface = Color(0xFF191919),
+    onSurface = Color(0xFFD6D6D6),
+    surfaceVariant = Color(0xFF2C2C2C),
+    onSurfaceVariant = Color(0xFF7A7A7A),
+    surfaceContainer = Color(0xFF1E1E1E),
+    outline = Color(0xFF2E2E2E),
+    outlineVariant = Color(0xFF252525),
+    error = Color(0xFFFA5151),
+    onError = Color.White,
 )
 
 private val LightScheme = lightColorScheme(
-    primary = Color(0xFF2A64E8),
+    primary = Color(0xFF07C160),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE7FF),
-    onPrimaryContainer = Color(0xFF08204F),
-    // #0B8574 is 4.54:1 on white; the older #0E9E8D was 3.34:1 and failed AA.
-    secondary = Color(0xFF0B8574),
+    primaryContainer = Color(0xFFDDF6E8),
+    onPrimaryContainer = Color(0xFF07331A),
+    secondary = Color(0xFF06AD56),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCFF3EE),
-    onSecondaryContainer = Color(0xFF04322C),
-    tertiary = Color(0xFF6A4CF6),
-    background = Color(0xFFF5F8FD),
-    onBackground = Color(0xFF0F1726),
+    secondaryContainer = Color(0xFFE6F8EE),
+    onSecondaryContainer = Color(0xFF0A3D21),
+    tertiary = Color(0xFF576B95),
+    background = Color(0xFFEDEDED),
+    onBackground = Color(0xFF191919),
     surface = Color.White,
-    onSurface = Color(0xFF0F1726),
-    surfaceVariant = Color(0xFFECF1FA),
-    onSurfaceVariant = Color(0xFF54637A),
+    onSurface = Color(0xFF191919),
+    surfaceVariant = Color(0xFFF7F7F7),
+    onSurfaceVariant = Color(0xFF888888),
     surfaceContainer = Color(0xFFFFFFFF),
-    outline = Color(0xFFC6D1E4),
-    outlineVariant = Color(0xFFE0E7F3),
-    error = Color(0xFFC92A3C),
+    outline = Color(0xFFE5E5E5),
+    outlineVariant = Color(0xFFF0F0F0),
+    error = Color(0xFFFA5151),
     onError = Color.White,
 )
+
+
+/** Whether the active scheme is the dark one (used by the bubble colours). */
+@Composable
+private fun isDarkScheme(): Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+/** WeChat's outgoing bubble: pale green on light, deeper green on dark. */
+@Composable
+fun bubbleOutColor(): Color = if (isDarkScheme()) Color(0xFF3EB575) else Color(0xFF95EC69)
+
+/** Text/icon colour inside the outgoing bubble. */
+@Composable
+fun onBubbleOut(): Color = if (isDarkScheme()) Color.White else Color(0xFF191919)
+
+/** WeChat's incoming bubble: white on light, #2C2C2C on dark. */
+@Composable
+fun bubbleInColor(): Color = if (isDarkScheme()) Color(0xFF2C2C2C) else Color.White
+
+/** Text colour inside the incoming bubble. */
+@Composable
+fun onBubbleIn(): Color = if (isDarkScheme()) Color(0xFFD6D6D6) else Color(0xFF191919)
 
 /** Text/icon colour on top of a warning-tinted surface, per scheme. */
 @Composable

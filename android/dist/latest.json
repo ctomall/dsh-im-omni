@@ -1,9 +1,9 @@
 {
-  "versionCode": 9,
-  "versionName": "0.4.2",
+  "versionCode": 10,
+  "versionName": "0.5.0",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.4.2.apk",
-  "sha256": "b2fa504491135322f5082b98e8f066d6a49971a926903bc1fb9f38a4b6b11040",
-  "notes": "0.4.2：聊天页重构（输入区两段式、气泡按内容收窄、日期分隔、消息分组）。",
-  "publishedAt": "2026-11-04T12:27:40.000Z"
+  "file": "dsh-im-omni-0.5.0.apk",
+  "sha256": "c54c3e49558447deb8df3c57f0cb48170292a184dc058aecb3a25ad85567a44f",
+  "notes": "0.5.0：微信风格视觉重构（调色板 / 列表行 / 会话气泡 / 输入区）。",
+  "publishedAt": "2026-11-04T13:10:33.000Z"
 }

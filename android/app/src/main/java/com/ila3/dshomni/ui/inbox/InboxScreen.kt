@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -118,7 +120,7 @@ fun InboxScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        HeroHeader(
+        InboxTopBar(
             snapshot = snapshot,
             connectionLabel = state.connection?.label.orEmpty(),
             refreshing = state.refreshing,
@@ -135,32 +137,40 @@ fun InboxScreen(
                 Banner(state.error, error = true, onDismiss = onDismiss)
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.xs))
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text(stringResource(R.string.inbox_search_hint)) },
+                placeholder = { Text(stringResource(R.string.inbox_search_hint), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                shape = RoundedCornerShape(Radius.md),
+                shape = RoundedCornerShape(Radius.xs),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                ),
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(Spacing.xxs))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
             ) {
                 InboxFilters.forEach { (key, label) ->
-                    FilterChip(
-                        selected = filter == key,
-                        onClick = { filter = key },
-                        label = { Text(label, fontSize = 12.sp) },
-                        shape = RoundedCornerShape(Radius.full),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BrandBlue.copy(alpha = 0.16f),
-                            selectedLabelColor = BrandBlue,
-                        ),
+                    val selected = filter == key
+                    Text(
+                        label,
+                        fontSize = 13.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Radius.xs))
+                            .clickable { filter = key }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
                 }
             }
@@ -220,91 +230,72 @@ private fun LoadingBlock() {
 }
 
 @Composable
-private fun HeroHeader(
+private fun InboxTopBar(
     snapshot: Snapshot?,
     connectionLabel: String,
     refreshing: Boolean,
     onRefresh: () -> Unit,
     onSwitchServer: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.linearGradient(
-                    listOf(BrandBlue.copy(alpha = 0.92f), BrandTeal.copy(alpha = 0.85f)),
-                ),
-            ),
-    ) {
-        Column(
+    // WeChat's list header is a plain white bar with a left-aligned title and
+    // two icon actions; the brand gradient is gone on purpose.
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Row(
             Modifier
+                .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 18.dp, end = 10.dp, top = 10.dp, bottom = 16.dp),
+                .padding(start = Spacing.md, end = Spacing.xxs, top = Spacing.xs, bottom = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "收件箱",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.SemiBold,
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "收件箱",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(6.dp)
+                            .background(if (snapshot != null) HealthOk else warningInk(), CircleShape),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(6.dp)
-                                .background(if (snapshot != null) HealthOk else warningInk(), CircleShape),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = when {
-                                snapshot == null -> "未连接"
-                                connectionLabel.isNotBlank() -> connectionLabel
-                                else -> "已连接"
-                            },
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (snapshot != null) {
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "· ${snapshot.workspace.name}",
-                                color = Color.White.copy(alpha = 0.75f),
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = when {
+                            snapshot == null -> "未连接"
+                            connectionLabel.isNotBlank() -> connectionLabel
+                            else -> "已连接"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                if (snapshot != null && snapshot.unreadTotal > 0) {
-                    Surface(color = Color.White.copy(alpha = 0.22f), shape = RoundedCornerShape(Radius.full)) {
-                        Text(
-                            "${snapshot.unreadTotal} 未读",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        )
-                    }
-                    Spacer(Modifier.width(4.dp))
+            }
+            IconButton(onClick = onRefresh, enabled = !refreshing) {
+                if (refreshing) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(17.dp),
+                    )
+                } else {
+                    Icon(
+                        Icons.Rounded.Refresh,
+                        contentDescription = "刷新",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp),
+                    )
                 }
-                IconButton(onClick = onRefresh, enabled = !refreshing) {
-                    if (refreshing) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            color = Color.White,
-                            modifier = Modifier.size(17.dp),
-                        )
-                    } else {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "刷新", tint = Color.White, modifier = Modifier.size(20.dp))
-                    }
-                }
-                IconButton(onClick = onSwitchServer) {
-                    Icon(Icons.Rounded.SwapHoriz, contentDescription = "切换服务器", tint = Color.White, modifier = Modifier.size(20.dp))
-                }
+            }
+            IconButton(onClick = onSwitchServer) {
+                Icon(
+                    Icons.Rounded.SwapHoriz,
+                    contentDescription = "切换服务器",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
     }
@@ -321,93 +312,74 @@ private fun ConversationRow(conversation: Conversation, snapshot: Snapshot, onCl
         last.inbound -> last.text
         else -> "你：${last.text}"
     }
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(Radius.lg),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
+    // WeChat rows are flat: avatar, one line of name, one line of preview, the
+    // time top-right and a red badge. No card, no border, no tag pills.
+    Row(
+        Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.md, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
-            Avatar(contact?.name ?: "客户", contact?.hue ?: 210)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        contact?.name ?: "未知客户",
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (conversation.priority == "high" || conversation.priority == "urgent") {
-                        Spacer(Modifier.width(6.dp))
-                        Box(
-                            Modifier
-                                .size(6.dp)
-                                .background(
-                                    if (conversation.priority == "urgent") MaterialTheme.colorScheme.error else HealthWarn,
-                                    CircleShape,
-                                ),
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        Times.relative(conversation.updatedAt),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.height(3.dp))
+        Avatar(contact?.name ?: "客户", contact?.hue ?: 210, size = 48.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    contact?.name ?: "未知客户",
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    Times.relative(conversation.updatedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = preview,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (conversation.unread > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.height(7.dp))
+                if (conversation.unread > 0) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFFFA5151), RoundedCornerShape(Radius.full))
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                    ) {
+                        Text(
+                            if (conversation.unread > 99) "99+" else "${conversation.unread}",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+            if (channel != null) {
+                Spacer(Modifier.height(3.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (channel != null) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(Radius.full))
-                                .padding(horizontal = 7.dp, vertical = 2.dp),
-                        ) {
-                            PlatformBadge(channel.badge, channel.hue, size = 14.dp)
-                            Spacer(Modifier.width(5.dp))
-                            Text(
-                                channel.name,
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                            )
-                        }
-                        Spacer(Modifier.width(6.dp))
-                    }
+                    PlatformBadge(channel.badge, channel.hue, size = 12.dp)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        channel.name,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
                     if (conversation.status == "pending") {
-                        Pill("跟进中", color = HealthWarn, background = HealthWarn.copy(alpha = 0.12f))
                         Spacer(Modifier.width(6.dp))
-                    }
-                    if (conversation.tags.isNotEmpty()) {
-                        Pill("#${conversation.tags.first()}", modifier = Modifier)
-                    }
-                    Spacer(Modifier.weight(1f))
-                    if (conversation.unread > 0) {
-                        Box(
-                            modifier = Modifier
-                                .background(BrandBlue, RoundedCornerShape(Radius.full))
-                                .padding(horizontal = 7.dp, vertical = 1.dp),
-                        ) {
-                            Text(
-                                if (conversation.unread > 99) "99+" else "${conversation.unread}",
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
+                        Text("跟进中", fontSize = 10.sp, color = HealthWarn, maxLines = 1)
                     }
                 }
             }

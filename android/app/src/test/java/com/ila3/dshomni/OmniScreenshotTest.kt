@@ -30,7 +30,7 @@ import java.io.FileOutputStream
  * usable in the README without a device.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(sdk = [34], qualifiers = "zh-rCN-w411dp-h891dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class OmniScreenshotTest {
 
@@ -189,7 +189,7 @@ class OmniScreenshotTest {
 
 /** Same canvas rendered with the night qualifier, to prove the dark palette. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-night-xxhdpi")
+@Config(sdk = [34], qualifiers = "zh-rCN-w411dp-h891dp-night-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class OmniDarkScreenshotTest {
 

@@ -49,6 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,6 +85,10 @@ import com.ila3.dshomni.ui.common.HealthDot
 import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.common.PlatformBadge
 import com.ila3.dshomni.ui.theme.HealthWarn
+import com.ila3.dshomni.ui.theme.bubbleInColor
+import com.ila3.dshomni.ui.theme.bubbleOutColor
+import com.ila3.dshomni.ui.theme.onBubbleIn
+import com.ila3.dshomni.ui.theme.onBubbleOut
 import com.ila3.dshomni.ui.theme.OnBrandMuted
 import com.ila3.dshomni.ui.theme.warningInk
 import com.ila3.dshomni.ui.theme.BrandBlue
@@ -209,7 +214,11 @@ fun ChatScreen(
             }
         }
 
-        Box(Modifier.weight(1f)) {
+        Box(
+            Modifier
+                .weight(1f)
+                .background(MaterialTheme.colorScheme.background),
+        ) {
             if (conversation.messages.isEmpty()) {
                 Column(
                     Modifier
@@ -329,9 +338,7 @@ private fun ChatHeader(
                 IconButton(onClick = onBack) {
                     Icon(Icons.Rounded.ArrowBack, contentDescription = "返回")
                 }
-                Avatar(contactName, contactHue, size = 38.dp)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         contactName,
                         style = MaterialTheme.typography.titleMedium,
@@ -358,10 +365,7 @@ private fun ChatHeader(
                         )
                     }
                 }
-                if (conversation.status == "pending") {
-                    Pill("跟进中", color = HealthWarn, background = HealthWarn.copy(alpha = 0.12f))
-                    Spacer(Modifier.width(4.dp))
-                }
+                Spacer(Modifier.width(Sizes.touchTarget))
                 Box {
                     IconButton(onClick = { onMenuOpenChange(true) }) {
                         Icon(Icons.Rounded.MoreVert, contentDescription = "更多")
@@ -445,7 +449,7 @@ private fun MessageBubble(
             horizontalArrangement = if (inbound) Arrangement.Start else Arrangement.End,
         ) {
         Surface(
-            color = if (inbound) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+            color = if (inbound) bubbleInColor() else bubbleOutColor(),
             shape = RoundedCornerShape(
                 topStart = if (inbound) 4.dp else 16.dp,
                 topEnd = if (inbound) 16.dp else 4.dp,
@@ -454,17 +458,7 @@ private fun MessageBubble(
             ),
             modifier = Modifier.widthIn(max = bubbleMax),
         ) {
-            Box(
-                Modifier
-                    .background(
-                        if (inbound) Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                MaterialTheme.colorScheme.surfaceVariant,
-                            ),
-                        ) else Brush.linearGradient(listOf(BrandBlue, BrandTeal)),
-                    ),
-            ) {
+            Box {
                 Column(Modifier.padding(horizontal = Spacing.sm, vertical = 9.dp)) {
                     message.attachments.forEach { attachment ->
                         AttachmentView(attachment, onLoad)
@@ -474,7 +468,7 @@ private fun MessageBubble(
                         Text(
                             message.text,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = if (inbound) MaterialTheme.colorScheme.onSurface else Color.White,
+                            color = if (inbound) onBubbleIn() else onBubbleOut(),
                         )
                     }
                     message.translation?.let { translated ->
@@ -485,7 +479,7 @@ private fun MessageBubble(
                             color = if (inbound) {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             } else {
-                                Color.White.copy(alpha = 0.82f)
+                                onBubbleOut().copy(alpha = 0.65f)
                             },
                             fontStyle = FontStyle.Italic,
                         )
@@ -498,7 +492,7 @@ private fun MessageBubble(
                             color = if (inbound) {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             } else {
-                                Color.White.copy(alpha = 0.72f)
+                                onBubbleOut().copy(alpha = 0.55f)
                             },
                         )
                         if (!inbound) {
@@ -510,7 +504,7 @@ private fun MessageBubble(
                                     else -> "已发送"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (message.failed) OnBrandMuted else OnBrandMuted,
+                                color = onBubbleOut().copy(alpha = 0.55f),
                                 fontWeight = if (message.failed) FontWeight.Medium else FontWeight.Normal,
                             )
                             if (message.failed) {
@@ -518,11 +512,11 @@ private fun MessageBubble(
                                 Text(
                                     "重试",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
+                                    color = onBubbleOut(),
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(Radius.full))
-                                        .background(Color.White.copy(alpha = 0.22f))
+                                        .background(onBubbleOut().copy(alpha = 0.12f))
                                         .clickable { onRetry(message.id) }
                                         .padding(horizontal = Spacing.xs, vertical = 2.dp),
                                 )
@@ -835,9 +829,15 @@ private fun Composer(
                     value = draft,
                     onValueChange = onDraftChange,
                     placeholder = { Text(if (noteMode) "输入内部备注（客户看不到）…" else "输入回复…") },
-                    shape = RoundedCornerShape(Radius.xxl),
+                    shape = RoundedCornerShape(Radius.xs),
                     maxLines = 5,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                    ),
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(Spacing.xs))

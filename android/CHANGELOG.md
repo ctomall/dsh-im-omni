@@ -3,6 +3,29 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.5.0 — 2024-11-04 (versionCode 10)
+
+### WeChat-style visual direction
+
+Replaces the Harbor look with the layout and palette conventions of WeChat,
+used here as the reference the product owner picked after the WhatsApp sources
+turned out to be unreachable from this host.
+
+- **Palette**: accent `#07C160`, page background `#EDEDED` (`#111111` dark),
+  list surface white (`#191919`), body text `#191919` (`#D6D6D6`), secondary
+  `#888888`, divider `#E5E5E5`, unread badge `#FA5151`, link `#576B95`.
+- **Bubbles**: outgoing `#95EC69` with `#191919` text (dark: `#3EB575` white),
+  incoming white (dark `#2C2C2C`), 6-10dp radius, content-hugging width.
+- **Chat list**: flat rows on a grey page — 48dp avatar, 16sp name, one-line
+  preview, 12sp relative time, red count badge; the gradient hero header is
+  replaced by a plain white bar with the title left and two icon actions.
+  Search is a single-line grey pill; the status filters became quiet text tabs.
+- **Chat page**: centred name in a white header, grey message pane, green send
+  button, grey pill composer field without an outline.
+- Filter tabs and the channel/agent metadata line are kept because they carry
+  business data WeChat has no equivalent for; this is the only intentional
+  deviation from the reference.
+
 ## 0.4.2 — 2024-11-04 (versionCode 9)
 
 ### Chat page redesign
