@@ -899,6 +899,17 @@ window.__ModuleLoader__.load({
       'settings.end': '结束',
       'settings.days': '工作日',
       'settings.save': '保存设置',
+      'phone.title': '手机配对',
+      'phone.hint': '手机 App 要先与主机配对，之后才能远程收发消息。配对码 5 分钟内有效、只能使用一次。',
+      'phone.entry': '入口',
+      'phone.generate': '生成配对码',
+      'phone.generating': '生成中…',
+      'phone.expires': '剩余',
+      'phone.once': '扫码或把链接发给手机后，用一次即失效。',
+      'phone.devices': '已配对设备',
+      'phone.manage': '设备管理在 DSH 全局设置的「手机远程」里。',
+      'phone.missing': '未检测到手机远程入口，请先安装并启用 phone-remote 插件。',
+      'phone.failed': '生成失败',
       'upgrade.title': '插件更新',
       'upgrade.current': '当前',
       'upgrade.check': '检查更新',
@@ -1538,6 +1549,17 @@ window.__ModuleLoader__.load({
       'settings.end': 'End',
       'settings.days': 'Working days',
       'settings.save': 'Save settings',
+      'phone.title': 'Pair a phone',
+      'phone.hint': 'The Android app pairs with this Host once, then works remotely. Codes last 5 minutes and are single-use.',
+      'phone.entry': 'Entry',
+      'phone.generate': 'Create code',
+      'phone.generating': 'Creating…',
+      'phone.expires': 'Expires in',
+      'phone.once': 'Scan it or send the link to the phone; it is consumed on first use.',
+      'phone.devices': 'Paired devices',
+      'phone.manage': 'Manage devices in DSH settings → Phone remote.',
+      'phone.missing': 'No phone-remote entry found. Install and enable the phone-remote plugin first.',
+      'phone.failed': 'Could not create a code',
       'upgrade.title': 'Plugin update',
       'upgrade.current': 'Current',
       'upgrade.check': 'Check',
@@ -4702,6 +4724,12 @@ window.__ModuleLoader__.load({
       const [saving, setSaving] = React.useState(false)
       const [member, setMember] = React.useState({ name: '', email: '', role: 'agent', availability: 'online' })
       const [adding, setAdding] = React.useState(false)
+      const [phoneStatus, setPhoneStatus] = React.useState(null)
+      const [phoneEntry, setPhoneEntry] = React.useState('public')
+      const [phonePairing, setPhonePairing] = React.useState(null)
+      const [phoneBusy, setPhoneBusy] = React.useState(false)
+      const [phoneError, setPhoneError] = React.useState('')
+      const [, setPhoneTick] = React.useState(0)
       const [upgrade, setUpgrade] = React.useState(null)
       const [upgradeBusy, setUpgradeBusy] = React.useState('')
       const [upgradeNote, setUpgradeNote] = React.useState('')
@@ -4887,6 +4915,60 @@ window.__ModuleLoader__.load({
         return body.result ?? {}
       }
 
+      /**
+       * Talk to the phone-remote plugin's owner routes. The code is minted
+       * server-side, so the page never holds pairing secrets it did not receive.
+       * @param {string} path - absolute owner route.
+       * @param {object} [body] - JSON body; omitted for GET.
+       * @returns {Promise<object>} parsed payload.
+       */
+      async function phoneCall(path, body) {
+        const response = await fetch(path, body === undefined
+          ? { credentials: 'same-origin', headers: { accept: 'application/json' } }
+          : {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify(body),
+          })
+        const data = await response.json().catch(() => null)
+        if (!response.ok || (data && data.error)) {
+          const failure = new Error(data?.error ?? `HTTP ${response.status}`)
+          failure.status = response.status
+          throw failure
+        }
+        return data ?? {}
+      }
+
+      async function loadPhoneStatus() {
+        try {
+          const data = await phoneCall('/api/phone-remote/status')
+          setPhoneStatus(data)
+          setPhoneError('')
+          const running = (data.entries ?? []).filter((entry) => entry.phase === 'running')
+          if (running.length > 0 && !running.some((entry) => entry.id === phoneEntry)) {
+            setPhoneEntry(running[0].id)
+          }
+        } catch (error) {
+          setPhoneStatus(null)
+          setPhoneError(error.status === 404 ? t('phone.missing') : error.message)
+        }
+      }
+
+      async function createPhonePairing() {
+        setPhoneBusy(true)
+        try {
+          const data = await phoneCall('/api/phone-remote/pairing', { entry: phoneEntry })
+          setPhonePairing(data.pairing ?? (data.pairings ?? [])[0] ?? null)
+          setPhoneError('')
+          await loadPhoneStatus()
+        } catch (error) {
+          setPhoneError(`${t('phone.failed')}: ${error.message}`)
+        } finally {
+          setPhoneBusy(false)
+        }
+      }
+
       async function loadUpgrade() {
         setUpgradeBusy('check')
         try {
@@ -4918,7 +5000,14 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         void loadUpgrade()
+        void loadPhoneStatus()
       }, [])
+
+      React.useEffect(() => {
+        if (phonePairing === null) return undefined
+        const timer = setInterval(() => setPhoneTick((value) => value + 1), 1_000)
+        return () => clearInterval(timer)
+      }, [phonePairing])
 
       return h('div', { className: 'imoPage' },
         h('div', { className: 'imoPageHead' },
@@ -5033,6 +5122,48 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'imoInfoCell' }, h('div', { className: 'imoInfoValue' }, String(snapshot.channels.length)), h('div', { className: 'imoInfoLabel' }, t('analytics.channels'))),
                 h('div', { className: 'imoInfoCell' }, h('div', { className: 'imoInfoValue' }, String(snapshot.contacts.length)), h('div', { className: 'imoInfoLabel' }, t('analytics.contacts'))),
               ),
+            ),
+            h('section', { className: 'imoSection' },
+              h('div', { className: 'imoSectionTitle' }, h(Icon, { name: 'phone', size: 13 }), ' ', t('phone.title')),
+              phoneStatus === null
+                ? h('div', { className: 'imoSmall imoMuted' }, phoneError || t('phone.missing'))
+                : h('div', null,
+                  h('div', { className: 'imoHelp', style: { marginBottom: 8 } }, t('phone.hint')),
+                  h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 } },
+                    (phoneStatus.entries ?? []).filter((entry) => entry.phase === 'running').map((entry) => h('button', {
+                      key: entry.id,
+                      type: 'button',
+                      className: `imoBtn imoBtnSm ${phoneEntry === entry.id ? 'imoBtnPrimary' : ''}`.trim(),
+                      onClick: () => { setPhoneEntry(entry.id); setPhonePairing(null) },
+                    }, entry.label ?? entry.id)),
+                  ),
+                  h('div', { style: { display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' } },
+                    h('button', {
+                      type: 'button',
+                      className: 'imoBtn imoBtnPrimary',
+                      disabled: phoneBusy,
+                      onClick: () => { void createPhonePairing() },
+                    }, phoneBusy ? h('span', { className: 'imoSpinner' }) : h(Icon, { name: 'qr', size: 12 }), phoneBusy ? t('phone.generating') : t('phone.generate')),
+                    h('span', { className: 'imoTiny imoMuted' }, `${t('phone.devices')} ${phoneStatus.deviceCount ?? 0}`),
+                  ),
+                  phonePairing !== null
+                    ? h('div', { style: { marginTop: 10, display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' } },
+                      phonePairing.qr ? h('img', {
+                        src: phonePairing.qr,
+                        alt: t('phone.title'),
+                        style: { width: 148, height: 148, borderRadius: 10, background: '#fff', padding: 6, flex: 'none' },
+                      }) : null,
+                      h('div', { style: { flex: 1, minWidth: 180 } },
+                        h('div', { className: 'imoCodeBox', style: { wordBreak: 'break-all', fontSize: 11 } }, phonePairing.url ?? ''),
+                        h('div', { className: 'imoTiny imoMuted', style: { marginTop: 6 } },
+                          `${t('phone.expires')} ${Math.max(0, Math.ceil(((phonePairing.expiresAt ?? 0) - Date.now()) / 1000))}s · ${t('phone.once')}`,
+                        ),
+                        h('div', { className: 'imoTiny imoMuted', style: { marginTop: 4 } }, t('phone.manage')),
+                      ),
+                    )
+                    : null,
+                  phoneError ? h('div', { className: 'imoHelp', style: { marginTop: 8, color: 'var(--dsw-alias-state-danger-primary, #c0392b)' } }, phoneError) : null,
+                ),
             ),
             h('section', { className: 'imoSection' },
               h('div', { className: 'imoSectionTitle' }, h(Icon, { name: 'bolt', size: 13 }), ' ', t('upgrade.title')),

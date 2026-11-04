@@ -1,4 +1,4 @@
-# 全渠道 IM（dsh-im-omni 2.7.1）
+# 全渠道 IM（dsh-im-omni 2.7.2）
 
 一个带左侧栏入口的 DSH Web 插件：把 WhatsApp Business、WhatsApp/微信个人号扫码、企业微信、Telegram、飞书、Slack、Discord、LINE、钉钉和自建 HTTP 桥接统一到一套收件箱、联系人、快捷回复、群发、自动化和分析里。
 
@@ -113,6 +113,7 @@ plugin_manager action=install_bundle target=/home/ubuntu/ctomall/im-omni
 仓库内置原生 Android 前端（`com.ila3.dshomni`），手机上是同一套收件箱与渠道数据，只是换了渲染层：
 
 - **配对**：复用 DSH `phone_remote` 的一次性配对码与设备 cookie，不新增口令；内网（`http://<局域网 IP>:8080/phone/`）与外网（`https://域名/phone/`）各配对一次后一键切换。
+- **生成配对码**：插件「设置 → 手机配对」里直接选入口出码（公网 / 内网 / 隧道），复用 phone-remote 的 owner 接口；二维码、链接、剩余有效期都在同一张卡片里，设备撤销仍在 DSH 全局设置的「手机远程」。未安装 phone-remote 时卡片会说明原因，不会静默失败。
 - **功能**：收件箱筛选与搜索、会话收发 / 翻译 / AI 草稿、渠道列表与详情、**手机端新增渠道并扫码绑定个人号**、工作台开关。
 - **在线升级**：Host 自身下发安装包，手机校验 SHA-256 后安装。
 
