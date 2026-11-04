@@ -1,0 +1,49 @@
+{
+  "name": "@local/im-omni",
+  "version": "2.6.1",
+  "private": true,
+  "description": "Native omnichannel inbox for DSH: WhatsApp Cloud, WhatsApp/WeChat QR bridges, WeCom, Telegram, Feishu, Slack, Discord, LINE, DingTalk, and custom HTTP",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib/*.js",
+    "lib/channels/*.js",
+    "bridges/*",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "PENDING.md",
+    "docs/*.md",
+    "docs/*.png",
+    "test/*.js",
+    "EVIDENCE.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "baileys": "^6.7.24",
+    "qrcode": "^1.5.4"
+  }
+}

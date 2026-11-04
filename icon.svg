@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Omnichannel IM">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2f6bff"/>
+      <stop offset="1" stop-color="#16b8a6"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <path d="M14 21.5A7.5 7.5 0 0 1 21.5 14h21A7.5 7.5 0 0 1 50 21.5v13a7.5 7.5 0 0 1-7.5 7.5H31l-9.5 7v-7h-.5A7.5 7.5 0 0 1 14 34.5v-13Z" fill="#fff" fill-opacity=".96"/>
+  <circle cx="24" cy="28" r="2.6" fill="#2f6bff"/>
+  <circle cx="32" cy="28" r="2.6" fill="#2f6bff"/>
+  <circle cx="40" cy="28" r="2.6" fill="#2f6bff"/>
+  <path d="M45 39.5a7.5 7.5 0 0 1 7 10.2l.8 4.8-5.1-2.2A7.5 7.5 0 1 1 45 39.5Z" fill="#fff" fill-opacity=".88"/>
+</svg>
