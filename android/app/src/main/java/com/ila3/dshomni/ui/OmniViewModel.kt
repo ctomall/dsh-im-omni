@@ -619,6 +619,10 @@ private fun fail(error: Throwable) {
     /** Attachment bytes for an inline preview. */
     suspend fun attachmentBytes(url: String): ByteArray? {
         val connection = _state.value.connection ?: return null
+        if (connection.id.startsWith("v1:")) {
+            val session = com.ila3.dshomni.data.auth.AuthStore(getApplication()).load() ?: return null
+            return V1Api().attachmentBytes(connection.baseUrl, session.accessToken, url)
+        }
         return api.download(connection.baseUrl, url)
     }
 

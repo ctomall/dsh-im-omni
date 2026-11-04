@@ -20,6 +20,7 @@ import {
 import { inc, render as renderMetrics } from './metrics.mjs'
 import { InboundError, handleInbound } from './inbound.mjs'
 import { parseWebhook as parseWhatsappWebhook } from './channels/whatsapp.mjs'
+import { linkAttachments, publicAttachment, readAttachment, storeAttachment } from './attachments.mjs'
 import {
   notifyInbound as notifyInboundMessage,
   sendTestCard,
@@ -582,6 +583,38 @@ route('POST', '/v1/billing/invoices/([0-9a-f-]{36})/status', async (request, res
   send(response, 200, { invoice })
 })
 
+route('POST', '/v1/attachments', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const chunks = []
+  let size = 0
+  for await (const chunk of request) {
+    size += chunk.length
+    if (size > 12 * 1024 * 1024) return fail(response, 413, 'too-large', '附件不能超过 12 MB。')
+    chunks.push(chunk)
+  }
+  const body = Buffer.concat(chunks)
+  if (body.length === 0) return fail(response, 422, 'invalid', '附件内容为空。')
+  const url = new URL(request.url ?? '/', 'http://localhost')
+  const name = url.searchParams.get('name') ?? 'file'
+  const type = url.searchParams.get('type') ?? request.headers['content-type'] ?? 'application/octet-stream'
+  const row = await storeAttachment(claims.tenantId, { name, type, bytes: body })
+  send(response, 201, { attachment: publicAttachment(row) })
+})
+
+route('GET', '/v1/attachments/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const file = await readAttachment(claims.tenantId, params[0])
+  if (file === null) return fail(response, 404, 'not-found', '附件不存在。')
+  response.writeHead(200, {
+    'content-type': file.meta.type,
+    'content-length': file.bytes.length,
+    'cache-control': 'private, max-age=300',
+  })
+  response.end(file.bytes)
+})
+
 route('POST', '/v1/messages', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
@@ -590,7 +623,10 @@ route('POST', '/v1/messages', async (request, response) => {
   const clientId = String(input.clientId ?? '')
   const kind = ['text', 'note', 'attachment', 'system'].includes(input.kind) ? input.kind : 'text'
   const text = String(input.text ?? '')
-  if (conversationId === '' || (text === '' && kind === 'text')) {
+  const attachmentIds = Array.isArray(input.attachments)
+    ? input.attachments.map((item) => String(item)).filter((item) => /^[0-9a-f-]{36}$/.test(item))
+    : []
+  if (conversationId === '' || (text === '' && kind === 'text' && attachmentIds.length === 0)) {
     return fail(response, 422, 'invalid', '缺少会话或消息正文。')
   }
 
@@ -631,6 +667,9 @@ route('POST', '/v1/messages', async (request, response) => {
           'INSERT INTO client_requests (tenant_id, client_id, message_id) VALUES ($1, $2, $3)',
           [claims.tenantId, clientId, inserted.rows[0].id],
         )
+      }
+      if (attachmentIds.length > 0) {
+        await linkAttachments(client, claims.tenantId, inserted.rows[0].id, attachmentIds)
       }
       await recordUsage(client, claims.tenantId, 'message', 1)
       await client.query('COMMIT')
@@ -710,15 +749,23 @@ route('GET', '/v1/conversations/([0-9a-f-]{36})/messages', async (request, respo
   const items = await withTenant(claims.tenantId, async (client) => {
     const result = before === null
       ? await client.query(
-        `SELECT id, conversation_id, direction, kind, body, status, client_id, created_at
-           FROM messages WHERE tenant_id = $1 AND conversation_id = $2
-          ORDER BY created_at DESC, id DESC LIMIT $3`,
+        `SELECT m.id, m.conversation_id, m.direction, m.kind, m.body, m.status,
+                m.client_id, m.created_at,
+                COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                    'id', a.id, 'name', a.name, 'type', a.type, 'size', a.size))
+                  FROM attachments a WHERE a.tenant_id = m.tenant_id AND a.message_id = m.id), '[]'::jsonb) AS attachments
+           FROM messages m WHERE m.tenant_id = $1 AND m.conversation_id = $2
+          ORDER BY m.created_at DESC, m.id DESC LIMIT $3`,
         [claims.tenantId, params[0], limit],
       )
       : await client.query(
-        `SELECT id, conversation_id, direction, kind, body, status, client_id, created_at
-           FROM messages WHERE tenant_id = $1 AND conversation_id = $2 AND created_at < $3
-          ORDER BY created_at DESC, id DESC LIMIT $4`,
+        `SELECT m.id, m.conversation_id, m.direction, m.kind, m.body, m.status,
+                m.client_id, m.created_at,
+                COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                    'id', a.id, 'name', a.name, 'type', a.type, 'size', a.size))
+                  FROM attachments a WHERE a.tenant_id = m.tenant_id AND a.message_id = m.id), '[]'::jsonb) AS attachments
+           FROM messages m WHERE m.tenant_id = $1 AND m.conversation_id = $2 AND m.created_at < $3
+          ORDER BY m.created_at DESC, m.id DESC LIMIT $4`,
         [claims.tenantId, params[0], before, limit],
       )
     return result.rows.reverse()

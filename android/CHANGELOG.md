@@ -51,6 +51,9 @@ versioned separately; this file tracks `com.ila3.dshomni`.
   会话内消息经真实适配器投递后显示 Sent ✓✓。
 - Screenshots: docs/v1-whatsapp.png.
 
+- 附件走 v1：图片/文件上传后作为消息附件返回，App 通过 /v1/attachments/{id} 拉取并渲染图片气泡。
+- Screenshots: docs/v1-attachment.png.
+
 - Inbound messages now appear in the app: a provider webhook lands in Postgres,
   the inbox shows the new contact with an unread badge and the chat renders the
   customer bubble (docs/v1-inbound-inbox.png, docs/v1-inbound.png).

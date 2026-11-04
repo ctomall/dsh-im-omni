@@ -242,17 +242,44 @@ class V1Api(
         )
     }
 
-    private fun toMessage(item: JSONObject) = Message(
-        id = item.optString("id"),
-        direction = item.optString("direction", "in"),
-        kind = item.optString("kind", "text"),
-        text = item.optString("body"),
-        status = item.optString("status", "received"),
-        createdAt = millis(item.optString("created_at")),
-        error = "",
-        translation = null,
-        attachments = emptyList(),
-    )
+    private fun toMessage(item: JSONObject): Message {
+        val attachments = item.optJSONArray("attachments")?.let { array ->
+            (0 until array.length()).mapNotNull { index ->
+                val file = array.optJSONObject(index) ?: return@mapNotNull null
+                com.ila3.dshomni.data.model.Attachment(
+                    id = file.optString("id"),
+                    name = file.optString("name"),
+                    type = file.optString("type", "application/octet-stream"),
+                    size = file.optLong("size"),
+                    url = "/v1/attachments/" + file.optString("id"),
+                )
+            }
+        } ?: emptyList()
+        return Message(
+            id = item.optString("id"),
+            direction = item.optString("direction", "in"),
+            kind = item.optString("kind", "text"),
+            text = item.optString("body"),
+            status = item.optString("status", "received"),
+            createdAt = millis(item.optString("created_at")),
+            error = "",
+            translation = null,
+            attachments = attachments,
+        )
+    }
+
+    /** Download attachment bytes for the v1 backend. */
+    suspend fun attachmentBytes(baseUrl: String, accessToken: String, url: String): ByteArray? =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(baseUrl.trimEnd('/') + url)
+                .header("authorization", "Bearer $accessToken")
+                .get()
+                .build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) null else response.body?.bytes()
+            }
+        }
 
     private fun toConversation(item: JSONObject, messages: List<Message>) = Conversation(
         id = item.optString("id"),

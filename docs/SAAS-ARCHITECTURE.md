@@ -389,6 +389,21 @@ server/scripts/fake-graph.mjs       本地 Graph 替身（演示/联调）
   模拟器实拍 docs/v1-whatsapp.png，本地 Graph 收到
   `POST /v20.0/109876543210/messages to=+8613800012345`，消息状态 sent。
 
+## 20. 附件（v1）
+
+```
+server/migrations/011_attachments.sql   附件元数据（RLS，object_key 指向磁盘）
+server/src/attachments.mjs              写入/读取/关联消息/publicAttachment
+server/src/app.mjs                      POST /v1/attachments、GET /v1/attachments/{id}
+                                        消息列表返回 attachments 数组；POST /v1/messages 接受 attachments[]
+```
+
+- 字节落盘（`UPLOAD_DIR`，按 tenant 分目录 + 随机 key），元数据入 Postgres；对象存储后续替换读写层。
+- 下载走鉴权路由，跨租户返回 404；消息鉴权与附件鉴权一致。
+- App 端用 `V1Api.attachmentBytes` 拉取，图片气泡直接渲染（截图 docs/v1-attachment.png）。
+- 验证：56 个服务端用例全绿（新增 2：上传/关联/下载字节一致；跨租户不可读）。
+- 已知：出站投递仍未把附件转成 WhatsApp 媒体对象（先文本），下一轮补。
+
 ## 17. 风险与取舍
 
 | 风险 | 说明 | 缓解 |
