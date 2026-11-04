@@ -3,7 +3,7 @@
   "versionName": "0.4.1",
   "minSdk": 26,
   "file": "dsh-im-omni-0.4.1.apk",
-  "sha256": "d45c6dd8e60f7d71f27abbf9aa530601c9cfae4e9d507d3619f071dc3436a666",
+  "sha256": "7cc431bc1c53d9f7128939f4d5d0e9ad732f1633cc3c14eda4ca70495641e4b0",
   "notes": "0.4.1：新增文案进 strings.xml（中/英）；修复公网入口配对 POST 被反代缓冲卡住的问题。",
-  "publishedAt": "2026-11-04T12:10:28.000Z"
+  "publishedAt": "2026-11-04T12:11:05.000Z"
 }
