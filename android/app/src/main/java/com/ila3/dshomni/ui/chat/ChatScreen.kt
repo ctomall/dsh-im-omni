@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -565,6 +566,7 @@ private fun AttachmentView(attachment: Attachment, onLoad: suspend (String) -> B
         }
         val image = bitmap
         if (image != null) {
+            var previewing by remember { mutableStateOf(false) }
             Image(
                 bitmap = image,
                 contentDescription = attachment.name,
@@ -572,8 +574,27 @@ private fun AttachmentView(attachment: Attachment, onLoad: suspend (String) -> B
                 modifier = Modifier
                     .widthIn(max = 220.dp)
                     .height(140.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { previewing = true },
             )
+            if (previewing) {
+                Dialog(onDismissRequest = { previewing = false }) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.92f),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Image(
+                            bitmap = image,
+                            contentDescription = attachment.name,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp)
+                                .clickable { previewing = false },
+                        )
+                    }
+                }
+            }
             return
         }
         if (!failed) {
