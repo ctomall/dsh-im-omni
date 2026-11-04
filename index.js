@@ -5,7 +5,7 @@
  * public provider callbacks, queued outbound delivery, long-lived Telegram and
  * Discord workers, and scheduled broadcasts. The Client half renders the
  * sidebar entry and the full page.
- * @module @local/im-omni
+ * @module dsh-im-omni
  */
 import { Store, publicState } from './lib/store.js'
 import { executeCommand, handleInbound, processDueBroadcasts, handoffBot, markBotHandled, replyAsBot } from './lib/commands.js'

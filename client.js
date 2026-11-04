@@ -6,7 +6,7 @@
  * keeps no durable copy.
  */
 window.__ModuleLoader__.load({
-  id: '@local/im-omni',
+  id: 'dsh-im-omni',
   factory(require) {
     const React = require('react')
     const h = React.createElement

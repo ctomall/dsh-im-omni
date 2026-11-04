@@ -1,4 +1,4 @@
-# 全渠道 IM（@local/im-omni 2.6.1）
+# 全渠道 IM（dsh-im-omni 2.6.1）
 
 一个带左侧栏入口的 DSH Web 插件：把 WhatsApp Business、WhatsApp/微信个人号扫码、企业微信、Telegram、飞书、Slack、Discord、LINE、钉钉和自建 HTTP 桥接统一到一套收件箱、联系人、快捷回复、群发、自动化和分析里。
 
@@ -101,7 +101,7 @@ plugin_manager action=install_bundle target=/home/ubuntu/ctomall/im-omni
 ```yaml
 - insert:
     - id: im-omni
-      name: '@local/im-omni'
+      name: 'dsh-im-omni'
 ```
 
 替换已安装版本后按 Plugin Manager 的 `application`/`nextStep` 处理；Host 代码更新通常需要重载/重启插件进程。浏览器客户端是 immutable bundle，更新后必须硬刷新（Ctrl/Cmd+Shift+R）或关闭标签页重开，否则会出现“能看到新平台、保存仍走旧逻辑”的混合状态。

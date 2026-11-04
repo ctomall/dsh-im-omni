@@ -55,7 +55,7 @@ node --test test/*.test.js
 ## 3. 安装
 
 ```text
-plugin_manager remove_bundle @local/im-omni
+plugin_manager remove_bundle dsh-im-omni
 plugin_manager install_bundle /home/ubuntu/ctomall/im-omni
 ```
 
