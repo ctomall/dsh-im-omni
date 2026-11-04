@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +60,7 @@ import com.ila3.dshomni.ui.common.Pill
 import com.ila3.dshomni.ui.common.SectionCard
 import com.ila3.dshomni.ui.theme.BrandBlue
 import com.ila3.dshomni.ui.theme.BrandTeal
+import com.ila3.dshomni.ui.theme.ThemeMode
 import com.ila3.dshomni.notify.NotificationService
 import com.ila3.dshomni.notify.Notifications
 import com.ila3.dshomni.util.Times
@@ -89,6 +91,8 @@ private val Languages = listOf(
 @Composable
 fun SettingsScreen(
     state: UiState,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeMode: (ThemeMode) -> Unit = {},
     onSwitchServer: () -> Unit,
     onDisconnect: () -> Unit,
     onRefresh: () -> Unit,
@@ -217,6 +221,36 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(16.dp))
+            SectionCard("外观") {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text("主题", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = themeMode == ThemeMode.SYSTEM,
+                            onClick = { onThemeMode(ThemeMode.SYSTEM) },
+                            label = { Text("跟随系统") },
+                        )
+                        FilterChip(
+                            selected = themeMode == ThemeMode.LIGHT,
+                            onClick = { onThemeMode(ThemeMode.LIGHT) },
+                            label = { Text("浅色") },
+                        )
+                        FilterChip(
+                            selected = themeMode == ThemeMode.DARK,
+                            onClick = { onThemeMode(ThemeMode.DARK) },
+                            label = { Text("深色") },
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "主题选择保存在本机，切换服务器不会改变它。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             SectionCard("工作台") {
                 Column {
                     SwitchRow(

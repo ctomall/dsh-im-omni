@@ -97,8 +97,17 @@ private fun Context.findActivity(): Activity? {
 }
 
 @Composable
-fun DshOmniTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+fun DshOmniTheme(
+    mode: ThemeMode = ThemeMode.SYSTEM,
+    content: @Composable () -> Unit,
+) {
+    // SYSTEM keeps the pre-existing behaviour; the other modes are the in-app
+    // override added in 0.4.0.
+    val dark = when (mode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
     val scheme = if (dark) DarkScheme else LightScheme
     val view = LocalView.current
     val context = LocalContext.current

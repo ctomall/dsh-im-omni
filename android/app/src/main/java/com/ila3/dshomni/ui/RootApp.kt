@@ -51,6 +51,7 @@ import com.ila3.dshomni.ui.pairing.PairingScreen
 import com.ila3.dshomni.ui.settings.SettingsScreen
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.ila3.dshomni.ui.theme.BrandBlue
+import com.ila3.dshomni.ui.theme.ThemeMode
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
@@ -73,6 +74,8 @@ fun RootApp(
     viewModel: OmniViewModel,
     deepLink: PairingTarget? = null,
     openConversationId: String? = null,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeMode: (ThemeMode) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var route by remember { mutableStateOf<Route>(Route.Inbox) }
@@ -260,6 +263,8 @@ fun RootApp(
                 )
                 Route.Settings -> SettingsScreen(
                     state = state,
+                    themeMode = themeMode,
+                    onThemeMode = onThemeMode,
                     onSwitchServer = { pairingOpen = true },
                     onDisconnect = { viewModel.disconnect() },
                     onRefresh = { viewModel.refresh() },

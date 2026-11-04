@@ -17,6 +17,9 @@ import com.ila3.dshomni.data.remote.PairingTarget
 import com.ila3.dshomni.ui.OmniViewModel
 import com.ila3.dshomni.ui.RootApp
 import com.ila3.dshomni.ui.theme.DshOmniTheme
+import com.ila3.dshomni.ui.theme.ThemeMode
+import com.ila3.dshomni.ui.theme.ThemeStore
+import androidx.compose.runtime.remember
 
 /** Single activity; pairing links can arrive as a cold start or a new intent. */
 class MainActivity : ComponentActivity() {
@@ -30,7 +33,8 @@ class MainActivity : ComponentActivity() {
         deepLink = pairingFrom(intent)
         openConversation = intent.getStringExtra(EXTRA_CONVERSATION_ID)
         setContent {
-            DshOmniTheme {
+            var themeMode by remember { mutableStateOf(ThemeStore.load(this)) }
+            DshOmniTheme(mode = themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
@@ -39,6 +43,11 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         deepLink = deepLink,
                         openConversationId = openConversation,
+                        themeMode = themeMode,
+                        onThemeMode = { mode: ThemeMode ->
+                            themeMode = mode
+                            ThemeStore.save(this, mode)
+                        },
                     )
                 }
             }
