@@ -115,6 +115,22 @@ class OmniScreenshotTest {
     }
 
     @Test
+    fun captureAddChannelForm() {
+        val activity = activity()
+        activity.setContent {
+            DshOmniTheme {
+                AddChannelScreen(
+                    state = PreviewData.paired,
+                    onBack = { },
+                    onCreate = { _, _, _, _ -> },
+                    initialPlatformId = "whatsapp_qr",
+                )
+            }
+        }
+        capture(activity, "omni-add-channel-form.png")
+    }
+
+    @Test
     fun captureChannelDetail() {
         val activity = activity()
         activity.setContent {

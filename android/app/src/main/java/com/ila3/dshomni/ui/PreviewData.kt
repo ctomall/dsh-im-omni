@@ -57,6 +57,18 @@ object PreviewData {
         setup = mapOf("zh" to listOf("在 Meta 开发者后台创建 Business 应用并绑定号码。", "生成 System User 永久令牌并授予消息权限。")),
     )
 
+    private fun select(key: String, label: String, options: List<Pair<String, String>>) = PlatformField(
+        key = key,
+        type = "select",
+        label = zh(label),
+        hint = L10n("", ""),
+        placeholder = "",
+        required = true,
+        secret = false,
+        auto = false,
+        options = options.map { (value, text) -> FieldOption(value = value, label = zh(text)) },
+    )
+
     val whatsappQr = Platform(
         id = "whatsapp_qr",
         label = zh("WhatsApp 个人号"),
@@ -66,7 +78,13 @@ object PreviewData {
         transport = "bridge",
         official = false,
         capabilities = listOf("text", "media", "qr"),
-        fields = listOf(text("session", "会话名", required = false)),
+        fields = listOf(
+            select("mode", "连接方式", listOf("embedded" to "内置扫码", "bridge" to "外部桥接")),
+            text("bridgeUrl", "桥接地址（外部模式）", required = false),
+            text("bridgeToken", "桥接 token（外部模式）", required = false, secret = true),
+            text("sessionName", "会话名称", required = false),
+            text("displayPhone", "预期号码（可选）", required = false),
+        ),
         setup = mapOf("zh" to listOf("点击生成二维码，用手机 WhatsApp 扫码登录。")),
     )
 

@@ -1,9 +1,9 @@
 {
-  "versionCode": 2,
-  "versionName": "0.1.1",
+  "versionCode": 3,
+  "versionName": "0.1.2",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.1.1.apk",
-  "sha256": "173847375cc92b0d3a892767c16260c93943b9bf93434117efe69bfc1cc7754a",
-  "notes": "修复：扫码结果不写入表单（Compose remember 陷阱）；配对失败现在会说明具体原因（码失效/过期、来源被拒、尝试过多）。",
-  "publishedAt": "2026-11-04T08:45:00.000Z"
+  "file": "dsh-im-omni-0.1.2.apk",
+  "sha256": "667a8b845278578792bb2575327911d48f0efac4d8f56ddc55baa7c4b9969aff",
+  "notes": "修复：新增渠道时「连接方式」等下拉字段点不开、且必填校验拦住提交；现在下拉为可点卡片并预填平台默认值。",
+  "publishedAt": "2026-11-04T09:06:42.000Z"
 }

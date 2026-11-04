@@ -38,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,15 +73,28 @@ fun AddChannelScreen(
     state: UiState,
     onBack: () -> Unit,
     onCreate: (name: String, type: String, description: String, config: Map<String, String>) -> Unit,
+    initialPlatformId: String? = null,
 ) {
     val platforms = state.snapshot?.platforms.orEmpty()
-    var selected by remember { mutableStateOf<Platform?>(null) }
+    var selected by remember {
+        mutableStateOf(initialPlatformId?.let { id -> platforms.firstOrNull { it.id == id } })
+    }
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
     val values = remember { mutableStateMapOf<String, String>() }
     var revealed by remember { mutableStateOf(setOf<String>()) }
     var setupExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selected?.id) {
+        val platform = selected ?: return@LaunchedEffect
+        values.clear()
+        platform.fields.forEach { field ->
+            if (field.type == "select" && field.options.isNotEmpty()) {
+                values[field.key] = field.options.first().value
+            }
+        }
+    }
 
     val submitting = state.busyAction == "channel.create"
 
@@ -230,7 +244,10 @@ fun AddChannelScreen(
             Button(
                 onClick = {
                     val missing = platform.fields.firstOrNull { field ->
-                        field.required && !field.secret && values[field.key].isNullOrBlank()
+                        val effective = values[field.key].orEmpty().ifBlank {
+                            field.options.firstOrNull()?.value.orEmpty()
+                        }
+                        field.required && !field.secret && effective.isBlank()
                     }
                     when {
                         name.isBlank() -> localError = "请填写渠道名称。"
@@ -307,28 +324,60 @@ private fun FieldInput(
     if (field.type == "select" && field.options.isNotEmpty()) {
         var open by remember { mutableStateOf(false) }
         val current = field.options.firstOrNull { it.value == value } ?: field.options.first()
-        Box {
-            OutlinedTextField(
-                value = current.label.zh,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("${field.label.zh}${if (field.required) " *" else ""}") },
-                supportingText = { if (field.hint.zh.isNotBlank()) Text(field.hint.zh, fontSize = 11.sp) },
+        Column {
+            Text(
+                "${field.label.zh}${if (field.required) " *" else ""}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 2.dp, bottom = 6.dp),
+            )
+            // A read-only OutlinedTextField still consumes the tap, which is why
+            // the dropdown never opened; a card makes the affordance honest too.
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { open = true },
-            )
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                field.options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label.zh) },
-                        onClick = {
-                            onChange(option.value)
-                            open = false
-                        },
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        current.label.zh,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        Icons.Rounded.ExpandMore,
+                        contentDescription = "展开",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
+            }
+            if (field.hint.zh.isNotBlank()) {
+                Text(
+                    field.hint.zh,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 2.dp, top = 4.dp),
+                )
+            }
+        }
+        // The menu is anchored outside the card so it is not clipped by the
+        // scroll container's measurement of the field.
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            field.options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label.zh) },
+                    onClick = {
+                        onChange(option.value)
+                        open = false
+                    },
+                )
             }
         }
         return
