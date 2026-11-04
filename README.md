@@ -1,4 +1,4 @@
-# 全渠道 IM（dsh-im-omni 2.6.1）
+# 全渠道 IM（dsh-im-omni 2.7.0）
 
 一个带左侧栏入口的 DSH Web 插件：把 WhatsApp Business、WhatsApp/微信个人号扫码、企业微信、Telegram、飞书、Slack、Discord、LINE、钉钉和自建 HTTP 桥接统一到一套收件箱、联系人、快捷回复、群发、自动化和分析里。
 
@@ -17,6 +17,8 @@
 | `bridges/` | WhatsApp（Baileys）/ 微信（Wechaty）扫码桥接参考实现 |
 | `docs/CHANNELS.md` | **每个渠道的配置方式、平台侧步骤、行为与限制** |
 | `test/` | 适配器、签名/解密、入站/出站、脱敏的自动化测试 |
+| `android/` | **Android 客户端源码、截图与构建产物**（见 [android/README.md](./android/README.md)） |
+| `lib/app.js` | Android 在线升级：版本清单与安装包下发路由 |
 | `locale/`、`icon.svg` | 插件管理页标题/描述与原创图标 |
 
 数据文件：
@@ -105,6 +107,30 @@ plugin_manager action=install_bundle target=/home/ubuntu/ctomall/im-omni
 ```
 
 替换已安装版本后按 Plugin Manager 的 `application`/`nextStep` 处理；Host 代码更新通常需要重载/重启插件进程。浏览器客户端是 immutable bundle，更新后必须硬刷新（Ctrl/Cmd+Shift+R）或关闭标签页重开，否则会出现“能看到新平台、保存仍走旧逻辑”的混合状态。
+
+## 5.1 Android 客户端
+
+仓库内置原生 Android 前端（`com.ila3.dshomni`），手机上是同一套收件箱与渠道数据，只是换了渲染层：
+
+- **配对**：复用 DSH `phone_remote` 的一次性配对码与设备 cookie，不新增口令；内网（`http://<局域网 IP>:8080/phone/`）与外网（`https://域名/phone/`）各配对一次后一键切换。
+- **功能**：收件箱筛选与搜索、会话收发 / 翻译 / AI 草稿、渠道列表与详情、**手机端新增渠道并扫码绑定个人号**、工作台开关。
+- **在线升级**：Host 自身下发安装包，手机校验 SHA-256 后安装。
+
+| 收件箱 | 会话 | 新增渠道 |
+| --- | --- | --- |
+| ![收件箱](android/docs/omni-inbox.png) | ![会话](android/docs/omni-chat.png) | ![新增渠道](android/docs/omni-add-channel.png) |
+
+构建与截图：
+
+```bash
+cd android
+./build.sh              # dist/dsh-im-omni-<version>.apk + dist/latest.json
+CAPTURE=1 ./build.sh    # 顺带重跑 Robolectric 截图到 android/docs/
+```
+
+**升级链路**：`GET /api/im-omni.app.version` 返回 `{ versionCode, versionName, sha256, size, apkPath }`（读 `android/dist/latest.json`），`GET /api/im-omni.app.apk` 读同目录安装包。两个路由都注册在 `ctx.connection.fetch`，必须携带配对后的设备 cookie，安装包不会公开暴露。发布新版本只需改 `android/app/build.gradle` 的版本号并重跑 `build.sh`，**不必重新发布插件**。
+
+--- 
 
 ## 6. 新渠道怎么加
 

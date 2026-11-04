@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LAN entries are plain HTTP on the phone-remote gateway (for example
+  http://192.168.1.20:8080/phone/), so cleartext stays permitted. Public
+  entries should always be HTTPS; the app warns when a saved base URL is not.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

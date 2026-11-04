@@ -1,6 +1,6 @@
 {
   "name": "dsh-im-omni",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "private": true,
   "description": "Native omnichannel inbox for DSH: WhatsApp Cloud, WhatsApp/WeChat QR bridges, WeCom, Telegram, Feishu, Slack, Discord, LINE, DingTalk, and custom HTTP",
   "type": "module",
@@ -24,7 +24,9 @@
     "docs/*.md",
     "docs/*.png",
     "test/*.js",
-    "EVIDENCE.md"
+    "EVIDENCE.md",
+    "android/dist/latest.json",
+    "android/dist/*.apk"
   ],
   "dsh": {
     "bundle": {

@@ -13,6 +13,7 @@ import { handleWebhook } from './lib/channels/index.js'
 import { ChannelRuntime } from './lib/channels/runtime.js'
 import { createIntelligence } from './lib/intelligence.js'
 import { ReceptionBot } from './lib/bot.js'
+import { APK_PATH, VERSION_PATH, apkResponse, versionResponse } from './lib/app.js'
 import {
   ApiError,
   createSerial,
@@ -253,6 +254,26 @@ export async function apply(ctx) {
       },
     }),
     'im-omni: intelligence route',
+  )
+
+  ctx.effect(
+    () => ctx.connection.fetch.register({
+      path: VERSION_PATH,
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: async () => versionResponse(),
+    }),
+    'im-omni: android update manifest',
+  )
+
+  ctx.effect(
+    () => ctx.connection.fetch.register({
+      path: APK_PATH,
+      methods: ['GET', 'HEAD'],
+      requestBody: 'buffered',
+      fetch: async (request) => apkResponse(request),
+    }),
+    'im-omni: android apk download',
   )
 
   ctx.effect(
