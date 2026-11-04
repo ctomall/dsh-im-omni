@@ -43,4 +43,12 @@
     <string name="contacts_unnamed">Unnamed contact</string>
     <string name="contacts_group_ungrouped">Ungrouped</string>
     <string name="contacts_group_no_company">No company</string>
+    <string name="msg_copy">Copy</string>
+    <string name="msg_forward">Forward</string>
+    <string name="msg_hide_local">Hide locally</string>
+    <string name="msg_copied">Copied</string>
+    <string name="msg_forward_title">Forward message</string>
+    <string name="msg_status_sent">Sent</string>
+    <string name="msg_status_sending">Sending…</string>
+    <string name="msg_status_failed">Failed</string>
 </resources>

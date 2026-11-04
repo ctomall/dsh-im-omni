@@ -49,4 +49,12 @@
     <string name="contacts_unnamed">未命名客户</string>
     <string name="contacts_group_ungrouped">未分组</string>
     <string name="contacts_group_no_company">未填写公司</string>
+    <string name="msg_copy">复制</string>
+    <string name="msg_forward">转发</string>
+    <string name="msg_hide_local">本地隐藏</string>
+    <string name="msg_copied">已复制</string>
+    <string name="msg_forward_title">转发消息</string>
+    <string name="msg_status_sent">已发送</string>
+    <string name="msg_status_sending">发送中…</string>
+    <string name="msg_status_failed">发送失败</string>
 </resources>

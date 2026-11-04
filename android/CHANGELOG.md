@@ -3,6 +3,22 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.5.3 — 2024-11-04 (versionCode 13)
+
+### P3 — chat page, IM behaviour
+
+- **Long-press menu** on any bubble: 复制 (clipboard + toast), 转发 (system share
+  sheet), 本地隐藏. The Host contract has no delete, so the last action is
+  labelled 本地隐藏 and only removes the row from this device's view until the
+  screen is reopened — nothing is sent to the server.
+- **Delivery-state icons** on outgoing bubbles: clock while queued/sending,
+  double-check when sent, error outline when failed (with the existing 重试).
+  Per-message read receipts are not in the API, so 已读 is deliberately not
+  faked — only what the Host reports is shown.
+- All new menu/status copy lives in strings.xml (zh + en).
+
+Version 0.5.3 (code 13). 40 tests, 0 failures; lint clean.
+
 ## 0.5.2 — 2024-11-04 (versionCode 12)
 
 ### P2 — contacts page

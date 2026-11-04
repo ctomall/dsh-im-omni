@@ -1,9 +1,9 @@
 {
-  "versionCode": 12,
-  "versionName": "0.5.2",
+  "versionCode": 13,
+  "versionName": "0.5.3",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.5.2.apk",
-  "sha256": "542386696322868ad9d4ee3e69ee58a5514e73976e8b7fe5343c804c8a96f75e",
-  "notes": "0.5.2（P2 联系人）：按渠道/公司分组与吸顶、失败重试、搜索空态区分。",
-  "publishedAt": "2026-11-04T13:49:54.000Z"
+  "file": "dsh-im-omni-0.5.3.apk",
+  "sha256": "02bd3d469551608a49987b37e3061dffe7f5944ef990602c6ef3b45d952d366a",
+  "notes": "0.5.3（P3 会话页）：长按菜单（复制/转发/本地隐藏）、发送状态图标。",
+  "publishedAt": "2026-11-04T14:00:46.000Z"
 }

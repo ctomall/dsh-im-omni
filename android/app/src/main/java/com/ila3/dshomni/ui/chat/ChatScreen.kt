@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -113,6 +114,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import android.widget.Toast
+import android.content.Intent
+import com.ila3.dshomni.R
 
 /**
  * One conversation: read, translate, draft with AI, and reply.
@@ -149,6 +163,9 @@ fun ChatScreen(
     val contact = snapshot.contact(conversation.contactId)
     val channel = snapshot.channel(conversation.channelId)
     var draft by remember(conversationId) { mutableStateOf("") }
+    // Messages hidden from this device view only: the Host contract has no
+    // delete, so the action says so and the row is gone until the app restarts.
+    var hidden by remember(conversationId) { mutableStateOf(emptySet<String>()) }
     var menuOpen by remember { mutableStateOf(false) }
     // 回复 / 备注：备注只进 Host，不会发给客户。
     var noteMode by remember(conversationId) { mutableStateOf(false) }
@@ -242,8 +259,8 @@ fun ChatScreen(
                         start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = Spacing.sm,
                     ),
                 ) {
-                    itemsIndexed(conversation.messages, key = { _, item -> item.id }) { index, message ->
-                        val previous = conversation.messages.getOrNull(index - 1)
+                    itemsIndexed(conversation.messages.filterNot { it.id in hidden }, key = { _, item -> item.id }) { index, message ->
+                        val previous = conversation.messages.filterNot { it.id in hidden }.getOrNull(index - 1)
                         val newDay = previous == null || !sameDay(previous.createdAt, message.createdAt)
                         if (newDay) DaySeparator(dayLabel(message.createdAt))
                         // Tight inside a burst from one speaker, looser when the
@@ -255,7 +272,12 @@ fun ChatScreen(
                             else -> Spacing.sm
                         }
                         Box(Modifier.padding(top = gap)) {
-                            MessageBubble(message, onLoadAttachment, onRetryMessage)
+                            MessageBubble(
+                                message = message,
+                                onLoad = onLoadAttachment,
+                                onRetry = onRetryMessage,
+                                onHide = { id -> hidden = hidden + id },
+                            )
                         }
                     }
                 }
@@ -413,12 +435,17 @@ private fun ChatHeader(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(
     message: Message,
     onLoad: suspend (String) -> ByteArray?,
     onRetry: (String) -> Unit,
+    onHide: (String) -> Unit = {},
 ) {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    var menuOpen by remember(message.id) { mutableStateOf(false) }
     if (message.isNote) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Surface(
@@ -456,7 +483,12 @@ private fun MessageBubble(
                 bottomStart = 16.dp,
                 bottomEnd = 16.dp,
             ),
-            modifier = Modifier.widthIn(max = bubbleMax),
+            modifier = Modifier
+                .widthIn(max = bubbleMax)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = { menuOpen = true },
+                ),
         ) {
             Box {
                 Column(Modifier.padding(horizontal = Spacing.sm, vertical = 9.dp)) {
@@ -497,11 +529,22 @@ private fun MessageBubble(
                         )
                         if (!inbound) {
                             Spacer(Modifier.width(6.dp))
+                            Icon(
+                                when {
+                                    message.failed -> Icons.Rounded.ErrorOutline
+                                    message.status == "queued" || message.status == "sending" -> Icons.Rounded.Schedule
+                                    else -> Icons.Rounded.DoneAll
+                                },
+                                contentDescription = null,
+                                tint = onBubbleOut().copy(alpha = 0.55f),
+                                modifier = Modifier.size(12.dp),
+                            )
+                            Spacer(Modifier.width(3.dp))
                             Text(
                                 text = when {
-                                    message.failed -> "发送失败"
-                                    message.status == "queued" -> "发送中…"
-                                    else -> "已发送"
+                                    message.failed -> stringResource(R.string.msg_status_failed)
+                                    message.status == "queued" || message.status == "sending" -> stringResource(R.string.msg_status_sending)
+                                    else -> stringResource(R.string.msg_status_sent)
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = onBubbleOut().copy(alpha = 0.55f),
@@ -523,6 +566,39 @@ private fun MessageBubble(
                             }
                         }
                     }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (message.text.isNotBlank()) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.msg_copy)) },
+                            leadingIcon = { Icon(Icons.Rounded.ContentCopy, contentDescription = null) },
+                            onClick = {
+                                clipboard.setText(androidx.compose.ui.text.AnnotatedString(message.text))
+                                menuOpen = false
+                                Toast.makeText(context, context.getString(R.string.msg_copied), Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.msg_forward)) },
+                            leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                val send = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, message.text)
+                                }
+                                context.startActivity(Intent.createChooser(send, context.getString(R.string.msg_forward_title)))
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.msg_hide_local)) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onHide(message.id)
+                        },
+                    )
                 }
             }
         }
@@ -860,6 +936,7 @@ private fun Composer(
                         Icon(Icons.Rounded.Send, contentDescription = "发送", modifier = Modifier.size(IconSize.md))
                     }
                 }
+
             }
         }
     }

@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -108,5 +110,14 @@ class ChatInteractionTest {
         assertTrue(
             compose.onAllNodesWithText("今天").fetchSemanticsNodes().isNotEmpty(),
         )
+    }
+
+    @Test
+    fun longPressOpensTheBubbleMenuAndHidesLocally() {
+        chat()
+        val text = "如果退款的话大概多久到账？"
+        compose.onNodeWithText(text).performTouchInput { longClick() }
+        compose.onNodeWithText("本地隐藏").assertIsDisplayed().performClick()
+        assertTrue(compose.onAllNodesWithText(text).fetchSemanticsNodes().isEmpty())
     }
 }
