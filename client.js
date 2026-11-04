@@ -19,6 +19,8 @@ window.__ModuleLoader__.load({
     const COMMAND_PATH = '/api/im-omni.command'
     /** Owner route that checks and applies the plugin's own Git update. */
     const UPGRADE_PATH = '/api/im-omni.upgrade'
+    /** Owner route that stores one uploaded file. */
+    const UPLOAD_PATH = '/api/im-omni.upload'
     /** Authenticated translation/AI route. */
     const INTELLIGENCE_PATH = '/api/im-omni.ai'
     /** Sidebar and main panel id. */
@@ -144,6 +146,9 @@ window.__ModuleLoader__.load({
 .imoMsgMeta{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--dsw-alias-label-secondary);flex-wrap:wrap}
 .imoMsgError{color:var(--dsw-alias-state-error-primary);font-size:10.5px;display:flex;align-items:center;gap:4px;max-width:360px}
 .imoRetry{border:none;background:transparent;color:var(--dsw-alias-brand-primary);cursor:pointer;font:inherit;font-size:10.5px;padding:0;text-decoration:underline}
+.imoAttachImg{max-width:220px;max-height:180px;border-radius:10px;display:block;margin:2px 0;object-fit:cover}
+.imoAttachPending{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px 0}
+.imoAttachChip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px 2px 7px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .imoAttach{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
 .imoAttach a{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border-radius:6px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:11px;text-decoration:none;border:.5px solid var(--dsw-alias-border-l1);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .imoComposer{flex:none;border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);padding:10px 14px 12px}
@@ -533,6 +538,7 @@ window.__ModuleLoader__.load({
       'composer.send': '发送',
       'composer.saveNote': '保存备注',
       'composer.template': '插入快捷回复',
+      'composer.attach': '附件',
       'composer.hint': 'Enter 发送 · Shift+Enter 换行',
       'composer.noteHint': '仅团队可见，不会发送给客户',
       'composer.noTemplates': '暂无可用快捷回复',
@@ -1183,6 +1189,7 @@ window.__ModuleLoader__.load({
       'composer.send': 'Send',
       'composer.saveNote': 'Save note',
       'composer.template': 'Insert template',
+      'composer.attach': 'Attach',
       'composer.hint': 'Enter to send · Shift+Enter for a new line',
       'composer.noteHint': 'Visible to your team only; never sent to the customer',
       'composer.noTemplates': 'No templates available',
@@ -1768,6 +1775,7 @@ window.__ModuleLoader__.load({
       filter: ['M22 3H2l8 9.46V19l4 2v-8.54z'],
       user: ['M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2', 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
       mail: ['M2 4h20v16H2z', 'M22 6l-10 7L2 6'],
+      paperclip: ['M21.4 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'],
       phone: ['M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z'],
       building: ['M3 21h18', 'M6 21V3h12v18', 'M9 7h2', 'M13 7h2', 'M9 11h2', 'M13 11h2', 'M9 15h2', 'M13 15h2'],
       globe: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M2 12h20', 'M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20z'],
@@ -2579,13 +2587,18 @@ window.__ModuleLoader__.load({
         }
       }
 
-      async function send(text, mode, templateId) {
+      async function send(text, mode, templateId, attachments = []) {
         try {
           if (mode === 'note') {
             await command('message.note', { conversationId: conversation.id, text })
             notify(t('toast.noteAdded'))
           } else {
-            await command('message.send', { conversationId: conversation.id, text, templateId })
+            await command('message.send', {
+              conversationId: conversation.id,
+              text,
+              templateId,
+              attachments: attachments.map((attachment) => ({ id: attachment.id })),
+            })
             notify(t('toast.messageQueued'))
           }
           return true
@@ -2741,12 +2754,21 @@ window.__ModuleLoader__.load({
             h('div', { className: `imoBubble ${outbound ? 'imoBubbleOut' : ''} ${note ? 'imoBubbleNote' : ''}`.trim() },
               message.text || t('message.noText'),
               message.attachments?.length > 0
-                ? h('div', { className: 'imoAttach' }, message.attachments.map((attachment, index) => h('a', {
-                  key: `${message.id}-att-${index}`,
-                  href: safeHref(attachment.url),
-                  target: '_blank',
-                  rel: 'noreferrer noopener',
-                }, h(Icon, { name: 'file', size: 11 }), attachment.name || attachment.type || t('message.file'))))
+                ? h('div', { className: 'imoAttach' }, message.attachments.map((attachment, index) => {
+                  const key = `${message.id}-att-${index}`
+                  // Attachment bytes are owner-authenticated, so the same-origin
+                  // <img> carries the session cookie and needs no blob handling.
+                  if (String(attachment.type ?? '').startsWith('image/')) {
+                    return h('a', { key, href: safeHref(attachment.url), target: '_blank', rel: 'noreferrer noopener' },
+                      h('img', { className: 'imoAttachImg', src: attachment.url, alt: attachment.name || t('message.file') }))
+                  }
+                  return h('a', {
+                    key,
+                    href: safeHref(attachment.url),
+                    target: '_blank',
+                    rel: 'noreferrer noopener',
+                  }, h(Icon, { name: 'file', size: 11 }), attachment.name || attachment.type || t('message.file'))
+                }))
                 : null,
             ),
             message.direction === 'in' && showTranslation === true && message.translation !== null && message.translation !== undefined && message.translation.text !== message.text
@@ -2791,6 +2813,9 @@ window.__ModuleLoader__.load({
       const [sending, setSending] = React.useState(false)
       const [suggestions, setSuggestions] = React.useState([])
       const [suggesting, setSuggesting] = React.useState(false)
+      const [uploads, setUploads] = React.useState([])
+      const [uploading, setUploading] = React.useState(false)
+      const fileRef = React.useRef(null)
       const available = templates.filter((template) => template.channelIds.length === 0 || template.channelIds.includes(conversation.channelId))
 
       React.useEffect(() => {
@@ -2820,13 +2845,49 @@ window.__ModuleLoader__.load({
         }
       }
 
+      async function uploadFiles(fileList) {
+        const files = Array.from(fileList ?? []).slice(0, 5)
+        if (files.length === 0) return
+        setUploading(true)
+        try {
+          for (const file of files) {
+            if (file.size > 12 * 1024 * 1024) {
+              notify(`${file.name} 超过 12 MB，已跳过`, 'error')
+              continue
+            }
+            const response = await fetch(UPLOAD_PATH, {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: {
+                'x-file-name': encodeURIComponent(file.name || 'attachment'),
+                'content-type': file.type || 'application/octet-stream',
+              },
+              body: file,
+            })
+            const body = await response.json().catch(() => null)
+            if (!response.ok || body?.ok !== true) {
+              notify(body?.error?.message ?? `上传失败：HTTP ${response.status}`, 'error')
+              continue
+            }
+            const attachment = body.result?.attachment
+            if (attachment !== undefined) setUploads((previous) => [...previous, attachment].slice(0, 5))
+          }
+        } finally {
+          setUploading(false)
+          if (fileRef.current !== null) fileRef.current.value = ''
+        }
+      }
+
       async function submit() {
         const value = text.trim()
-        if (value === '' || sending) return
+        if ((value === '' && uploads.length === 0) || sending || uploading) return
         setSending(true)
-        const ok = await onSend(value, mode, null)
+        const ok = await onSend(value, mode, null, mode === 'note' ? [] : uploads)
         setSending(false)
-        if (ok) setText('')
+        if (ok) {
+          setText('')
+          setUploads([])
+        }
       }
 
       function insertTemplate(templateId) {
@@ -2906,12 +2967,45 @@ window.__ModuleLoader__.load({
               }
             },
           }),
+          uploads.length > 0
+            ? h('div', { className: 'imoAttachPending' }, uploads.map((attachment) => h('span', { key: attachment.id, className: 'imoAttachChip' },
+              h(Icon, { name: 'file', size: 11 }),
+              attachment.name,
+              h('button', {
+                type: 'button',
+                className: 'imoIconBtn',
+                style: { width: 18, height: 18 },
+                title: t('common.remove'),
+                'aria-label': t('common.remove'),
+                onClick: () => setUploads((previous) => previous.filter((item) => item.id !== attachment.id)),
+              }, h(Icon, { name: 'x', size: 10 })),
+            )))
+            : null,
           h('div', { className: 'imoComposerFoot' },
             h('span', { className: 'imoComposerHint' }, mode === 'note' ? t('composer.noteHint') : t('composer.hint')),
+            mode === 'reply'
+              ? h('input', {
+                ref: fileRef,
+                type: 'file',
+                multiple: true,
+                style: { display: 'none' },
+                onChange: (event) => { void uploadFiles(event.target.files) },
+              })
+              : null,
+            mode === 'reply'
+              ? h('button', {
+                type: 'button',
+                className: 'imoBtn imoBtnSm',
+                disabled: uploading || uploads.length >= 5,
+                title: '附件',
+                'aria-label': '附件',
+                onClick: () => fileRef.current?.click(),
+              }, uploading ? h('span', { className: 'imoSpinner' }) : h(Icon, { name: 'paperclip', size: 13 }), t('composer.attach'))
+              : null,
             h('button', {
               type: 'button',
               className: 'imoBtn imoBtnPrimary imoBtnSm',
-              disabled: sending || text.trim() === '',
+              disabled: sending || uploading || (text.trim() === '' && uploads.length === 0),
               onClick: () => { void submit() },
             }, sending ? h('span', { className: 'imoSpinner' }) : h(Icon, { name: mode === 'note' ? 'note' : 'send', size: 13 }), mode === 'note' ? t('composer.saveNote') : t('composer.send')),
           ),
