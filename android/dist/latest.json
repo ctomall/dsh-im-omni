@@ -1,9 +1,9 @@
 {
-  "versionCode": 11,
-  "versionName": "0.5.1",
+  "versionCode": 12,
+  "versionName": "0.5.2",
   "minSdk": 26,
-  "file": "dsh-im-omni-0.5.1.apk",
-  "sha256": "a97b7a480b0db73e19f900300861521ad66ed7d0bb1efce5fadf10c9124d63ad",
-  "notes": "0.5.1（P1 信息架构）：四 tab（会话/联系人/渠道/我）、联系人页、扫码定位为登录并对失败分类。",
-  "publishedAt": "2026-11-04T13:34:23.000Z"
+  "file": "dsh-im-omni-0.5.2.apk",
+  "sha256": "542386696322868ad9d4ee3e69ee58a5514e73976e8b7fe5343c804c8a96f75e",
+  "notes": "0.5.2（P2 联系人）：按渠道/公司分组与吸顶、失败重试、搜索空态区分。",
+  "publishedAt": "2026-11-04T13:49:54.000Z"
 }

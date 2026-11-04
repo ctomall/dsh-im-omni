@@ -1,5 +1,6 @@
 package com.ila3.dshomni.ui.contacts
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -50,13 +52,20 @@ import com.ila3.dshomni.ui.common.PlatformBadge
 import com.ila3.dshomni.ui.theme.Radius
 import com.ila3.dshomni.ui.theme.Spacing
 
+/** How the address book is bucketed. */
+private enum class ContactGrouping { Channel, Company }
+
+private const val UNGROUPED = "\u0000ungrouped"
+private const val NO_COMPANY = "\u0000nocompany"
+
 /**
  * Contacts tab: the address book behind the inbox.
  *
- * Contacts arrive with the workspace snapshot (they are created by the Host
- * when the first inbound message lands), so this screen only reads, filters
- * and navigates — it never invents a contact or calls a new endpoint.
+ * Contacts arrive with the workspace snapshot (the Host creates them on the
+ * first inbound message), so this screen only reads, filters, groups and
+ * navigates — it never invents a contact or calls a new endpoint.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContactsScreen(
     state: UiState,
@@ -66,15 +75,29 @@ fun ContactsScreen(
 ) {
     val snapshot = state.snapshot
     var query by remember { mutableStateOf("") }
+    var grouping by remember { mutableStateOf(ContactGrouping.Channel) }
 
-    val contacts = remember(snapshot, query) {
-        snapshot?.contacts.orEmpty()
-            .filter { contact ->
-                if (query.isBlank()) return@filter true
-                listOf(contact.name, contact.company, contact.handle, contact.phone, contact.email)
-                    .any { it.contains(query, ignoreCase = true) }
+    val groups: List<Pair<String, List<Contact>>> = remember(snapshot, query, grouping) {
+        val matched = snapshot?.contacts.orEmpty().filter { contact ->
+            if (query.isBlank()) return@filter true
+            listOf(contact.name, contact.company, contact.handle, contact.phone, contact.email)
+                .any { it.contains(query, ignoreCase = true) }
+        }
+        val buckets = linkedMapOf<String, MutableList<Contact>>()
+        matched.sortedBy { it.name.lowercase() }.forEach { contact ->
+            val key = when (grouping) {
+                ContactGrouping.Channel ->
+                    contact.identities
+                        .mapNotNull { snapshot?.channel(it.channelId)?.name }
+                        .firstOrNull()
+                        ?: UNGROUPED
+                ContactGrouping.Company -> contact.company.ifBlank { NO_COMPANY }
             }
-            .sortedBy { it.name.lowercase() }
+            buckets.getOrPut(key) { mutableListOf() }.add(contact)
+        }
+        buckets.entries
+            .sortedWith(compareBy({ it.key == UNGROUPED || it.key == NO_COMPANY }, { it.key }))
+            .map { it.key to it.value.toList() }
     }
 
     Column(
@@ -106,7 +129,7 @@ fun ContactsScreen(
                     IconButton(onClick = onRefresh) {
                         Icon(
                             Icons.Rounded.Refresh,
-                            contentDescription = "刷新",
+                            contentDescription = stringResource(R.string.contacts_refresh),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(22.dp),
                         )
@@ -144,23 +167,77 @@ fun ContactsScreen(
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(Spacing.xs))
+            Spacer(Modifier.height(Spacing.xxs))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                GroupingTab(
+                    label = stringResource(R.string.contacts_group_channel),
+                    selected = grouping == ContactGrouping.Channel,
+                    onClick = { grouping = ContactGrouping.Channel },
+                )
+                GroupingTab(
+                    label = stringResource(R.string.contacts_group_company),
+                    selected = grouping == ContactGrouping.Company,
+                    onClick = { grouping = ContactGrouping.Company },
+                )
+            }
+            Spacer(Modifier.height(Spacing.xxs))
         }
 
         when {
             snapshot == null && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(strokeWidth = 2.dp)
             }
-            contacts.isEmpty() -> EmptyContacts(hasQuery = query.isNotBlank())
-            else -> LazyColumn(Modifier.fillMaxSize()) {
-                items(contacts, key = { it.id }) { contact ->
-                    ContactRow(
-                        contact = contact,
-                        snapshot = snapshot,
-                        onClick = {
-                            latestConversationId(snapshot, contact.id)?.let(onOpenConversation)
-                        },
+            // A failed first sync cannot say "empty": it offers a retry instead.
+            snapshot == null && state.error != null -> Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        stringResource(R.string.contacts_load_failed),
+                        style = MaterialTheme.typography.titleMedium,
                     )
+                    Spacer(Modifier.height(Spacing.xxs))
+                    Text(
+                        state.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Spacing.xl),
+                    )
+                    Spacer(Modifier.height(Spacing.md))
+                    OutlinedButton(onClick = onRefresh) {
+                        Text(stringResource(R.string.contacts_retry))
+                    }
+                }
+            }
+            groups.isEmpty() -> EmptyContacts(hasQuery = query.isNotBlank())
+            else -> LazyColumn(Modifier.fillMaxSize()) {
+                groups.forEach { (title, members) ->
+                    stickyHeader(key = "header:$title") {
+                        val label = when (title) {
+                            UNGROUPED -> stringResource(R.string.contacts_group_ungrouped)
+                            NO_COMPANY -> stringResource(R.string.contacts_group_no_company)
+                            else -> title
+                        }
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.background)
+                                .padding(horizontal = Spacing.md, vertical = Spacing.xxs),
+                        )
+                    }
+                    items(members, key = { it.id }) { contact ->
+                        ContactRow(
+                            contact = contact,
+                            snapshot = snapshot,
+                            onClick = {
+                                latestConversationId(snapshot, contact.id)?.let(onOpenConversation)
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -173,6 +250,19 @@ private fun latestConversationId(snapshot: Snapshot?, contactId: String): String
         ?.filter { it.contactId == contactId }
         ?.maxByOrNull { it.updatedAt }
         ?.id
+
+@Composable
+private fun GroupingTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        fontSize = 13.sp,
+        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
+}
 
 @Composable
 private fun ContactRow(contact: Contact, snapshot: Snapshot?, onClick: () -> Unit) {
@@ -191,7 +281,7 @@ private fun ContactRow(contact: Contact, snapshot: Snapshot?, onClick: () -> Uni
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                contact.name.ifBlank { "未命名客户" },
+                contact.name.ifBlank { stringResource(R.string.contacts_unnamed) },
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -239,12 +329,12 @@ private fun EmptyContacts(hasQuery: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            if (hasQuery) "没有匹配的联系人" else stringResource(R.string.contacts_empty),
+            if (hasQuery) stringResource(R.string.contacts_no_match) else stringResource(R.string.contacts_empty),
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            if (hasQuery) "换个关键词试试。" else stringResource(R.string.contacts_empty_hint),
+            if (hasQuery) stringResource(R.string.contacts_no_match_hint) else stringResource(R.string.contacts_empty_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

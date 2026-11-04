@@ -34,13 +34,14 @@ class ContactsInteractionTest {
     private fun screen(
         state: com.ila3.dshomni.ui.UiState = PreviewData.paired,
         onOpen: (String) -> Unit = {},
+        onRefresh: () -> Unit = {},
     ) {
         compose.setContent {
             DshOmniTheme {
                 ContactsScreen(
                     state = state,
                     onOpenConversation = onOpen,
-                    onRefresh = { },
+                    onRefresh = onRefresh,
                     onDismiss = { },
                 )
             }
@@ -71,5 +72,29 @@ class ContactsInteractionTest {
         val base = PreviewData.paired
         screen(state = base.copy(snapshot = base.snapshot!!.copy(contacts = emptyList())))
         assertTrue(compose.onAllNodesWithText("还没有联系人").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun groupingSwitchChangesTheSectionHeaders() {
+        screen()
+        // Default grouping is by account: the demo workspace has a WhatsApp channel.
+        // The demo contacts carry no identities, so their bucket is the
+        // ungrouped one — the header still has to read like a human wrote it.
+        assertTrue(compose.onAllNodesWithText("未分组").fetchSemanticsNodes().isNotEmpty())
+        compose.onNodeWithText("按公司").performClick()
+        assertTrue(compose.onAllNodesWithText("Northwind", substring = true).fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun aFailedFirstSyncOffersRetry() {
+        var refreshed = 0
+        val base = PreviewData.paired
+        screen(
+            state = base.copy(snapshot = null, loading = false, error = "网络不可用"),
+            onRefresh = { refreshed += 1 },
+        )
+        compose.onNodeWithText("联系人加载失败").assertIsDisplayed()
+        compose.onNodeWithText("重试").performClick()
+        assertEquals(1, refreshed)
     }
 }

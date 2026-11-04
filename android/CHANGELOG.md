@@ -3,6 +3,20 @@
 All notable changes to the Android companion app. The plugin itself is
 versioned separately; this file tracks `com.ila3.dshomni`.
 
+## 0.5.2 — 2024-11-04 (versionCode 12)
+
+### P2 — contacts page
+
+- Grouping switch: **按渠道 / 按公司**, with sticky section headers. Contacts that
+  carry no channel identity fall into a human-readable 未分组 bucket; contacts
+  without a company fall into 未填写公司 (both were raw sentinels before).
+- Failures when no snapshot has ever loaded now show an explicit
+  「联系人加载失败 + 原因 + 重试」 pane instead of pretending the address book is empty.
+- Search covers name / company / phone / handle / email and distinguishes
+  "no match" from "no contacts at all".
+
+Version 0.5.2 (code 12). 39 tests, 0 failures; lint clean.
+
 ## 0.5.1 — 2024-11-04 (versionCode 11)
 
 ### P1 — IM information architecture

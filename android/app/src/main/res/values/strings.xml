@@ -39,4 +39,14 @@
     <string name="pair_err_timeout">连接服务器超时，请检查网络或确认主机在线。</string>
     <string name="pair_err_net">网络不可用，请稍后重试。</string>
     <string name="pair_err_address">服务器地址无效，请检查后重试。</string>
+    <string name="contacts_refresh">刷新</string>
+    <string name="contacts_group_channel">按渠道</string>
+    <string name="contacts_group_company">按公司</string>
+    <string name="contacts_load_failed">联系人加载失败</string>
+    <string name="contacts_retry">重试</string>
+    <string name="contacts_no_match">没有匹配的联系人</string>
+    <string name="contacts_no_match_hint">换个关键词试试。</string>
+    <string name="contacts_unnamed">未命名客户</string>
+    <string name="contacts_group_ungrouped">未分组</string>
+    <string name="contacts_group_no_company">未填写公司</string>
 </resources>

@@ -33,4 +33,14 @@
     <string name="pair_err_timeout">Connecting to the server timed out. Check the network or whether the host is online.</string>
     <string name="pair_err_net">Network unavailable. Try again later.</string>
     <string name="pair_err_address">That server address is not valid.</string>
+    <string name="contacts_refresh">Refresh</string>
+    <string name="contacts_group_channel">By account</string>
+    <string name="contacts_group_company">By company</string>
+    <string name="contacts_load_failed">Could not load contacts</string>
+    <string name="contacts_retry">Retry</string>
+    <string name="contacts_no_match">No matching contacts</string>
+    <string name="contacts_no_match_hint">Try another keyword.</string>
+    <string name="contacts_unnamed">Unnamed contact</string>
+    <string name="contacts_group_ungrouped">Ungrouped</string>
+    <string name="contacts_group_no_company">No company</string>
 </resources>
