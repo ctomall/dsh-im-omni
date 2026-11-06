@@ -291,6 +291,22 @@ const detailCfg = `
 <div class="imCfg">
   <div class="imCfgHead"><div><h2 class="imCfgTitle">插件配置</h2><p class="imCfgSub">这里的改动立即作用于全渠道 IM 面板，两个入口读写同一份 Host 状态。</p></div></div>
   <section class="imCfgGroup">
+    <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">在线升级</h3><span class="imCfgGroupNote">分支 main</span></div>
+    <div class="imCfgRow">
+      <div class="imCfgRowMain"><span class="imCfgRowTitle">当前 v2.9.0 · 9915ec6</span><span class="imCfgRowNote">落后远程 2 个提交。</span></div>
+      <div class="imCfgActions">
+        <span class="imCfgStatus"><span class="imCfgDot paused"></span>2 个提交待拉取</span>
+        <button class="imoBtn imoBtnSm">检查更新</button>
+        <button class="imoBtn imoBtnSm imoBtnPrimary">一键升级</button>
+      </div>
+    </div>
+    <div class="imCfgCommits">
+      <div class="imCfgCommit"><code>9915ec6</code><span class="imCfgCommitSubject">feat: plugin configuration on the plugin detail page</span></div>
+      <div class="imCfgCommit"><code>7cc96fb</code><span class="imCfgCommitSubject">docs: single-file unslop report with inline before/after</span></div>
+    </div>
+  </section>
+
+  <section class="imCfgGroup">
     <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">连接与演示</h3><span class="imCfgGroupNote">所有者</span></div>
     <div class="imCfgGrid">
       <label class="imCfgField"><span class="imCfgLabel">Host 服务地址</span><input class="imCfgInput" readonly value="https://dsh.ila3.top"></label>

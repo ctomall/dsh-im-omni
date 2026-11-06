@@ -62,6 +62,10 @@ window.__ModuleLoader__.load({
 .imCfgMark.yes{color:var(--dsw-alias-label-primary)}
 .imCfgMark.no{color:var(--dsw-alias-label-tertiary)}
 .imCfgSelect{height:30px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;padding:0 8px}
+.imCfgCommits{display:flex;flex-direction:column;gap:6px;padding:4px 0 0}
+.imCfgCommit{display:flex;align-items:baseline;gap:10px;font-size:12px;min-width:0}
+.imCfgCommit code{font-size:11px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);padding:1px 5px;border-radius:4px;flex:none}
+.imCfgCommitSubject{color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .imCfgNote{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:1.5}
 .imCfgToast{font-size:12px;color:var(--dsw-alias-state-success-primary)}
 .imCfgToast.bad{color:var(--dsw-alias-state-error-primary)}
@@ -5535,6 +5539,9 @@ window.__ModuleLoader__.load({
       const [saving, setSaving] = React.useState('')
       const [notice, setNotice] = React.useState('')
       const [form, setForm] = React.useState(null)
+      const [upgrade, setUpgrade] = React.useState(null)
+      const [upgradeBusy, setUpgradeBusy] = React.useState('')
+      const [upgradeNote, setUpgradeNote] = React.useState('')
 
       const load = React.useCallback(async () => {
         try {
@@ -5563,6 +5570,47 @@ window.__ModuleLoader__.load({
       }, [])
 
       React.useEffect(() => { void load() }, [load])
+
+      const upgradeCall = React.useCallback(async (action) => {
+        const response = await fetch(UPGRADE_PATH, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action }),
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok || body?.ok !== true) throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
+        return body.result ?? {}
+      }, [])
+
+      const checkUpgrade = React.useCallback(async () => {
+        setUpgradeBusy('check')
+        setUpgradeNote('')
+        try {
+          const result = await upgradeCall('check')
+          setUpgrade(result.status ?? null)
+        } catch (error) {
+          setUpgradeNote(`检查失败：${error instanceof Error ? error.message : String(error)}`)
+        } finally {
+          setUpgradeBusy('')
+        }
+      }, [upgradeCall])
+
+      React.useEffect(() => { void checkUpgrade() }, [checkUpgrade])
+
+      const pullUpgrade = React.useCallback(async () => {
+        setUpgradeBusy('pull')
+        setUpgradeNote('')
+        try {
+          const result = await upgradeCall('pull')
+          if (result.status !== undefined) setUpgrade(result.status)
+          setUpgradeNote(result.message ?? (result.restartRequired ? '已更新，重启 DSH 后生效。' : ''))
+        } catch (error) {
+          setUpgradeNote(`更新失败：${error instanceof Error ? error.message : String(error)}`)
+        } finally {
+          setUpgradeBusy('')
+        }
+      }, [upgradeCall])
 
       const run = React.useCallback(async (label, action, payload) => {
         setSaving(label)
@@ -5627,6 +5675,44 @@ window.__ModuleLoader__.load({
         notice === '' ? null : h('p', { className: `imCfgToast ${error === '' ? '' : 'bad'}`.trim() }, notice),
         error === '' ? null : h('p', { className: 'imCfgToast bad' }, error),
 
+        h('section', { className: 'imCfgGroup' },
+          h('div', { className: 'imCfgGroupHead' },
+            h('h3', { className: 'imCfgGroupTitle' }, '在线升级'),
+            h('span', { className: 'imCfgGroupNote' }, upgrade?.installKind === 'git' ? `分支 ${upgrade.branch ?? '—'}` : '打包安装'),
+          ),
+          h('div', { className: 'imCfgRow' },
+            h('div', { className: 'imCfgRowMain' },
+              h('span', { className: 'imCfgRowTitle' }, upgrade === null ? '正在检查版本…' : `当前 v${upgrade.version ?? '—'}${upgrade.current?.short ? ` · ${upgrade.current.short}` : ''}`),
+              h('span', { className: 'imCfgRowNote' }, upgradeNote !== '' ? upgradeNote : (upgrade?.message ?? '尚未检查')),
+            ),
+            h('div', { className: 'imCfgActions' },
+              h('span', { className: 'imCfgStatus' },
+                h('span', { className: `imCfgDot ${upgrade?.behind > 0 || (upgrade?.dirtyFiles?.length ?? 0) > 0 ? 'paused' : ''}`.trim() }),
+                upgrade === null ? '检查中' : upgrade.behind > 0 ? `${upgrade.behind} 个提交待拉取` : upgrade.dirtyFiles?.length > 0 ? '工作区有改动' : '已是最新',
+              ),
+              h('button', {
+                type: 'button',
+                className: 'imoBtn imoBtnSm',
+                disabled: upgradeBusy !== '',
+                onClick: () => { void checkUpgrade() },
+              }, upgradeBusy === 'check' ? '检查中…' : '检查更新'),
+              h('button', {
+                type: 'button',
+                className: 'imoBtn imoBtnSm imoBtnPrimary',
+                disabled: upgradeBusy !== '' || upgrade === null || upgrade.canPull !== true,
+                onClick: () => { void pullUpgrade() },
+              }, upgradeBusy === 'pull' ? '升级中…' : '一键升级'),
+            ),
+          ),
+          upgrade?.commits?.length > 0
+            ? h('div', { className: 'imCfgCommits' },
+              upgrade.commits.slice(0, 5).map((commit) => h('div', { key: commit.sha, className: 'imCfgCommit' },
+                h('code', null, commit.short ?? String(commit.sha ?? '').slice(0, 7)),
+                h('span', { className: 'imCfgCommitSubject' }, commit.subject ?? ''),
+              )),
+            )
+            : (upgrade?.ahead > 0 ? h('p', { className: 'imCfgNote' }, `本地领先远程 ${upgrade.ahead} 个提交。`) : null),
+        ),
         h('section', { className: 'imCfgGroup' },
           h('div', { className: 'imCfgGroupHead' },
             h('h3', { className: 'imCfgGroupTitle' }, '连接与演示'),

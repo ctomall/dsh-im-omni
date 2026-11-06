@@ -134,3 +134,22 @@ $ curl "http://127.0.0.1:52102/plugins/??dsh-im-omni/client.js&rev=92174c545404"
 - 诚实的边界：插件 API 是本地 Host API，"当前坐席"由客户端声明，**不是强身份**；真正的多用户鉴权在 SaaS 服务端（JWT + RLS + 成员表），这里只做单机工作区的角色约束。
 
 截图：`docs/unslop-detail-before.png` / `docs/unslop-detail-after.png` / `docs/unslop-detail-permissions.png`。
+
+## 第六轮：详情页的在线一键升级
+
+插件详情页顶部新增「在线升级」分组（在插件页和面板设置里读的是同一个 `/api/im-omni.upgrade` 路由）：
+
+| 元素 | 内容 |
+| --- | --- |
+| 版本行 | `当前 v2.9.0 · 9915ec6`、分支、最近检查结论 |
+| 状态 | 6px 圆点 + 文字：已是最新 / N 个提交待拉取 / 工作区有改动 / 打包安装无法自更新 |
+| 操作 | `检查更新`（次要）、`一键升级`（主操作，仅当 `canPull` 为真可点） |
+| 待拉取提交 | 最多 5 条，短 sha（等宽）+ 提交标题，超长省略 |
+| 结果 | 完成后回写状态；`restartRequired` 时提示“重启 DSH 后生效” |
+
+Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pull --ff-only`，工作区脏直接拒绝，
+不接收路径参数。**改的是宿主半边（`lib/upgrade.js` 与 `index.js` 不动），所以升级后必须重启 DSH 才生效**；
+详情页只是把这条能力搬到插件页，避免用户去面板设置里找。
+
+实测（本机真实 checkout）：`installKind=git`、`version=2.9.0`、`branch=main`、`behind=0`、`canPull=false`、`message=已是最新版本。`
+（截图里的“落后 2 个提交”是设计预览用的样例数据。）
