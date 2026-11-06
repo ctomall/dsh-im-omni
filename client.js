@@ -5726,7 +5726,7 @@ window.__ModuleLoader__.load({
         h('section', { className: 'imCfgGroup' },
           h('div', { className: 'imCfgGroupHead' },
             h('h3', { className: 'imCfgGroupTitle' }, '在线升级'),
-            h('span', { className: 'imCfgGroupNote' }, upgrade?.installKind === 'git' ? `分支 ${upgrade.branch ?? '—'}` : '打包安装'),
+            h('span', { className: 'imCfgGroupNote' }, upgrade === null ? '检查中' : upgrade.installKind === 'git' ? `分支 ${upgrade.branch ?? '—'}` : '打包安装'),
           ),
           h('div', { className: 'imCfgRow' },
             h('div', { className: 'imCfgRowMain' },
@@ -6080,13 +6080,17 @@ window.__ModuleLoader__.load({
         }
 
         render() {
+          // The stylesheet normally rides on the panel's App root; the plugin
+          // page never mounts App, so the section carries its own copy.
+          const style = h('style', { dangerouslySetInnerHTML: { __html: CSS } })
           if (this.state.message !== '') {
             return h('div', { className: 'imCfg', 'data-im-omni-config': 'error' },
+              style,
               h('p', { className: 'imCfgSub' }, '插件配置渲染失败'),
               h('pre', { className: 'imCfgError' }, this.state.message),
             )
           }
-          return h('div', { className: 'imCfgHost', 'data-im-omni-config': 'mounted' }, this.props.children)
+          return h('div', { className: 'imCfgHost', 'data-im-omni-config': 'mounted' }, style, this.props.children)
         }
       }
       ctx.slots.inject('plugins.bundle.config', () => {
