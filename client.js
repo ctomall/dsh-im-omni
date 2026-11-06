@@ -171,6 +171,8 @@ window.__ModuleLoader__.load({
 .imoTab{position:relative;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:none;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
 .imoTab:hover{color:var(--dsw-alias-label-primary)}
 .imoTabActive{color:var(--dsw-alias-label-primary);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,transparent);font-weight:650;box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--dsw-alias-brand-primary) 16%,transparent)}
+.imoTabSpacer{flex:1}
+.imoTabRole{font-size:11px;color:var(--dsw-alias-label-tertiary);padding:0 8px;white-space:nowrap}
 .imoTabBadge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);font-size:10px;font-weight:600}
 .imoContent{flex:1;min-height:0;overflow:hidden;position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--dsw-alias-bg-layer-2) 34%,var(--dsw-alias-bg-base)),var(--dsw-alias-bg-base) 170px)}
 .imoPage{height:100%;overflow:auto;padding:24px 26px 32px}
@@ -178,6 +180,14 @@ window.__ModuleLoader__.load({
 .imoPageTitle{font-size:19px;font-weight:650;line-height:26px;margin:0}
 .imoPageSub{color:var(--dsw-alias-label-secondary);font-size:12.5px;margin:2px 0 0;max-width:760px}
 .imoPageActions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.imoGate{display:flex;align-items:center;justify-content:center;padding:32px}
+.imoGateCard{width:100%;max-width:360px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;padding:22px 22px 18px}
+.imoGateHead{margin-bottom:16px}
+.imoGateTitle{font-size:17px;font-weight:600;margin:0}
+.imoGateSub{font-size:12px;color:var(--dsw-alias-label-secondary);margin:5px 0 0;line-height:1.5}
+.imoGateSubmit{width:100%;margin-top:6px;justify-content:center}
+.imoGateError{color:var(--dsw-alias-state-error-primary);margin:8px 0 0}
+.imoGateHint{margin:12px 0 0;line-height:1.5}
 .imoRow{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:12px 0;border-top:.5px solid var(--dsw-alias-border-l1)}
 .imoRow:first-of-type{border-top:none}
 .imoRow>div:first-child{min-width:0}
@@ -478,6 +488,7 @@ window.__ModuleLoader__.load({
       'app.demo': '演示数据',
       'app.searchPlaceholder': '搜索会话、联系人、消息…',
       'app.refresh': '刷新',
+      'app.signOut': '退出登录',
       'app.offline': '离线，正在重试',
       'app.loading': '正在加载全渠道工作区…',
       'app.loadError': '工作区加载失败',
@@ -1129,6 +1140,7 @@ window.__ModuleLoader__.load({
       'app.demo': 'Demo data',
       'app.searchPlaceholder': 'Search conversations, contacts, messages…',
       'app.refresh': 'Refresh',
+      'app.signOut': 'Sign out',
       'app.offline': 'Offline, retrying',
       'app.loading': 'Loading the omnichannel workspace…',
       'app.loadError': 'Workspace could not load',
@@ -2423,8 +2435,9 @@ window.__ModuleLoader__.load({
      * @param {Record<string, any>} props - active tab, counts, and callback.
      * @returns {import('react').ReactElement} tabs.
      */
-    function TabBar({ tab, onTab, t, unread }) {
-      const items = [
+    function TabBar({ tab, onTab, t, unread, role, name, onSignOut }) {
+      const canManage = role === 'owner' || role === 'admin'
+      const all = [
         ['inbox', 'inbox', unread],
         ['contacts', 'users', 0],
         ['channels', 'plug', 0],
@@ -2446,7 +2459,22 @@ window.__ModuleLoader__.load({
           t(`nav.${id}`),
           badge > 0 ? h('span', { className: 'imoTabBadge' }, badge > 99 ? '99+' : String(badge)) : null,
         )),
+        h('span', { className: 'imoTabSpacer' }),
+        h('span', { className: 'imoTabRole', title: membershipLabel(role) }, `${name} · ${membershipLabel(role)}`),
+        h('button', { type: 'button', className: 'imoTab', onClick: onSignOut }, t('app.signOut') ?? '退出'),
       )
+    }
+
+    /**
+     * Human label for a membership role.
+     * @param {string} role - owner/admin/agent/viewer.
+     * @returns {string} label.
+     */
+    function membershipLabel(role) {
+      if (role === 'owner') return '所有者'
+      if (role === 'admin') return '管理员'
+      if (role === 'viewer') return '只读'
+      return '客服'
     }
 
     /**
@@ -5450,7 +5478,123 @@ window.__ModuleLoader__.load({
      * @param {{t: Function}} props - locale translator.
      * @returns {import('react').ReactElement} page.
      */
+    /** Where the panel keeps the team token between reloads. */
+    const TOKEN_KEY = 'im-omni.session'
+
+    /**
+     * The panel opens on a login gate: no token, no inbox. The token is validated
+     * against the team service, and the resulting role decides what is offered.
+     * @returns {{ready: boolean, session: null|{token: string, role: string, tenantId: string, name: string}, signIn: Function, signOut: Function, error: string, busy: boolean}} gate state.
+     */
+    function useSession() {
+      const [state, setState] = React.useState({ ready: false, session: null, error: '', busy: false })
+
+      const validate = React.useCallback(async (token) => {
+        try {
+          const response = await proxySaas('/v1/me', { token })
+          const body = await response.json()
+          if (!response.ok || body === null) throw new Error(body?.error?.message ?? '登录已失效')
+          const tenant = body.tenants.find((item) => item.tenant_id === body.currentTenant) ?? body.tenants[0]
+          if (tenant === undefined) throw new Error('这个账号还没有加入任何团队')
+          return { token, role: tenant.role, tenantId: tenant.tenant_id, name: body.user?.name ?? body.user?.email ?? '' }
+        } catch (error) {
+          return { error: error instanceof Error ? error.message : String(error) }
+        }
+      }, [])
+
+      React.useEffect(() => {
+        let alive = true
+        const stored = (() => {
+          try { return window.localStorage.getItem(TOKEN_KEY) ?? '' } catch { return '' }
+        })()
+        if (stored === '') {
+          setState((current) => ({ ...current, ready: true }))
+          return () => { alive = false }
+        }
+        void validate(stored).then((result) => {
+          if (!alive) return
+          if (result.error !== undefined) {
+            try { window.localStorage.removeItem(TOKEN_KEY) } catch { /* ignore */ }
+            setState({ ready: true, session: null, error: result.error, busy: false })
+            return
+          }
+          setState({ ready: true, session: result, error: '', busy: false })
+        })
+        return () => { alive = false }
+      }, [validate])
+
+      const signIn = React.useCallback(async (email, password) => {
+        setState((current) => ({ ...current, busy: true, error: '' }))
+        try {
+          const login = await proxySaas('/v1/auth/login', { method: 'POST', body: { email, password } })
+          const body = await login.json()
+          if (!login.ok) throw new Error(body?.error?.message ?? `HTTP ${login.status}`)
+          const result = await validate(body.accessToken)
+          if (result.error !== undefined) throw new Error(result.error)
+          try { window.localStorage.setItem(TOKEN_KEY, body.accessToken) } catch { /* ignore */ }
+          setState({ ready: true, session: result, error: '', busy: false })
+        } catch (error) {
+          setState((current) => ({ ...current, busy: false, error: error instanceof Error ? error.message : String(error) }))
+        }
+      }, [validate])
+
+      const signOut = React.useCallback(() => {
+        try { window.localStorage.removeItem(TOKEN_KEY) } catch { /* ignore */ }
+        setState({ ready: true, session: null, error: '', busy: false })
+      }, [])
+
+      return { ...state, signIn, signOut }
+    }
+
+    /**
+     * Login screen shown before the inbox when there is no valid team session.
+     * @param {{onSubmit: Function, busy: boolean, error: string}} props - gate props.
+     * @returns {import('react').ReactElement} login view.
+     */
+    function LoginGate({ onSubmit, busy, error }) {
+      const [email, setEmail] = React.useState('')
+      const [password, setPassword] = React.useState('')
+      return h('div', { className: 'imoRoot imoGate' },
+        h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
+        h('div', { className: 'imoGateCard' },
+          h('div', { className: 'imoGateHead' },
+            h('h1', { className: 'imoGateTitle' }, '登录团队'),
+            h('p', { className: 'imoGateSub' }, '用团队账号登录；打开后能看到什么，由你在团队里的权限决定。'),
+          ),
+          h('label', { className: 'imoFieldGroup' },
+            h('span', { className: 'imoFieldLabel' }, '邮箱'),
+            h('input', {
+              className: 'imoInput',
+              value: email,
+              autoFocus: true,
+              onChange: (event) => setEmail(event.target.value),
+              onKeyDown: (event) => { if (event.key === 'Enter') void onSubmit(email, password) },
+            }),
+          ),
+          h('label', { className: 'imoFieldGroup' },
+            h('span', { className: 'imoFieldLabel' }, '密码'),
+            h('input', {
+              className: 'imoInput',
+              type: 'password',
+              value: password,
+              onChange: (event) => setPassword(event.target.value),
+              onKeyDown: (event) => { if (event.key === 'Enter') void onSubmit(email, password) },
+            }),
+          ),
+          h('button', {
+            type: 'button',
+            className: 'imoBtn imoBtnPrimary imoGateSubmit',
+            disabled: busy,
+            onClick: () => { void onSubmit(email, password) },
+          }, busy ? '登录中…' : '登录'),
+          error === '' ? null : h('p', { className: 'imoSmall imoGateError' }, error),
+          h('p', { className: 'imoTiny imoMuted imoGateHint' }, '权限范围（可见号码、可做操作）由团队服务返回，前端只按结果渲染。'),
+        ),
+      )
+    }
+
     function App({ t }) {
+      const gate = useSession()
       const workspace = useWorkspace()
       const [tab, setTab] = React.useState('inbox')
       const [search, setSearch] = React.useState('')
@@ -5519,6 +5663,24 @@ window.__ModuleLoader__.load({
         )
       }
 
+      if (!gate.ready) {
+        return h('div', { className: 'imoRoot imoGate' },
+          h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
+          h('p', { className: 'imoSmall imoMuted' }, '正在确认登录状态…'),
+        )
+      }
+
+      if (gate.session === null) {
+        return h(LoginGate, { onSubmit: gate.signIn, busy: gate.busy, error: gate.error })
+      }
+
+      const canManage = gate.session.role === 'owner' || gate.session.role === 'admin'
+      const allowed = canManage ? true : !['channels', 'automation', 'broadcasts'].includes(tab)
+      if (!allowed) {
+        // A role that cannot open this tab always lands on the inbox.
+        queueMicrotask(() => setTab('inbox'))
+      }
+
       const snapshot = workspace.snapshot
       const unread = snapshot.conversations.reduce((sum, conversation) => sum + (conversation.unread ?? 0), 0)
       let page
@@ -5571,7 +5733,7 @@ window.__ModuleLoader__.load({
           onRefresh: () => { void workspace.refresh(false) },
           offline: workspace.offline,
         }),
-        h(TabBar, { tab, onTab: setTab, t, unread }),
+        h(TabBar, { tab, onTab: setTab, t, unread, role: gate.session.role, name: gate.session.name, onSignOut: gate.signOut }),
         h('main', { className: 'imoContent' }, page),
         toast !== null
           ? h('div', { className: `imoToast ${toast.tone}`.trim(), role: toast.tone === 'error' ? 'alert' : 'status' },
