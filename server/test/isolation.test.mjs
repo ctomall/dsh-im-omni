@@ -289,3 +289,20 @@ test('an agent cannot assign permissions, and unknown channels are rejected', as
   assert.equal(unknown.status, 422)
   assert.equal(unknown.body.error.code, 'invalid')
 })
+
+test('a permission change is audited and the log is admin-only', async () => {
+  const fixture = await buildTenant()
+  const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { channelIds: [fixture.channelB] })
+  assert.equal(grant.status, 200)
+
+  const audit = await request('GET', `/v1/tenants/${fixture.tenantId}/audit`, fixture.ownerToken)
+  assert.equal(audit.status, 200)
+  const entry = audit.body.items.find((item) => item.target === fixture.agentA)
+  assert.ok(entry, 'the change is recorded')
+  assert.equal(entry.action, 'member.permissions')
+  assert.deepEqual(entry.detail.grant.channelIds, [fixture.channelB])
+  assert.equal(entry.target_email !== undefined, true)
+
+  const denied = await request('GET', `/v1/tenants/${fixture.tenantId}/audit`, fixture.tokenA)
+  assert.equal(denied.status, 403)
+})

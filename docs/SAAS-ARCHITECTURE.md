@@ -487,3 +487,11 @@ $ cd server && node --test test/isolation.test.mjs
 
 截图：`docs/permissions-admin.png`（林小满被授予「售后 WhatsApp」后显示"1 个号码"）、
 `docs/permissions-admin-before-grant.png`（授权前）。
+
+### 权限变更审计
+
+- 每次 `PATCH /v1/tenants/{id}/members/{userId}` 在**同一事务**里写一条 `audit_logs`：
+  `action='member.permissions'`、`actor_id`、`target`（成员 id）、`detail={grant, before, after}`。
+- `GET /v1/tenants/{id}/audit?limit=20` 只返回 `member.permissions`，仅 owner/admin 可读（其他人 403）。
+- 管理页「最近变更」卡片展示最近 8 条：`操作人 → 目标成员`、变更内容（整个团队 / 仅自己·N 个号码）、时间（`MM-DD HH:mm`）。
+截图：`docs/permissions-admin-audit.png`。

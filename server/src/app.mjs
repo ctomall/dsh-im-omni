@@ -414,6 +414,7 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
     grant.channelIds = ids
   }
   const updated = await withTenant(tenantId, async (client) => {
+    const before = await client.query('SELECT role, permissions FROM memberships WHERE tenant_id = $1 AND user_id = $2', [tenantId, targetId])
     const result = await client.query(
       `UPDATE memberships
           SET permissions = permissions || $3::jsonb
@@ -421,10 +422,46 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
         RETURNING role, permissions`,
       [tenantId, targetId, JSON.stringify(grant)],
     )
-    return result.rows[0] ?? null
+    if (result.rowCount === 0) return null
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'member.permissions', $3, $4::jsonb)`,
+      [tenantId, claims.userId, targetId, JSON.stringify({
+        grant,
+        before: before.rows[0]?.permissions ?? {},
+        after: result.rows[0].permissions,
+      })],
+    )
+    return result.rows[0]
   })
   if (updated === null) return fail(response, 404, 'not-found', '这个团队里没有该成员。')
   send(response, 200, { member: { userId: targetId, role: updated.role, permissions: updated.permissions } })
+})
+
+route('GET', '/v1/tenants/([0-9a-f-]{36})/audit', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const tenantId = params[0]
+  const role = await roleIn(claims.userId, tenantId)
+  if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有管理员可以查看权限变更记录。')
+  const url = new URL(request.url ?? '/', 'http://localhost')
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? 20) || 20, 100)
+  const rows = await withTenant(tenantId, async (client) => {
+    const result = await client.query(
+      `SELECT a.id, a.action, a.target, a.detail, a.created_at,
+              u.name AS actor_name, u.email AS actor_email,
+              t.name AS target_name, t.email AS target_email
+         FROM audit_logs a
+         LEFT JOIN users u ON u.id = a.actor_id
+         LEFT JOIN users t ON t.id::text = a.target
+        WHERE a.tenant_id = $1 AND a.action = 'member.permissions'
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT $2`,
+      [tenantId, limit],
+    )
+    return result.rows
+  })
+  send(response, 200, { items: rows })
 })
 
 route('POST', '/v1/tenants/([0-9a-f-]{36})/invites', async (request, response, params) => {

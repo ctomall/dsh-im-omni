@@ -78,6 +78,12 @@ button:disabled{opacity:.5;cursor:default}
     <div id="members"></div>
   </section>
 
+  <section class="card hidden" id="historyCard">
+    <h2>最近变更</h2>
+    <p class="note">谁在什么时候把哪个成员的可见范围改成了什么。</p>
+    <div id="history"></div>
+  </section>
+
   <section class="card hidden" id="matrixCard">
     <h2>权限说明</h2>
     <table class="matrix">
@@ -156,10 +162,18 @@ async function loadTeam() {
   ])
   state.members = members.items
   state.channels = channels.items
+  const canAssign = state.role === 'owner' || state.role === 'admin'
+  if (canAssign) {
+    try {
+      const audit = await api('/v1/tenants/' + state.tenantId + '/audit?limit=8')
+      renderHistory(audit.items)
+    } catch {
+      renderHistory([])
+    }
+  }
   document.getElementById('loginCard').classList.add('hidden')
   document.getElementById('teamCard').classList.remove('hidden')
   document.getElementById('matrixCard').classList.remove('hidden')
-  const canAssign = state.role === 'owner' || state.role === 'admin'
   document.getElementById('teamNote').textContent = canAssign
     ? state.members.length + ' 名成员 · ' + state.channels.length + ' 个号码可见'
     : '只有所有者和管理员能修改权限，这里只读。'
@@ -213,6 +227,35 @@ function renderMembers(canAssign) {
       ),
     )
     host.append(row)
+  }
+}
+
+function describe(detail) {
+  const grant = detail?.grant ?? {}
+  const parts = []
+  if (grant.dataScope === 'all') parts.push('整个团队')
+  if (grant.dataScope === 'own') parts.push('仅自己')
+  if (Array.isArray(grant.channelIds)) parts.push(grant.channelIds.length === 0 ? '号码全部收回' : grant.channelIds.length + ' 个号码')
+  return parts.join(' · ') || '未变更'
+}
+
+function renderHistory(items) {
+  const card = document.getElementById('historyCard')
+  const host = document.getElementById('history')
+  host.textContent = ''
+  if (items.length === 0) {
+    card.classList.add('hidden')
+    return
+  }
+  card.classList.remove('hidden')
+  for (const item of items) {
+    host.append(el('div', { class: 'row' },
+      el('div', { class: 'who' },
+        el('b', { text: (item.actor_name || item.actor_email || '未知操作人') + ' → ' + (item.target_name || item.target_email || item.target) }),
+        el('span', { text: describe(item.detail) }),
+      ),
+      el('span', { class: 'status mono', text: new Date(item.created_at).toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }),
+    ))
   }
 }
 
