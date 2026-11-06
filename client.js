@@ -4895,11 +4895,6 @@ window.__ModuleLoader__.load({
       const [upgrade, setUpgrade] = React.useState(null)
       const [upgradeBusy, setUpgradeBusy] = React.useState('')
       const [upgradeNote, setUpgradeNote] = React.useState('')
-      const [confirming, setConfirming] = React.useState(false)
-      const [hints, setHints] = React.useState([])
-      const [failure, setFailure] = React.useState(null)
-      const [copied, setCopied] = React.useState('')
-      const [copyFallback, setCopyFallback] = React.useState(false)
 
       const workspaceSignature = JSON.stringify([
         workspace.name,
@@ -5567,6 +5562,11 @@ window.__ModuleLoader__.load({
       const [upgrade, setUpgrade] = React.useState(null)
       const [upgradeBusy, setUpgradeBusy] = React.useState('')
       const [upgradeNote, setUpgradeNote] = React.useState('')
+      const [confirming, setConfirming] = React.useState(false)
+      const [hints, setHints] = React.useState([])
+      const [failure, setFailure] = React.useState(null)
+      const [copied, setCopied] = React.useState('')
+      const [copyFallback, setCopyFallback] = React.useState(false)
 
       const load = React.useCallback(async () => {
         try {
