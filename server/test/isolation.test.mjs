@@ -439,3 +439,53 @@ test('the audit CSV export is admin only and carries no other tenant rows', asyn
   })
   assert.equal(denied.status, 403)
 })
+
+test('an admin proposal waits for the owner, and the owner can approve or reject', async () => {
+  const fixture = await buildTenant()
+  const roster = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const emailA = roster.body.items.find((item) => item.user_id === fixture.agentA).email
+
+  // Promote A to admin so it can propose, then have it propose a wide grant for B.
+  await admin.query("UPDATE memberships SET role = 'admin' WHERE tenant_id = $1 AND user_id = $2", [fixture.tenantId, fixture.agentA])
+  const emailB = roster.body.items.find((item) => item.user_id === fixture.agentB).email
+  const proposed = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.tokenA, { dataScope: 'all', confirmEmail: emailB })
+  assert.equal(proposed.status, 202)
+  assert.equal(proposed.body.pending, true)
+
+  // Nothing applied yet.
+  const before = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  assert.equal(before.body.items.find((item) => item.user_id === fixture.agentB).permissions.dataScope ?? 'own', 'own')
+
+  const pending = await request('GET', `/v1/tenants/${fixture.tenantId}/approvals`, fixture.ownerToken)
+  assert.equal(pending.status, 200)
+  assert.equal(pending.body.items.length, 1)
+  const approvalId = pending.body.items[0].id
+
+  // The proposer cannot approve their own request.
+  const selfApprove = await request('POST', `/v1/tenants/${fixture.tenantId}/approvals/${approvalId}`, fixture.tokenA, { decision: 'approve' })
+  assert.equal(selfApprove.status, 403)
+
+  const approved = await request('POST', `/v1/tenants/${fixture.tenantId}/approvals/${approvalId}`, fixture.ownerToken, { decision: 'approve' })
+  assert.equal(approved.status, 200)
+  const after = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  assert.equal(after.body.items.find((item) => item.user_id === fixture.agentB).permissions.dataScope, 'all')
+})
+
+test('rejecting a proposal leaves the member untouched', async () => {
+  const fixture = await buildTenant()
+  const roster = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const emailB = roster.body.items.find((item) => item.user_id === fixture.agentB).email
+  await admin.query("UPDATE memberships SET role = 'admin' WHERE tenant_id = $1 AND user_id = $2", [fixture.tenantId, fixture.agentA])
+
+  const proposed = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.tokenA, { dataScope: 'all', confirmEmail: emailB })
+  assert.equal(proposed.status, 202)
+  const pending = await request('GET', `/v1/tenants/${fixture.tenantId}/approvals`, fixture.ownerToken)
+  const rejected = await request('POST', `/v1/tenants/${fixture.tenantId}/approvals/${pending.body.items[0].id}`, fixture.ownerToken, { decision: 'reject' })
+  assert.equal(rejected.status, 200)
+  assert.equal(rejected.body.status, 'rejected')
+
+  const members = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  assert.equal(members.body.items.find((item) => item.user_id === fixture.agentB).permissions.dataScope ?? 'own', 'own')
+  const scoped = await request('GET', '/v1/channels', fixture.tokenB)
+  assert.equal(scoped.body.items.length, 1)
+})

@@ -430,6 +430,26 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
     }
   }
 
+  // Two-person rule: an admin may propose a privileged change, but only an owner
+  // applies it. The request keeps the exact payload for the approver.
+  if (role === 'admin' && (grant.dataScope === 'all' || grant.role !== undefined)) {
+    const request = await withTenant(tenantId, async (client) => {
+      const row = await client.query(
+        `INSERT INTO approval_requests (tenant_id, action, target_user, payload, requested_by)
+         VALUES ($1, $2, $3, $4::jsonb, $5)
+         RETURNING id, action, target_user, payload, status, created_at`,
+        [tenantId, grant.role === undefined ? 'member.permissions' : 'member.role', targetId, JSON.stringify(grant), claims.userId],
+      )
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+         VALUES ($1, $2, 'approval.requested', $3, $4::jsonb)`,
+        [tenantId, claims.userId, targetId, JSON.stringify({ grant, requestId: row.rows[0].id })],
+      )
+      return row.rows[0]
+    })
+    return send(response, 202, { approval: request, pending: true })
+  }
+
   const permissionsGrant = { ...grant }
   delete permissionsGrant.role
   const updated = await withTenant(tenantId, async (client) => {
@@ -497,6 +517,84 @@ route('DELETE', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (re
     )
   })
   send(response, 200, { removed: targetId })
+})
+
+route('GET', '/v1/tenants/([0-9a-f-]{36})/approvals', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const tenantId = params[0]
+  const role = await roleIn(claims.userId, tenantId)
+  if (role === null) return fail(response, 403, 'forbidden', '你不在该团队中。')
+  const url = new URL(request.url ?? '/', 'http://localhost')
+  const status = url.searchParams.get('status') === 'all' ? null : 'pending'
+  const rows = await withTenant(tenantId, async (client) => {
+    const result = await client.query(
+      `SELECT a.id, a.action, a.target_user, a.payload, a.status, a.created_at, a.decided_at,
+              r.name AS requester_name, r.email AS requester_email,
+              t.name AS target_name, t.email AS target_email
+         FROM approval_requests a
+         LEFT JOIN users r ON r.id = a.requested_by
+         LEFT JOIN users t ON t.id = a.target_user
+        WHERE a.tenant_id = $1 AND ($2::text IS NULL OR a.status = $2)
+        ORDER BY a.created_at DESC
+        LIMIT 50`,
+      [tenantId, status],
+    )
+    return result.rows
+  })
+  send(response, 200, { items: rows })
+})
+
+route('POST', '/v1/tenants/([0-9a-f-]{36})/approvals/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const tenantId = params[0]
+  const approvalId = params[1]
+  const role = await roleIn(claims.userId, tenantId)
+  if (role !== 'owner') return fail(response, 403, 'owner-only', '只有所有者可以批准或拒绝。')
+  const input = await body(request)
+  const decision = input.decision === 'approve' ? 'approved' : input.decision === 'reject' ? 'rejected' : ''
+  if (decision === '') return fail(response, 422, 'invalid', 'decision 只能是 approve 或 reject。')
+
+  const result = await withTenant(tenantId, async (client) => {
+    const request = await client.query(
+      'SELECT * FROM approval_requests WHERE tenant_id = $1 AND id = $2 AND status = $3',
+      [tenantId, approvalId, 'pending'],
+    )
+    if (request.rowCount === 0) return { missing: true }
+    const row = request.rows[0]
+    const payload = row.payload ?? {}
+    if (decision === 'approved') {
+      const permissions = { ...payload }
+      delete permissions.role
+      if (payload.role !== undefined) {
+        await client.query('UPDATE memberships SET role = $3 WHERE tenant_id = $1 AND user_id = $2', [tenantId, row.target_user, payload.role])
+      }
+      if (Object.keys(permissions).length > 0) {
+        await client.query(
+          'UPDATE memberships SET permissions = permissions || $3::jsonb WHERE tenant_id = $1 AND user_id = $2',
+          [tenantId, row.target_user, JSON.stringify(permissions)],
+        )
+      }
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+         VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        [tenantId, claims.userId, row.action, row.target_user, JSON.stringify({ grant: payload, requestId: row.id, approvedBy: claims.userId })],
+      )
+    }
+    const updated = await client.query(
+      'UPDATE approval_requests SET status = $3, decided_by = $4, decided_at = now() WHERE tenant_id = $1 AND id = $2 RETURNING status, decided_at',
+      [tenantId, approvalId, decision, claims.userId],
+    )
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [tenantId, claims.userId, decision === 'approved' ? 'approval.approved' : 'approval.rejected', row.target_user, JSON.stringify({ requestId: row.id })],
+    )
+    return { status: updated.rows[0].status }
+  })
+  if (result.missing) return fail(response, 404, 'not-found', '没有待处理的审批。')
+  send(response, 200, { status: result.status })
 })
 
 route('GET', '/v1/tenants/([0-9a-f-]{36})/audit.csv', async (request, response, params) => {

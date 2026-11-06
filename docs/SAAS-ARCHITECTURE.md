@@ -542,3 +542,14 @@ $ cd server && node --test test/isolation.test.mjs
 - 隔离保证：导出走同一 `withTenant` 事务 + 角色校验，**不会带出其他租户的行**（测试用另一个租户验证只得到表头）；
   非管理员 403。
 截图：`docs/permissions-audit-export.png`。
+
+### 双人复核（管理员提案，所有者批准）
+
+- 规则：**管理员**提出的高权限变更（`dataScope=all` 或改 `role`）不会直接生效，而是落一条
+  `approval_requests`（`status=pending`，含 `payload`、`requested_by`），接口返回 **202**。
+- 所有者：`GET /v1/tenants/{id}/approvals?status=all` 查看，`POST …/approvals/{approvalId}` 传
+  `{decision:"approve"|"reject"}`；批准时在同一事务里应用 `payload` 并写两条审计
+  （`member.permissions`/`member.role` + `approval.approved`），拒绝只写 `approval.rejected`。
+- 所有者自己操作时**不需要**复核（直接生效），避免自己给自己上审批。
+- 提案人不能批准自己的申请（非 owner → 403）。
+截图：`docs/permissions-approval.png`（待审批）、`docs/permissions-approved.png`（批准后成员变为整个团队）。

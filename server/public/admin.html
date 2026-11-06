@@ -81,6 +81,12 @@ button:disabled{opacity:.5;cursor:default}
     <div id="members"></div>
   </section>
 
+  <section class="card hidden" id="approvalsCard">
+    <h2>待审批</h2>
+    <p class="note">管理员提出的高权限变更，需要所有者批准后才会生效。</p>
+    <div id="approvals"></div>
+  </section>
+
   <section class="card hidden" id="historyCard">
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
       <h2>最近变更</h2>
@@ -178,6 +184,12 @@ async function loadTeam() {
       renderHistory(audit.items)
     } catch {
       renderHistory([])
+    }
+    try {
+      const approvals = await api('/v1/tenants/' + state.tenantId + '/approvals?status=all')
+      renderApprovals(approvals.items.filter((item) => item.status === 'pending'))
+    } catch {
+      renderApprovals([])
     }
   }
   document.getElementById('loginCard').classList.add('hidden')
@@ -370,6 +382,43 @@ function describe(item) {
   return parts.join(' · ') || '未变更'
 }
 
+function renderApprovals(items) {
+  const card = document.getElementById('approvalsCard')
+  const host = document.getElementById('approvals')
+  host.textContent = ''
+  if (items.length === 0) {
+    card.classList.add('hidden')
+    return
+  }
+  card.classList.remove('hidden')
+  const canDecide = state.role === 'owner'
+  for (const item of items) {
+    const payload = item.payload ?? {}
+    host.append(el('div', { class: 'row' },
+      el('div', { class: 'who' },
+        el('b', { text: (item.requester_name || item.requester_email) + ' 申请修改 ' + (item.target_name || item.target_email) }),
+        el('span', { text: item.action === 'member.role' ? '角色改为 ' + payload.role : '可见范围改为整个团队' }),
+      ),
+      canDecide
+        ? el('div', { style: 'display:flex;gap:8px' },
+          el('button', { class: 'primary', onclick: () => decide(item.id, 'approve') }, '批准'),
+          el('button', { onclick: () => decide(item.id, 'reject') }, '拒绝'),
+        )
+        : el('span', { class: 'status', text: '等待所有者' }),
+    ))
+  }
+}
+
+async function decide(id, decision) {
+  try {
+    await api('/v1/tenants/' + state.tenantId + '/approvals/' + id, { method: 'POST', body: JSON.stringify({ decision }) })
+    setStatus(decision === 'approve' ? '已批准并生效' : '已拒绝', 'ok')
+    await loadTeam()
+  } catch (error) {
+    setStatus('操作失败：' + error.message, 'bad')
+  }
+}
+
 function renderHistory(items) {
   const card = document.getElementById('historyCard')
   const host = document.getElementById('history')
@@ -396,6 +445,11 @@ async function save(member, patch) {
       method: 'PATCH',
       body: JSON.stringify(patch),
     })
+    if (result.pending === true) {
+      setStatus('已提交审批，等待所有者批准', 'ok')
+      await loadTeam()
+      return
+    }
     member.permissions = result.member.permissions
     await loadTeam()
   } catch (error) {
