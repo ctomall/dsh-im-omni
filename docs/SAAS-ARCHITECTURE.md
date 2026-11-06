@@ -522,3 +522,14 @@ $ cd server && node --test test/isolation.test.mjs
 - 页面：所有者行才有「移除」按钮；点击后在成员下方展开确认条（说明"立即失去访问、历史记录保留"），
   输入对方邮箱后点「确认移除」才发请求。
 截图：`docs/permissions-remove-confirm.png`。
+
+### 三类危险操作统一口径
+
+| 操作 | 服务端要求 | 页面 |
+| --- | --- | --- |
+| 放开到整个团队（`dataScope=all`） | `confirmEmail` 必须等于目标邮箱 | 下拉切换后展开确认条 |
+| 改角色（`role` admin/agent） | 同上；且只有所有者可改 | 角色下拉切换后展开确认条 |
+| 移除成员（`DELETE`） | `confirmEmail` 作为查询参数，必须匹配 | 「移除」按钮展开确认条 |
+
+三者都做到：**字段缺失或不符 → 422 且不写入**；页面只是同一规则的演示层。
+截图：`docs/permissions-role-confirm.png`。

@@ -311,12 +311,14 @@ test('a permission change is audited and the log is admin-only', async () => {
 
 test('role changes and removals are audited, and the log paginates by cursor', async () => {
   const fixture = await buildTenant()
-  const promote = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.ownerToken, { role: 'admin' })
+  const rosterB = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const emailB = rosterB.body.items.find((item) => item.user_id === fixture.agentB).email
+  const promote = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.ownerToken, { role: 'admin', confirmEmail: emailB })
   assert.equal(promote.status, 200)
   assert.equal(promote.body.member.role, 'admin')
 
-  const members = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
-  const emailA = members.body.items.find((item) => item.user_id === fixture.agentA).email
+  const rosterA = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const emailA = rosterA.body.items.find((item) => item.user_id === fixture.agentA).email
   const removed = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}?confirmEmail=${encodeURIComponent(emailA)}`, fixture.ownerToken)
   assert.equal(removed.status, 200)
 
@@ -389,4 +391,21 @@ test('widening to the whole tenant requires typing the member email', async () =
   assert.equal(confirmed.status, 200)
   const widened = await request('GET', '/v1/channels', fixture.tokenA)
   assert.equal(widened.body.items.length, 2)
+})
+
+test('giving someone admin also requires the email confirmation', async () => {
+  const fixture = await buildTenant()
+  const roster = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const email = roster.body.items.find((item) => item.user_id === fixture.agentB).email
+
+  const missing = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.ownerToken, { role: 'admin' })
+  assert.equal(missing.status, 422)
+  assert.equal(missing.body.error.code, 'confirm-required')
+
+  const still = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  assert.equal(still.body.items.find((item) => item.user_id === fixture.agentB).role, 'agent')
+
+  const confirmed = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.ownerToken, { role: 'admin', confirmEmail: email })
+  assert.equal(confirmed.status, 200)
+  assert.equal(confirmed.body.member.role, 'admin')
 })

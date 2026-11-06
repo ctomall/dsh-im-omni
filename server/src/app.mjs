@@ -419,9 +419,9 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
     if (unknown.length > 0) return fail(response, 422, 'invalid', `这个团队里没有渠道 ${unknown[0]}。`)
     grant.channelIds = ids
   }
-  // Widening to the whole tenant is a privileged change: the caller must type
-  // the target's email, so a stray click cannot expose every channel.
-  if (grant.dataScope === 'all') {
+  // Privileged changes (whole-tenant visibility, or handing out admin) require
+  // the target's email, so a stray click cannot escalate anyone.
+  if (grant.dataScope === 'all' || grant.role !== undefined) {
     const target = await db().query('SELECT email FROM users WHERE id = $1', [targetId])
     const email = target.rows[0]?.email
     if (email === undefined) return fail(response, 404, 'not-found', '这个团队里没有该成员。')
