@@ -14,6 +14,7 @@ import { ChannelRuntime } from './lib/channels/runtime.js'
 import { createIntelligence } from './lib/intelligence.js'
 import { ReceptionBot } from './lib/bot.js'
 import { APK_PATH, VERSION_PATH, apkResponse, versionResponse } from './lib/app.js'
+import { recordUpgrade } from './lib/audit.js'
 import { UpgradeError, applyUpgrade, checkUpgrade } from './lib/upgrade.js'
 import {
   MAX_ATTACHMENT_BYTES,
@@ -344,12 +345,8 @@ export async function apply(ctx) {
           if (action === 'check') return json({ ok: true, result: { status: await checkUpgrade() } })
           if (action === 'pull') {
             const result = await applyUpgrade()
-            if (result.changed === true) {
-              store.event('plugin.upgraded', `插件更新 ${result.before?.short ?? '?'} → ${result.after?.short ?? '?'}`, {
-                actorId: store.state.workspace.currentAgentId ?? null,
-              })
-              store.state.meta = { ...store.state.meta, revision: (Number(store.state.meta?.revision) || 0) + 1 }
-              await store.commit({ bumpRevision: false })
+            if (recordUpgrade(store, result) !== null) {
+              await store.commit()
             }
             return json({ ok: true, result })
           }

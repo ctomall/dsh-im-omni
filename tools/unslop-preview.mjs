@@ -303,8 +303,8 @@ const detailCfg = `
     </div>
     <div class="imCfgHistory">
       <p class="imCfgGroupTitle">升级历史</p>
-      <div class="imCfgHistoryRow"><span class="imCfgHistoryText">插件更新 7cc96fb → 9915ec6</span><span class="imCfgHistoryTime">2026/11/6 04:09</span></div>
-      <div class="imCfgHistoryRow"><span class="imCfgHistoryText">插件更新 b619555 → 7cc96fb</span><span class="imCfgHistoryTime">2026/11/6 03:51</span></div>
+      <div class="imCfgHistoryRow"><span class="imCfgHistoryText">插件更新 7cc96fb → 9915ec6</span><span class="imCfgHistoryNote">4 个文件</span><span class="imCfgHistoryTime">2026/11/6 04:09</span></div>
+      <div class="imCfgHistoryRow"><span class="imCfgHistoryText">插件更新 b619555 → 7cc96fb</span><span class="imCfgHistoryNote">2 个文件</span><span class="imCfgHistoryTime">2026/11/6 03:51</span></div>
     </div>
     <div class="imCfgFailure">
       <p class="imCfgGroupTitle">这次没升成，怎么处理</p>

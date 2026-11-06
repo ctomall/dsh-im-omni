@@ -194,3 +194,12 @@ Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pul
 - 复制降级：`navigator.clipboard` 在非安全上下文会抛错，此时提示"浏览器不允许自动复制，请手动选中命令"，
   命令本身保持可选中。
 截图：`docs/unslop-detail-history.png`。
+
+### 升级审计落地（第十一轮）
+
+- 新增 `lib/audit.js`：`recordUpgrade(store, result)` 把 `{id, from, to, at, changedFiles, restartRequired}` 写进
+  `workspace.upgrades`（保留最近 20 条），同时镜像一条 `plugin.upgraded` 事件；未变更时返回 `null` 不写。
+- `index.js` 的路由改为调用该函数并 `store.commit()`，逻辑从不可测的路由里挪出来。
+- 详情页优先读 `workspace.upgrades`（不再受事件流 2000 条裁剪影响），展示 `from → to`、变更文件数、时间；
+  旧工作区回退读事件流。
+- 新增 `test/audit.test.js` 3 条：正常记录、未变更不记录、超过 20 条裁剪。

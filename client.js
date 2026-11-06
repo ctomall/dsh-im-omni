@@ -65,6 +65,7 @@ window.__ModuleLoader__.load({
 .imCfgHistory{display:flex;flex-direction:column;gap:6px;padding-top:4px}
 .imCfgHistoryRow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:12px}
 .imCfgHistoryText{color:var(--dsw-alias-label-secondary)}
+.imCfgHistoryNote{color:var(--dsw-alias-label-tertiary);font-size:11px;margin-left:auto;padding-right:12px}
 .imCfgHistoryTime{color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .imCfgCopy{height:24px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer}
 .imCfgCopy:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
@@ -5792,13 +5793,27 @@ window.__ModuleLoader__.load({
             )
             : null,
           (() => {
-            const history = (Array.isArray(state.events) ? state.events : []).filter((event) => event.type === 'plugin.upgraded').slice(-3).reverse()
-            if (history.length === 0) return null
+            // The workspace keeps its own list; the event stream is only a fallback
+            // for workspaces that upgraded before the list existed.
+            const upgrades = Array.isArray(workspace.upgrades) ? workspace.upgrades : []
+            const rows = upgrades.length > 0
+              ? upgrades.slice(-3).reverse().map((item) => ({
+                key: item.id,
+                text: `插件更新 ${item.from} → ${item.to}`,
+                note: typeof item.changedFiles === 'number' ? `${item.changedFiles} 个文件` : '',
+                at: item.at,
+              }))
+              : (Array.isArray(state.events) ? state.events : [])
+                .filter((event) => event.type === 'plugin.upgraded')
+                .slice(-3).reverse()
+                .map((event) => ({ key: event.id, text: event.text, note: '', at: event.createdAt }))
+            if (rows.length === 0) return null
             return h('div', { className: 'imCfgHistory' },
               h('p', { className: 'imCfgGroupTitle' }, '升级历史'),
-              history.map((event) => h('div', { key: event.id, className: 'imCfgHistoryRow' },
-                h('span', { className: 'imCfgHistoryText' }, event.text),
-                h('span', { className: 'imCfgHistoryTime' }, new Date(event.createdAt).toLocaleString()),
+              rows.map((row) => h('div', { key: row.key, className: 'imCfgHistoryRow' },
+                h('span', { className: 'imCfgHistoryText' }, row.text),
+                row.note === '' ? null : h('span', { className: 'imCfgHistoryNote' }, row.note),
+                h('span', { className: 'imCfgHistoryTime' }, row.at === undefined ? '' : new Date(row.at).toLocaleString()),
               )),
             )
           })(),
