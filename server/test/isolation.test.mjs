@@ -315,7 +315,9 @@ test('role changes and removals are audited, and the log paginates by cursor', a
   assert.equal(promote.status, 200)
   assert.equal(promote.body.member.role, 'admin')
 
-  const removed = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken)
+  const members = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const emailA = members.body.items.find((item) => item.user_id === fixture.agentA).email
+  const removed = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}?confirmEmail=${encodeURIComponent(emailA)}`, fixture.ownerToken)
   assert.equal(removed.status, 200)
 
   const first = await request('GET', `/v1/tenants/${fixture.tenantId}/audit?limit=1`, fixture.ownerToken)
@@ -328,7 +330,7 @@ test('role changes and removals are audited, and the log paginates by cursor', a
   assert.notEqual(next.body.items[0].id, first.body.items[0].id)
 
   // A member who is no longer there answers 404; the owner cannot be removed.
-  const again = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken)
+  const again = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}?confirmEmail=${encodeURIComponent(emailA)}`, fixture.ownerToken)
   assert.equal(again.status, 404)
 })
 

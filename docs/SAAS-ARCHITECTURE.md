@@ -514,3 +514,11 @@ $ cd server && node --test test/isolation.test.mjs
 - 组合效果：即使有人绕过页面直接调接口，也过不了确认这一关；页面层只是把同一规则演示得更清楚。
 
 截图：`docs/permissions-confirm-all.png`。
+
+### 移除成员同样要确认
+
+- 服务端：`DELETE …/members/{userId}?confirmEmail=<邮箱>`，邮箱必须与目标成员一致，否则 `422 confirm-required`
+  且不删除；仍保留"不能删自己、不能删所有者、缺人 404"。
+- 页面：所有者行才有「移除」按钮；点击后在成员下方展开确认条（说明"立即失去访问、历史记录保留"），
+  输入对方邮箱后点「确认移除」才发请求。
+截图：`docs/permissions-remove-confirm.png`。

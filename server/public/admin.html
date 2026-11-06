@@ -129,7 +129,10 @@ function el(tag, props = {}, ...children) {
     else if (key.startsWith('on')) node.addEventListener(key.slice(2).toLowerCase(), value)
     else node.setAttribute(key, value)
   }
-  for (const child of children) node.append(child)
+  for (const child of children) {
+    if (child === null || child === undefined || child === false) continue
+    node.append(child)
+  }
   return node
 }
 
@@ -185,8 +188,13 @@ async function loadTeam() {
 
 let confirmState = null
 
+function openRemove(member) {
+  confirmState = { member, kind: 'remove' }
+  renderMembers(state.role === 'owner')
+}
+
 function openConfirm(member, select) {
-  confirmState = { member }
+  confirmState = { member, kind: 'scope' }
   renderMembers(state.role === 'owner' || state.role === 'admin')
 }
 
@@ -197,6 +205,8 @@ function closeConfirm() {
 
 function renderConfirm() {
   const member = confirmState.member
+  const isRemove = confirmState.kind === 'remove'
+
   const input = el('input', { placeholder: '输入该成员邮箱', style: 'max-width:260px' })
   const error = el('span', { class: 'status bad' })
   const confirm = el('button', {
@@ -207,15 +217,26 @@ function renderConfirm() {
         return
       }
       confirm.setAttribute('disabled', 'disabled')
+      if (isRemove) {
+        try {
+          await api('/v1/tenants/' + state.tenantId + '/members/' + member.user_id + '?confirmEmail=' + encodeURIComponent(input.value.trim()), { method: 'DELETE' })
+          confirmState = null
+          await loadTeam()
+        } catch (error) {
+          error.textContent = '移除失败：' + error.message
+          confirm.removeAttribute('disabled')
+        }
+        return
+      }
       await save(member, { dataScope: 'all', channelIds: [], confirmEmail: input.value.trim() })
       confirmState = null
       renderMembers(true)
     },
-  }, '确认放开')
+  }, isRemove ? '确认移除' : '确认放开')
   return el('div', { class: 'confirm' },
     el('div', { class: 'who' },
-      el('b', { text: '把 ' + (member.name || member.email) + ' 设成整个团队？' }),
-      el('span', { text: '这会让他看到所有渠道号码与全部会话。输入对方邮箱确认。' }),
+      el('b', { text: isRemove ? '移除 ' + (member.name || member.email) + '？' : '把 ' + (member.name || member.email) + ' 设成整个团队？' }),
+      el('span', { text: isRemove ? '移除后这个账号立即失去该团队的访问，历史记录保留。输入对方邮箱确认。' : '这会让他看到所有渠道号码与全部会话。输入对方邮箱确认。' }),
     ),
     el('div', { style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap' },
       input,
@@ -276,6 +297,9 @@ function renderMembers(canAssign) {
       el('div', { style: 'display:flex;align-items:center;gap:12px;flex:none' },
         el('span', { class: 'status', text: effective }),
         scopeSelect,
+        state.role === 'owner' && member.role !== 'owner'
+          ? el('button', { onclick: () => openRemove(member) }, '移除')
+          : null,
       ),
     )
     host.append(row)

@@ -481,6 +481,13 @@ route('DELETE', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (re
   const targetRole = await roleIn(targetId, tenantId)
   if (targetRole === 'owner') return fail(response, 409, 'owner', '不能移除所有者。')
   if (targetRole === null) return fail(response, 404, 'not-found', '这个团队里没有该成员。')
+  // Removal is destructive and permanent: the caller types the member's email.
+  const target = await db().query('SELECT email FROM users WHERE id = $1', [targetId])
+  const email = target.rows[0]?.email
+  const url = new URL(request.url ?? '/', 'http://localhost')
+  if (String(url.searchParams.get('confirmEmail') ?? '').trim().toLowerCase() !== String(email).toLowerCase()) {
+    return fail(response, 422, 'confirm-required', `移除成员需要输入对方邮箱 ${email} 确认。`)
+  }
   await withTenant(tenantId, async (client) => {
     await client.query('DELETE FROM memberships WHERE tenant_id = $1 AND user_id = $2', [tenantId, targetId])
     await client.query(
