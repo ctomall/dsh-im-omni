@@ -32,9 +32,9 @@ window.__ModuleLoader__.load({
     const CSS = String.raw`
 .imoRoot{height:100%;min-height:0;display:flex;flex-direction:column;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family,inherit);font-size:14px;line-height:1.45;overflow:hidden;position:relative}
 .imoRoot *{box-sizing:border-box}
-.imoTop{display:flex;align-items:center;gap:12px;min-height:58px;padding:0 18px;border-bottom:.5px solid var(--dsw-alias-border-l1);background:linear-gradient(180deg,color-mix(in srgb,var(--dsw-alias-brand-primary) 4%,var(--dsw-alias-bg-layer-1)),var(--dsw-alias-bg-layer-1));flex:none}
+.imoTop{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 24px;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none}
 .imoBrand{display:flex;align-items:center;gap:9px;min-width:0;flex:none}
-.imoBrandMark{width:32px;height:32px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--dsw-alias-brand-primary),color-mix(in srgb,var(--dsw-alias-brand-primary) 58%,var(--dsw-alias-state-success-primary)));color:var(--dsw-alias-bg-base);flex:none;box-shadow:0 2px 8px color-mix(in srgb,var(--dsw-alias-brand-primary) 26%,transparent)}
+.imoBrandMark{width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-brand-primary);flex:none}
 .imoBrandText{display:flex;flex-direction:column;min-width:0}
 .imoBrandTitle{font-size:14px;font-weight:600;line-height:18px;white-space:nowrap}
 .imoBrandSub{font-size:11px;color:var(--dsw-alias-label-secondary);line-height:14px;white-space:nowrap}
@@ -96,9 +96,9 @@ window.__ModuleLoader__.load({
 .imoChip:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 6%,transparent)}
 .imoChipActive{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 13%,transparent);color:var(--dsw-alias-label-primary);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 25%,transparent)}
 .imoConvList{flex:1;min-height:0;overflow:auto}
-.imoConvRow{display:flex;gap:9px;width:calc(100% - 12px);margin:2px 6px;padding:10px 10px;border:none;border-radius:10px;border-bottom:none;background:transparent;color:var(--dsw-alias-label-primary);text-align:left;font:inherit;cursor:pointer;position:relative;transition:background .15s}
+.imoConvRow{display:flex;gap:8px;width:calc(100% - 16px);margin:2px 8px;padding:10px 12px;border:none;border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);text-align:left;font:inherit;cursor:pointer;position:relative;transition:background-color .15s}
 .imoConvRow:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 4%,transparent)}
-.imoConvRowActive{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 11%,transparent);box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--dsw-alias-brand-primary) 17%,transparent)}
+.imoConvRowActive{background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l1)}
 .imoConvRowActive:before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--dsw-alias-brand-primary)}
 .imoAvatar{width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;flex:none;font-size:12px;font-weight:650;color:#fff;letter-spacing:.2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
 .imoAvatarLg{width:44px;height:44px;border-radius:13px;font-size:15px}
@@ -125,13 +125,13 @@ window.__ModuleLoader__.load({
 .imoEmptyTitle{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
 .imoEmptyBody{font-size:12px;max-width:320px}
 .imoThread{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--dsw-alias-bg-base)}
-.imoThreadHead{display:flex;align-items:flex-start;gap:7px 10px;padding:12px 16px;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;flex-wrap:wrap;box-shadow:0 1px 2px color-mix(in srgb,#000 4%,transparent);z-index:2}
+.imoThreadHead{display:flex;align-items:flex-start;gap:8px 12px;padding:12px 20px;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;flex-wrap:wrap;z-index:2}
 .imoThreadIdentity{display:flex;align-items:center;gap:9px;min-width:0;flex:1 1 100%}
-.imoThreadTitle{font-size:13.5px;font-weight:650;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.imoThreadMeta{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--dsw-alias-label-secondary);min-width:0;overflow:hidden;white-space:nowrap}
-.imoThreadActions{display:flex;align-items:center;gap:6px;flex:1 1 100%;justify-content:flex-end;overflow-x:auto;padding-bottom:1px}
+.imoThreadTitle{font-size:14px;font-weight:600;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imoThreadMeta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dsw-alias-label-secondary);min-width:0;overflow:hidden;white-space:nowrap}
+.imoThreadActions{display:flex;align-items:center;gap:8px;flex:1 1 100%;justify-content:flex-end;overflow-x:auto}
 .imoThreadActions .imoSelect{height:28px;font-size:11.5px;max-width:132px}
-.imoThreadBody{flex:1;min-height:0;overflow:auto;padding:20px 22px 12px;background:radial-gradient(1200px 300px at 50% -80px,color-mix(in srgb,var(--dsw-alias-brand-primary) 5%,transparent),transparent),color-mix(in srgb,var(--dsw-alias-bg-layer-2) 26%,var(--dsw-alias-bg-base))}
+.imoThreadBody{flex:1;min-height:0;overflow:auto;padding:24px 24px 16px;background:var(--dsw-alias-bg-base)}
 .imoDay{display:flex;align-items:center;gap:10px;margin:4px 0 12px;color:var(--dsw-alias-label-secondary);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
 .imoDay:before,.imoDay:after{content:"";height:.5px;background:var(--dsw-alias-border-l1);flex:1}
 .imoMsgRow{display:flex;gap:8px;margin-bottom:11px;align-items:flex-end}
@@ -139,8 +139,8 @@ window.__ModuleLoader__.load({
 .imoMsgRow.system{justify-content:center;margin:9px 0}
 .imoMsgStack{display:flex;flex-direction:column;gap:3px;max-width:min(680px,78%);min-width:0}
 .imoMsgRow.out .imoMsgStack{align-items:flex-end}
-.imoBubble{padding:9px 12px;border-radius:14px;border-bottom-left-radius:5px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;box-shadow:0 1px 2px color-mix(in srgb,#000 4%,transparent)}
-.imoBubbleOut{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 13%,var(--dsw-alias-bg-layer-1));border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 21%,var(--dsw-alias-border-l1));border-bottom-left-radius:14px;border-bottom-right-radius:5px}
+.imoBubble{padding:9px 12px;border-radius:12px;border-bottom-left-radius:4px;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.imoBubbleOut{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 8%,var(--dsw-alias-bg-layer-1));border-color:var(--dsw-alias-border-l1);border-bottom-left-radius:12px;border-bottom-right-radius:4px}
 .imoBubbleNote{background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 9%,var(--dsw-alias-bg-layer-1));border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 24%,var(--dsw-alias-border-l1))}
 .imoBubbleSystem{background:transparent;border:none;color:var(--dsw-alias-label-secondary);font-size:10.5px;padding:2px 6px;text-align:center}
 .imoMsgMeta{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--dsw-alias-label-secondary);flex-wrap:wrap}
@@ -222,7 +222,7 @@ window.__ModuleLoader__.load({
 .imoTable tbody tr:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 3%,transparent)}
 .imoTableButton{border:none;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:0}
 .imoTableButton:hover{color:var(--dsw-alias-brand-primary)}
-.imoPill{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:999px;font-size:10px;line-height:16px;border:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.imoPill{display:inline-flex;align-items:center;gap:4px;padding:1px 6px;border-radius:6px;font-size:11px;line-height:16px;border:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .imoPill.success{color:var(--dsw-alias-state-success-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 30%,var(--dsw-alias-border-l1))}
 .imoPill.warn{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 30%,var(--dsw-alias-border-l1))}
 .imoPill.bad{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 30%,var(--dsw-alias-border-l1))}
@@ -282,12 +282,13 @@ window.__ModuleLoader__.load({
 .imoPlatformName{font-size:12.5px;font-weight:650;line-height:17px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .imoPlatformCaption{font-size:10.5px;color:var(--dsw-alias-label-secondary);line-height:1.4;margin-top:2px}
 .imoPlatformTags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
-.imoChannelSummary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:14px}
-.imoChannelStat{position:relative;padding:13px 14px;border:.5px solid var(--dsw-alias-border-l1);border-radius:13px;background:linear-gradient(145deg,var(--dsw-alias-bg-layer-1),color-mix(in srgb,var(--dsw-alias-bg-layer-2) 28%,var(--dsw-alias-bg-layer-1)));min-width:0;box-shadow:0 1px 2px color-mix(in srgb,#000 4%,transparent);overflow:hidden}
-.imoChannelStatValue{font-size:22px;font-weight:650;line-height:27px;letter-spacing:-.02em}
-.imoChannelStatLabel{font-size:10.5px;color:var(--dsw-alias-label-secondary);margin-top:1px}
+.imoChannelSummary{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:12px;margin-bottom:24px}
+.imoChannelStat{position:relative;padding:16px 18px;border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);min-width:0;overflow:hidden}
+.imoChannelStatValue{font-size:22px;font-weight:600;line-height:26px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.imoChannelStatLabel{font-size:11px;color:var(--dsw-alias-label-secondary);line-height:15px;margin-top:2px}
+.imoChannelStat.lead .imoChannelStatValue{font-size:26px;line-height:30px}
 .imoChannelGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:11px}
-.imoChannelCard{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-top-width:2px;border-radius:13px;padding:14px;min-width:0;display:flex;flex-direction:column;gap:9px;box-shadow:0 1px 3px color-mix(in srgb,#000 5%,transparent);transition:transform .16s,box-shadow .16s,border-color .16s}
+.imoChannelCard{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:8px;transition:border-color .16s,background-color .16s}
 .imoChannelCard:hover{border-color:var(--dsw-alias-border-l2)}
 .imoChannelHead{display:flex;align-items:flex-start;gap:9px;min-width:0}
 .imoChannelIdentity{min-width:0;flex:1}
@@ -332,19 +333,19 @@ window.__ModuleLoader__.load({
 @keyframes imoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .imoChannelCard:hover{transform:translateY(-1px);box-shadow:0 8px 22px color-mix(in srgb,#000 9%,transparent);border-color:var(--dsw-alias-border-l2)}
 .imoPlatformCard:hover{transform:translateY(-1px)}
-.imoWelcome{position:relative;overflow:hidden;border:.5px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 24%,var(--dsw-alias-border-l1));border-radius:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--dsw-alias-brand-primary) 8%,var(--dsw-alias-bg-layer-1)),var(--dsw-alias-bg-layer-1) 62%);padding:30px 26px 24px;margin-bottom:16px;text-align:center;box-shadow:0 10px 34px color-mix(in srgb,#000 7%,transparent)}
-.imoWelcomeIcon{width:54px;height:54px;margin:0 auto 12px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--dsw-alias-brand-primary),color-mix(in srgb,var(--dsw-alias-brand-primary) 55%,var(--dsw-alias-state-success-primary)));color:var(--dsw-alias-bg-base);box-shadow:0 8px 22px color-mix(in srgb,var(--dsw-alias-brand-primary) 26%,transparent);position:relative;z-index:1}
-.imoWelcomeTitle{font-size:21px;font-weight:680;letter-spacing:-.02em;line-height:28px;margin:0;position:relative;z-index:1}
-.imoWelcomeBody{font-size:12.5px;color:var(--dsw-alias-label-secondary);max-width:560px;margin:5px auto 14px;line-height:1.55;position:relative;z-index:1}
-.imoWelcomeSteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:780px;margin:18px auto 0;text-align:left;position:relative;z-index:1}
-.imoWelcomeStep{padding:10px 11px;border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;background:color-mix(in srgb,var(--dsw-alias-bg-base) 72%,transparent)}
-.imoWelcomeStepNumber{width:19px;height:19px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 13%,transparent);color:var(--dsw-alias-brand-primary);font-size:10px;font-weight:700;margin-bottom:5px}
-.imoWelcomeStepTitle{font-size:11.5px;font-weight:650}
-.imoWelcomeStepBody{font-size:10.5px;color:var(--dsw-alias-label-secondary);line-height:1.4;margin-top:1px}
-.imoChannelStatTop{display:flex;align-items:center;gap:10px}
-.imoMetricIcon{width:26px;height:26px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,transparent);color:var(--dsw-alias-brand-primary);flex:none}
-.imoMetricIcon.success{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 11%,transparent);color:var(--dsw-alias-state-success-primary)}
-.imoMetricIcon.bad{background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 10%,transparent);color:var(--dsw-alias-state-error-primary)}
+.imoWelcome{position:relative;overflow:hidden;border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);padding:24px;margin-bottom:24px;text-align:left;display:flex;flex-direction:column;align-items:flex-start}
+.imoWelcomeIcon{width:40px;height:40px;margin:0 0 12px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-brand-primary);position:relative;z-index:1}
+.imoWelcomeTitle{font-size:20px;font-weight:600;letter-spacing:-.01em;line-height:28px;margin:0;position:relative;z-index:1}
+.imoWelcomeBody{font-size:13px;color:var(--dsw-alias-label-secondary);max-width:620px;margin:6px 0 16px;line-height:1.6;position:relative;z-index:1}
+.imoWelcomeSteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;width:100%;margin:20px 0 0;text-align:left;position:relative;z-index:1}
+.imoWelcomeStep{padding:12px 0 0;border:none;border-top:.5px solid var(--dsw-alias-border-l1);border-radius:0;background:transparent}
+.imoWelcomeStepNumber{width:auto;height:auto;border-radius:0;display:inline-flex;align-items:center;justify-content:flex-start;background:transparent;color:var(--dsw-alias-label-tertiary);font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;margin-bottom:4px}
+.imoWelcomeStepTitle{font-size:13px;font-weight:500}
+.imoWelcomeStepBody{font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.5;margin-top:2px}
+.imoChannelStatTop{display:flex;align-items:center;gap:12px}
+.imoMetricIcon{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-tertiary);flex:none}
+.imoMetricIcon.success{color:var(--dsw-alias-label-tertiary)}
+.imoMetricIcon.bad{color:var(--dsw-alias-label-tertiary)}
 .imoChannelStatTop .imoChannelStatValue{margin:0}
 @media (prefers-reduced-motion:reduce){.imoChannelCard,.imoPlatformCard{transition:none}}
 @media (max-width:720px){.imoWelcomeSteps{grid-template-columns:1fr}.imoWelcome{padding:24px 16px 20px}}
@@ -638,8 +639,8 @@ window.__ModuleLoader__.load({
       'channels.noSecret': '未生成 token',
       'channels.channelType': '类型',
       'channels.add': '添加渠道',
-      'channels.welcomeTitle': '把客户对话，收进一个工作台',
-      'channels.welcomeBody': '连接官方 API、个人号扫码或自建 HTTP 桥接。消息进入统一收件箱，人工接待、自动翻译、AI 建议和自动接待机器人都从这里开始。',
+      'channels.welcomeTitle': '还没有接入渠道',
+      'channels.welcomeBody': '选一个平台，填凭据或扫码登录。客户消息会进入收件箱，人工接待、翻译和 AI 建议都在同一条会话里。',
       'channels.welcomeStep1': '连接渠道',
       'channels.welcomeStep1Body': '选择平台，填凭据或扫码登录。',
       'channels.welcomeStep2': '验收入站',
@@ -1289,8 +1290,8 @@ window.__ModuleLoader__.load({
       'channels.noSecret': 'No token generated',
       'channels.channelType': 'Type',
       'channels.add': 'Add channel',
-      'channels.welcomeTitle': 'Bring every customer conversation into one workspace',
-      'channels.welcomeBody': 'Connect an official API, a QR bridge, or a custom HTTP endpoint. Messages land in one inbox; human replies, live translation, AI suggestions, and the reception bot start here.',
+      'channels.welcomeTitle': 'No channels yet',
+      'channels.welcomeBody': 'Pick a platform, then sign in with credentials or a QR code. Customer messages land in the inbox, where replies, translation and AI suggestions live in the same thread.',
       'channels.welcomeStep1': 'Connect a channel',
       'channels.welcomeStep1Body': 'Pick a platform, enter credentials, or scan a QR.',
       'channels.welcomeStep2': 'Verify inbound',
@@ -3485,11 +3486,11 @@ window.__ModuleLoader__.load({
         ),
         h('div', { className: 'imoChannelSummary' },
           [
-            { key: 'active', icon: 'play', value: active, label: t('channels.summaryActive'), tone: '' },
+            { key: 'active', icon: 'play', value: active, label: t('channels.summaryActive'), tone: 'lead' },
             { key: 'connected', icon: 'checkCircle', value: connected, label: t('channels.summaryConnected'), tone: 'success' },
             { key: 'errors', icon: 'alert', value: errors, label: t('channels.summaryErrors'), tone: errors > 0 ? 'bad' : '' },
             { key: 'platforms', icon: 'plug', value: platforms.length, label: t('channels.summaryPlatforms'), tone: '' },
-          ].map((stat) => h('div', { key: stat.key, className: 'imoChannelStat' },
+          ].map((stat) => h('div', { key: stat.key, className: `imoChannelStat ${stat.tone === 'lead' ? 'lead' : ''}`.trim() },
             h('div', { className: 'imoChannelStatTop' },
               h('span', { className: `imoMetricIcon ${stat.tone}`.trim() }, h(Icon, { name: stat.icon, size: 14 })),
               h('div', null,
@@ -3502,7 +3503,7 @@ window.__ModuleLoader__.load({
         channels.length === 0
           ? h('div', null,
             h('div', { className: 'imoWelcome' },
-              h('div', { className: 'imoWelcomeIcon' }, h(Icon, { name: 'sparkles', size: 26 })),
+              h('div', { className: 'imoWelcomeIcon' }, h(Icon, { name: 'inbox', size: 20 })),
               h('h2', { className: 'imoWelcomeTitle' }, t('channels.welcomeTitle')),
               h('p', { className: 'imoWelcomeBody' }, t('channels.welcomeBody')),
               h('button', { type: 'button', className: 'imoBtn imoBtnPrimary', onClick: () => setPickerOpen(true), style: { height: 36, padding: '0 15px' } }, h(Icon, { name: 'plus', size: 14 }), t('channels.add')),
@@ -3536,7 +3537,7 @@ window.__ModuleLoader__.load({
           : h('div', { className: 'imoChannelGrid' }, channels.map((channel) => {
             const platform = platformForChannel(channel, snapshot)
             const isQr = channel.type === 'whatsapp_qr' || channel.type === 'wechat_qr'
-            return h('article', { key: channel.id, className: 'imoChannelCard', style: { borderTopColor: `hsl(${Number(platform.hue) || 210} 55% 48%)` } },
+            return h('article', { key: channel.id, className: 'imoChannelCard' },
               h('div', { className: 'imoChannelHead' },
                 h(ChannelBadge, { platform }),
                 h('div', { className: 'imoChannelIdentity' },
