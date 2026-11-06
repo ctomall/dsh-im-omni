@@ -596,3 +596,14 @@ $ cd server && node --test test/isolation.test.mjs
 | 接待默认值 | `GET/PATCH /v1/settings/workspace` | 租户级（`tenant_settings`，migration 018） |
 
 未登录 SaaS 时，组仍落到本机 Host 状态（单人/离线可用），页面上通过登录状态区分，不做二次真相。
+
+### 团队权限放进插件面板
+
+`全渠道 IM` 面板新增 **团队权限** 标签页（`nav.team`，锁图标）：
+
+- 未登录：填服务地址（默认 `http://127.0.0.1:8090`）+ 邮箱 + 密码 → 登录。
+- 登录后：待审批（批准/拒绝，仅所有者可点）、成员列表（范围下拉 + 号码勾选，放开整个团队要输入邮箱确认）、
+  最近变更（审计）。
+- 与 `:8090/admin` 是同一套接口与权限规则，只是入口不同；数据不会出现两份。
+
+截图：`docs/panel-team-access.png`。

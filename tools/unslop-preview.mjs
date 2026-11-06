@@ -437,7 +437,65 @@ ${css}
   </div>
 </div></div></div></body></html>`
 
-if (view === 'detail') {
+const teamHtml = `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>im-omni · team · ${variant}</title>
+<style>
+:root{
+  --dsw-alias-bg-base:#fafafa; --dsw-alias-bg-layer-1:#ffffff; --dsw-alias-bg-layer-2:#f4f4f5;
+  --dsw-alias-label-primary:#18181b; --dsw-alias-label-secondary:#71717a; --dsw-alias-label-tertiary:#a1a1aa;
+  --dsw-alias-border-l1:#e6e6e8; --dsw-alias-border-l2:#d4d4d8;
+  --dsw-alias-brand-primary:#15803d; --dsw-alias-state-success-primary:#16a34a;
+  --dsw-alias-state-warn-primary:#b45309; --dsw-alias-state-error-primary:#b91c1c;
+  --dsw-alias-state-idle-primary:#a1a1aa; --dsw-font-family:"PingFang SC","Segoe UI",system-ui,sans-serif;
+}
+body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family)}
+.stage{width:1440px;height:1000px;display:flex}
+.main{width:1176px;display:flex;flex-direction:column}
+${css}
+</style></head>
+<body><div class="stage"><div class="main"><div class="imoRoot"><div class="imoTop">
+  <div class="imoBrand">${brandMark}<span class="imoBrandText"><span class="imoBrandTitle">全渠道 IM</span><span class="imoBrandSub">统一收件箱 · 官方 API · 扫码登录</span></span></div>
+  <label class="imoTopSearch"><span>⌕</span><input placeholder="搜索会话、联系人、消息…"></label>
+</div>
+<div class="imoTabs">
+  <span class="imoTab">收件箱</span><span class="imoTab">联系人</span><span class="imoTab">渠道</span><span class="imoTab">快捷回复</span>
+  <span class="imoTab">群发</span><span class="imoTab">自动化</span><span class="imoTab">数据分析</span><span class="imoTab imoTabActive">团队权限</span><span class="imoTab">设置</span>
+</div>
+<div class="imoPage">
+  <div class="imoPageHead"><div><h1 class="imoPageTitle">团队权限</h1><p class="imoPageSub">演示客服 · 所有者 · 授权立即生效，放开到整个团队需要所有者批准</p></div>
+    <div class="imoPageActions"><button class="imoBtn">刷新</button><button class="imoBtn">退出</button></div></div>
+  <section class="imoSection">
+    <div class="imoSectionTitle">待审批 1</div>
+    <div class="imoRow">
+      <div><div>周管理 申请修改 林小满</div><div class="imoSmall imoMuted">放开到整个团队</div></div>
+      <div class="imoBtnRow"><button class="imoBtn imoBtnSm imoBtnPrimary">批准</button><button class="imoBtn imoBtnSm">拒绝</button></div>
+    </div>
+  </section>
+  <section class="imoSection">
+    <div class="imoSectionTitle">成员 3</div>
+    <div class="imoRow"><div><div>演示客服</div><div class="imoSmall imoMuted">整个团队</div></div><span class="imoSmall imoMuted">所有者</span></div>
+    <div class="imoRow">
+      <div><div>林小满</div><div class="imoSmall imoMuted">1 个号码</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+          <label class="imoPill" style="cursor:pointer;gap:4px"><input type="checkbox" checked>售后 WhatsApp</label>
+          <label class="imoPill" style="cursor:pointer;gap:4px"><input type="checkbox">社群 Telegram</label>
+        </div>
+      </div>
+      <select class="imoSelect"><option>仅自己</option><option>整个团队</option></select>
+    </div>
+    <div class="imoRow"><div><div>周管理</div><div class="imoSmall imoMuted">整个团队</div></div><span class="imoSmall imoMuted">管理员</span></div>
+  </section>
+  <section class="imoSection">
+    <div class="imoSectionTitle">最近变更</div>
+    <div class="imoRow"><span class="imoSmall">演示客服 → 林小满</span><span class="imoTiny imoMuted">11/06 06:07</span></div>
+    <div class="imoRow"><span class="imoSmall">周管理 → 林小满</span><span class="imoTiny imoMuted">11/06 05:47</span></div>
+  </section>
+</div></div></div></div></body></html>`
+
+if (view === 'team') {
+  await writeFile(process.argv[3] ?? '/tmp/imo-team.html', teamHtml)
+  console.log('wrote team preview')
+} else if (view === 'detail') {
   await writeFile(process.argv[3] ?? '/tmp/imo-detail.html', detailHtml)
   console.log('wrote detail preview')
 } else if (view === 'settings') {
