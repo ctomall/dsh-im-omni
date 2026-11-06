@@ -22,17 +22,21 @@ export function db() {
 }
 
 /**
- * Run `fn` inside a transaction whose RLS tenant is fixed.
+ * Run `fn` inside a transaction whose RLS tenant — and acting member — is fixed.
+ * A null `userId` marks internal work (webhooks, dispatcher, usage), which keeps
+ * tenant-wide visibility; every request path must pass the authenticated user.
  * @template T
  * @param {string} tenantId - tenant uuid.
  * @param {(client: pg.PoolClient) => Promise<T>} fn - work to run.
+ * @param {string|null} [userId] - acting member, or null for system work.
  * @returns {Promise<T>} fn result.
  */
-export async function withTenant(tenantId, fn) {
+export async function withTenant(tenantId, fn, userId = null) {
   const client = await db().connect()
   try {
     await client.query('BEGIN')
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId])
+    await client.query("SELECT set_config('app.user_id', $1, true)", [userId ?? ''])
     const result = await fn(client)
     await client.query('COMMIT')
     return result

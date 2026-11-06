@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 import pg from 'pg'
 import { closeDb } from '../src/db.mjs'
 import { createApp } from '../src/app.mjs'
+import { seedConversation } from './support/fixture.mjs'
 
 const adminUrl = process.env.ADMIN_DATABASE_URL
   ?? 'postgresql://im_omni_owner:owner_dev_pw@127.0.0.1:5432/im_omni_dev'
@@ -77,8 +78,9 @@ test('a new tenant starts on the trial plan with zero usage', async () => {
 
 test('sending a message meters exactly one unit', async () => {
   const session = await register('usage-b')
+  const conversationId = await seedConversation(admin, session.tenants[0].tenant_id)
   const sent = await post('/v1/messages', {
-    conversationId: '00000000-0000-0000-0000-0000000000aa',
+    conversationId,
     text: '你好',
     clientId: `c-${Date.now()}`,
   }, session.accessToken)
@@ -89,15 +91,16 @@ test('sending a message meters exactly one unit', async () => {
 
 test('a retried clientId is idempotent and not metered twice', async () => {
   const session = await register('usage-c')
+  const conversationId = await seedConversation(admin, session.tenants[0].tenant_id)
   const clientId = `retry-${Date.now()}`
   const first = await post('/v1/messages', {
-    conversationId: '00000000-0000-0000-0000-0000000000bb',
+    conversationId,
     text: '重试测试',
     clientId,
   }, session.accessToken)
   assert.equal(first.status, 201)
   const second = await post('/v1/messages', {
-    conversationId: '00000000-0000-0000-0000-0000000000bb',
+    conversationId,
     text: '重试测试',
     clientId,
   }, session.accessToken)
@@ -118,8 +121,9 @@ test('a tenant at its monthly limit is refused with 402', async () => {
      SELECT $1, 'message', 1, now() FROM generate_series(1, 2000)`,
     [tenantId],
   )
+  const conversationId = await seedConversation(admin, tenantId)
   const refused = await post('/v1/messages', {
-    conversationId: '00000000-0000-0000-0000-0000000000cc',
+    conversationId,
     text: '超额',
     clientId: `over-${Date.now()}`,
   }, session.accessToken)

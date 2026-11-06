@@ -5,15 +5,24 @@
  */
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
+import pg from 'pg'
 import { closeDb } from '../src/db.mjs'
 import { createApp } from '../src/app.mjs'
+import { seedConversation } from './support/fixture.mjs'
 
 /** @type {import('node:http').Server[]} */
 const servers = []
 /** @type {string[]} */
 const bases = []
+/** @type {pg.Client} */
+let admin
 
 before(async () => {
+  admin = new pg.Client({
+    connectionString: process.env.ADMIN_DATABASE_URL
+      ?? 'postgresql://im_omni_owner:owner_dev_pw@127.0.0.1:5432/im_omni_dev',
+  })
+  await admin.connect()
   for (let index = 0; index < 2; index += 1) {
     const server = createApp()
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -26,6 +35,7 @@ after(async () => {
   for (const server of servers) {
     if (server.listening) await new Promise((resolve) => server.close(resolve))
   }
+  await admin?.end()
   await closeDb()
 })
 
@@ -72,8 +82,9 @@ test('a session created on one instance works on the other', async () => {
   assert.equal(introspected.body.user.email, email)
 
   // A write on instance 2 is visible to instance 1: no local state to diverge.
+  const conversationId = await seedConversation(admin, registered.body.tenants[0].tenant_id)
   const sent = await post(bases[1], '/v1/messages', {
-    conversationId: '00000000-0000-0000-0000-0000000000dd',
+    conversationId,
     text: '跨实例',
     clientId: `ha-${Date.now()}`,
   }, token)

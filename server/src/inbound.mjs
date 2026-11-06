@@ -109,8 +109,8 @@ export async function handleInbound(channelId, payload, meta = {}) {
       const conversation = open.rowCount > 0
         ? open.rows[0]
         : (await client.query(
-          `INSERT INTO conversations (tenant_id, channel_id, contact_id, subject, status, unread, last_inbound_at)
-           VALUES ($1, $2, $3, $4, 'open', 0, now()) RETURNING id`,
+          `INSERT INTO conversations (tenant_id, channel_id, contact_id, owner_user_id, subject, status, unread, last_inbound_at)
+           VALUES ($1, $2, $3, (SELECT owner_user_id FROM channels WHERE tenant_id = $1 AND id = $2), $4, 'open', 0, now()) RETURNING id`,
           [target.tenant_id, channelId, contact.id, text.slice(0, 60)],
         )).rows[0]
 

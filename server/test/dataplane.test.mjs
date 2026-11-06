@@ -134,8 +134,13 @@ test('another tenant sees none of these rows', async () => {
   const body = await response.json()
   assert.equal(body.items.length, 0)
 
+  // Another tenant's conversation is invisible: the scoped probe answers 404,
+  // and the body carries no conversation content either way.
   const messages = await fetch(`${base}/v1/conversations/${fixture.conversationId}/messages`, {
     headers: { authorization: `Bearer ${other.accessToken}` },
-  }).then((r) => r.json())
-  assert.equal(messages.items.length, 0)
+  })
+  assert.equal(messages.status, 404)
+  const body404 = await messages.json()
+  assert.equal(body404.error.code, 'not-found')
+  assert.equal(body404.items, undefined)
 })

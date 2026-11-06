@@ -413,3 +413,62 @@ server/src/app.mjs                      POST /v1/attachments、GET /v1/attachmen
 | HA 运维成本 | Patroni/RDS + 监控需要人 | 优先买托管数据库，别自建主从 |
 | 消息表膨胀 | 百万级后变慢 | 按月分区 + 冷数据归档 |
 | 私有化交付 | 版本碎片 | 只提供单一 Compose 包 + 版本号，不做定制分支 |
+
+## 21. 按成员隔离（渠道号码 + 数据）
+
+### 权限模型
+
+可见范围由成员角色决定，不另设缓存：
+
+| 角色 | 范围 | 看什么 |
+| --- | --- | --- |
+| owner / admin | `all` | 整个租户的渠道、会话、联系人 |
+| agent / viewer | `own` | 只看到 `owner_user_id = 自己` 的渠道与其上的会话、以及这些会话里的联系人 |
+
+`app_scope()` 每次查询从 `memberships` 现算，**角色一改，下一次请求立即生效**，没有缓存需要失效。
+
+### 服务端强制（三道）
+
+1. **行级策略**（`migrations/012`、`013`）：`channels`、`conversations`、`contacts` 用 `app_user_id()` + `app_scope()` 过滤；
+   `app.user_id` 为空表示系统上下文（webhook、投递器、计量），保留租户级可见性。
+2. **请求身份**：`withTenant(tenantId, fn, userId)` 每个请求都带登录成员；路由层 `asMember(claims, fn)` 统一入口。
+3. **归属写入**：入站消息建会话时继承渠道的 `owner_user_id`；发消息/改状态/已读前先 `checkScopedAccess()`。
+
+### 403 与 404 的分界
+
+被策略隐藏的行与不存在的行在事务里长得一样，所以用**系统上下文**探测一次：
+存在但不在你的范围 → `403 out-of-scope`；不存在 → `404 not-found`。探测只读 `owner_user_id`，不返回业务字段。
+
+### 覆盖的路径
+
+| 路径 | 隔离方式 |
+| --- | --- |
+| `GET /v1/channels`、`/v1/channels/{id}` | 策略过滤；详情先探测（403/404） |
+| `GET /v1/conversations` | 策略过滤 |
+| `GET /v1/conversations/{id}/messages` | 先探测会话（403/404） |
+| `POST /v1/messages`、`PATCH /v1/conversations/{id}`、`POST …/read` | 先探测会话，拒绝时 403 且不落库 |
+| `GET /v1/contacts` | 策略：至少一条可见会话关联 |
+| `GET /v1/attachments/{id}` | 附件继承其消息所在会话的可见性 |
+
+### 未覆盖（明说）
+
+- **搜索 / 导出 / 统计**：这三个接口目前不存在，没有可隔离的实现；将来新增时必须在同一策略事务内实现。
+- 渠道创建接口不存在（数据来自脚本/测试），所以"新增渠道归属"由直接写入的 `owner_user_id` 决定；建端点时应强制等于当前成员。
+- 交接（把会话转给他人）会改变可见性：转出方随即不可见。属于产品决策，尚未实现转让接口。
+
+### 验收测试
+
+`server/test/isolation.test.mjs`（7 条，全部通过）：
+
+```
+$ cd server && node --test test/isolation.test.mjs
+✔ 只能列出自己的渠道号码
+✔ 读他人渠道 → 403 out-of-scope，且响应里没有对方渠道名
+✔ 只能列出/读取自己的会话；他人会话 403
+✔ 向他人会话发消息 / 改状态 / 标已读 → 403，且没有落库
+✔ 联系人跟随可见会话
+✔ owner 看全租户
+✔ 角色改为 admin 后，下一次请求立即看到全部
+```
+
+全量：`cd server && node --test` → **64 passed**。

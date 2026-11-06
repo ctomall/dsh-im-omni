@@ -20,6 +20,7 @@ import {
 import { inc, render as renderMetrics } from './metrics.mjs'
 import { InboundError, handleInbound } from './inbound.mjs'
 import { parseWebhook as parseWhatsappWebhook } from './channels/whatsapp.mjs'
+import { checkScopedAccess } from './scope.mjs'
 import { linkAttachments, publicAttachment, readAttachment, storeAttachment } from './attachments.mjs'
 import {
   notifyInbound as notifyInboundMessage,
@@ -142,6 +143,33 @@ const routes = []
 /** Register a route. */
 function route(method, pattern, handler) {
   routes.push({ method, pattern: new RegExp(`^${pattern}$`), handler })
+}
+
+/**
+ * Run tenant work as the authenticated member, so row policies apply to them.
+ * @param {{tenantId: string, userId: string}} claims - token claims.
+ * @param {(client: import('pg').PoolClient) => Promise<any>} fn - work.
+ * @returns {Promise<any>} fn result.
+ */
+function asMember(claims, fn) {
+  return withTenant(claims.tenantId, fn, claims.userId)
+}
+
+/**
+ * Map a scope decision to the HTTP answer: 404 when the row does not exist with
+ * any scope, 403 when it exists but belongs to another member.
+ * @param {import('node:http').ServerResponse} response - response.
+ * @param {'ok'|'forbidden'|'missing'} decision - scope decision.
+ * @returns {boolean} true when the request may continue.
+ */
+function allowScoped(response, decision) {
+  if (decision === 'ok') return true
+  if (decision === 'missing') {
+    fail(response, 404, 'not-found', '不存在。')
+    return false
+  }
+  fail(response, 403, 'out-of-scope', '这条数据不在你的权限范围内。')
+  return false
 }
 
 route('GET', '/healthz', async (_request, response) => {
@@ -607,6 +635,15 @@ route('GET', '/v1/attachments/([0-9a-f-]{36})', async (request, response, params
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
   const file = await readAttachment(claims.tenantId, params[0])
   if (file === null) return fail(response, 404, 'not-found', '附件不存在。')
+  // An attachment inherits the visibility of the conversation it was sent in.
+  if (file.meta.message_id !== null && file.meta.message_id !== undefined) {
+    const conversationId = await withTenant(claims.tenantId, async (client) => {
+      const row = await client.query('SELECT conversation_id FROM messages WHERE tenant_id = $1 AND id = $2', [claims.tenantId, file.meta.message_id])
+      return row.rows[0]?.conversation_id ?? null
+    })
+    if (conversationId !== null
+      && !allowScoped(response, await checkScopedAccess(claims.tenantId, claims.userId, 'conversations', conversationId))) return
+  }
   response.writeHead(200, {
     'content-type': file.meta.type,
     'content-length': file.bytes.length,
@@ -651,9 +688,11 @@ route('POST', '/v1/messages', async (request, response) => {
     }
   }
 
+  if (!allowScoped(response, await checkScopedAccess(claims.tenantId, claims.userId, 'conversations', conversationId))) return
+
   await assertQuota(claims.tenantId, 'message', 1)
 
-  const message = await withTenant(claims.tenantId, async (client) => {
+  const message = await asMember(claims, async (client) => {
     await client.query('BEGIN')
     try {
       const inserted = await client.query(
@@ -719,7 +758,7 @@ route('POST', '/v1/settings/notify/test', async (request, response) => {
 route('GET', '/v1/contacts', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
-  const items = await withTenant(claims.tenantId, async (client) => {
+  const items = await asMember(claims, async (client) => {
     const result = await client.query(
       'SELECT id, name, company, phone, email, hue, updated_at FROM contacts ORDER BY name LIMIT 500',
     )
@@ -731,18 +770,34 @@ route('GET', '/v1/contacts', async (request, response) => {
 route('GET', '/v1/channels', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
-  const items = await withTenant(claims.tenantId, async (client) => {
+  const items = await asMember(claims, async (client) => {
     const result = await client.query(
-      'SELECT id, name, type, status, health, created_at FROM channels ORDER BY name',
+      'SELECT id, name, type, status, health, created_at, owner_user_id FROM channels ORDER BY name',
     )
     return result.rows
   })
   send(response, 200, { items })
 })
 
+route('GET', '/v1/channels/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (!allowScoped(response, await checkScopedAccess(claims.tenantId, claims.userId, 'channels', params[0]))) return
+  const row = await asMember(claims, async (client) => {
+    const result = await client.query(
+      'SELECT id, name, type, status, health, created_at, owner_user_id FROM channels WHERE id = $1',
+      [params[0]],
+    )
+    return result.rows[0] ?? null
+  })
+  if (row === null) return fail(response, 404, 'not-found', '不存在。')
+  send(response, 200, { channel: row })
+})
+
 route('GET', '/v1/conversations/([0-9a-f-]{36})/messages', async (request, response, params) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (!allowScoped(response, await checkScopedAccess(claims.tenantId, claims.userId, 'conversations', params[0]))) return
   const url = new URL(request.url ?? '/', 'http://localhost')
   const limit = Math.min(Number(url.searchParams.get('limit') ?? 50) || 50, 100)
   const before = url.searchParams.get('before')
@@ -776,6 +831,7 @@ route('GET', '/v1/conversations/([0-9a-f-]{36})/messages', async (request, respo
 route('POST', '/v1/conversations/([0-9a-f-]{36})/read', async (request, response, params) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (!allowScoped(response, await checkScopedAccess(claims.tenantId, claims.userId, 'conversations', params[0]))) return
   const updated = await withTenant(claims.tenantId, async (client) => {
     const result = await client.query(
       'UPDATE conversations SET unread = 0, updated_at = now() WHERE id = $1 RETURNING id, unread',
@@ -790,6 +846,7 @@ route('POST', '/v1/conversations/([0-9a-f-]{36})/read', async (request, response
 route('PATCH', '/v1/conversations/([0-9a-f-]{36})', async (request, response, params) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  if (!allowScoped(response, await checkScopedAccess(claims.tenantId, claims.userId, 'conversations', params[0]))) return
   const input = await body(request)
   const updated = await withTenant(claims.tenantId, async (client) => {
     const sets = []
@@ -892,10 +949,10 @@ route('POST', '/v1/webhooks/([0-9a-f-]{36})', async (request, response, params) 
 route('GET', '/v1/conversations', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
-  const rows = await withTenant(claims.tenantId, async (client) => {
+  const rows = await asMember(claims, async (client) => {
     const result = await client.query(
       `SELECT id, channel_id, contact_id, subject, status, priority, unread, tags,
-              bot_paused, muted, last_inbound_at, updated_at
+              bot_paused, muted, last_inbound_at, updated_at, owner_user_id
          FROM conversations ORDER BY updated_at DESC LIMIT 50`,
     )
     return result.rows

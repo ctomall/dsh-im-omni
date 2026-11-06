@@ -4,15 +4,24 @@
  */
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
+import pg from 'pg'
 import { closeDb } from '../src/db.mjs'
 import { createApp } from '../src/app.mjs'
+import { seedConversation } from './support/fixture.mjs'
 
 /** @type {import('node:http').Server} */
 let server
 /** @type {string} */
 let base
+/** @type {pg.Client} */
+let admin
 
 before(async () => {
+  admin = new pg.Client({
+    connectionString: process.env.ADMIN_DATABASE_URL
+      ?? 'postgresql://im_omni_owner:owner_dev_pw@127.0.0.1:5432/im_omni_dev',
+  })
+  await admin.connect()
   server = createApp()
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   base = `http://127.0.0.1:${server.address().port}`
@@ -20,6 +29,7 @@ before(async () => {
 
 after(async () => {
   await new Promise((resolve) => server.close(resolve))
+  await admin?.end()
   await closeDb()
 })
 
@@ -55,11 +65,12 @@ test('upload, attach to a message and download the same bytes', async () => {
   assert.equal(attachment.name, 'dot.png')
   assert.equal(attachment.size, PNG.length)
 
+  const conversationId = await seedConversation(admin, session.tenants[0].tenant_id)
   const sent = await fetch(`${base}/v1/messages`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${session.accessToken}` },
     body: JSON.stringify({
-      conversationId: '00000000-0000-0000-0000-0000000000aa',
+      conversationId,
       text: '看看图片',
       kind: 'attachment',
       attachments: [attachment.id],
@@ -69,7 +80,7 @@ test('upload, attach to a message and download the same bytes', async () => {
   assert.equal(sent.status, 201)
   const message = (await sent.json()).message
 
-  const fetched = await fetch(`${base}/v1/conversations/00000000-0000-0000-0000-0000000000aa/messages`, {
+  const fetched = await fetch(`${base}/v1/conversations/${conversationId}/messages`, {
     headers: { authorization: `Bearer ${session.accessToken}` },
   }).then((response) => response.json())
   const stored = fetched.items.find((item) => item.id === message.id)
