@@ -5478,6 +5478,156 @@ window.__ModuleLoader__.load({
      * @param {{t: Function}} props - locale translator.
      * @returns {import('react').ReactElement} page.
      */
+    /**
+     * Inline mirror of `lib/team-inbox.mjs`: the client bundle only resolves
+     * `require` of shared deps, so the mapping lives here too. Keep the two in
+     * sync until @omni/core exists (see docs/ARCHITECTURE.md §9).
+     * @param {string} token - team token.
+     * @returns {Record<string, Function>} adapter bound to the same-origin proxy.
+     */
+    function createTeamInbox(token) {
+      const call = async (path, init = {}) => {
+        const response = await proxySaas(path, { method: init.method ?? 'GET', body: init.body, token })
+        const body = await response.json()
+        if (!response.ok) {
+          const error = new Error(body?.error?.message ?? `HTTP ${response.status}`)
+          error.code = body?.error?.code
+          throw error
+        }
+        return body
+      }
+      const toConversation = (row) => ({
+        id: row.id,
+        channelId: row.channel_id,
+        contactId: row.contact_id,
+        subject: row.subject ?? '',
+        status: row.status ?? 'open',
+        priority: row.priority ?? 'normal',
+        unread: Number(row.unread ?? 0),
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        botPaused: row.bot_paused === true,
+        muted: row.muted === true,
+        lastInboundAt: row.last_inbound_at ?? null,
+        updatedAt: row.updated_at ?? null,
+        ownerId: row.owner_user_id ?? null,
+        messages: [],
+        team: true,
+      })
+      const toMessage = (row) => ({
+        id: row.id,
+        conversationId: row.conversation_id,
+        direction: row.direction === 'outbound' ? 'outbound' : 'inbound',
+        body: row.body ?? '',
+        at: row.created_at ?? row.at ?? null,
+        status: row.status ?? 'sent',
+        authorType: row.author_type === 'agent' ? 'agent' : 'contact',
+        team: true,
+      })
+      return {
+        async load(limits = {}) {
+          const limit = Number(limits.limit ?? 30)
+          const [conversations, contacts, channels] = await Promise.all([
+            call(`/v1/conversations?limit=${limit}`),
+            call('/v1/contacts'),
+            call('/v1/channels'),
+          ])
+          const snapshot = {
+            conversations: (conversations.items ?? []).map(toConversation),
+            contacts: (contacts.items ?? []).map((row) => ({
+              id: row.id, name: row.name ?? '', handle: row.handle ?? '', phone: row.phone ?? '',
+              tags: Array.isArray(row.tags) ? row.tags : [], channelId: row.channel_id ?? null,
+            })),
+            channels: (channels.items ?? []).map((row) => ({
+              id: row.id, name: row.name ?? '', type: row.type ?? 'webhook', status: row.status ?? 'active',
+              runtime: { health: row.health ?? 'ready', lastError: '', qrStatus: 'disconnected', account: '' },
+              stats: { inbound: 0, outbound: 0 }, config: {},
+            })),
+          }
+          await Promise.all(snapshot.conversations.slice(0, Number(limits.messageLimit ?? 8)).map(async (conversation) => {
+            try {
+              const messages = await call(`/v1/conversations/${conversation.id}/messages`)
+              conversation.messages = (messages.items ?? []).slice(-40).map(toMessage)
+            } catch {
+              conversation.messages = []
+            }
+          }))
+          return snapshot
+        },
+        async read(conversationId) {
+          await call(`/v1/conversations/${conversationId}/read`, { method: 'POST' })
+        },
+        async update(conversationId, fields) {
+          const body = {}
+          for (const key of ['status', 'priority', 'tags', 'muted', 'botPaused']) {
+            if (fields[key] !== undefined) body[key] = fields[key]
+          }
+          if (Object.keys(body).length === 0) return
+          await call(`/v1/conversations/${conversationId}`, { method: 'PATCH', body })
+        },
+        async send(conversationId, body) {
+          const result = await call('/v1/messages', { method: 'POST', body: { conversationId, body } })
+          return result.message ?? null
+        },
+      }
+    }
+
+    /**
+     * Inbox backed by the team service: the lists arrive already filtered by the
+     * member's permission, and every write hits the endpoint that re-checks it.
+     * @param {{token: string}|null} session - signed-in session.
+     * @returns {Record<string, any>} workspace-like object (`snapshot`, `command`, `refresh`).
+     */
+    function useTeamWorkspace(session) {
+      const [snapshot, setSnapshot] = React.useState(null)
+      const [error, setError] = React.useState(null)
+      const [loading, setLoading] = React.useState(true)
+      const inboxRef = React.useRef(null)
+
+      const refresh = React.useCallback(async () => {
+        if (session === null) return
+        try {
+          const inbox = createTeamInbox(session.token)
+          inboxRef.current = inbox
+          const slice = await inbox.load()
+          setSnapshot({
+            ...slice,
+            agents: [],
+            templates: [],
+            automations: [],
+            broadcasts: [],
+            events: [],
+            workspace: { name: '', ownerId: null, bot: {}, notify: {} },
+            meta: { revision: Date.now(), updatedAt: new Date().toISOString() },
+          })
+          setError(null)
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : String(reason))
+        } finally {
+          setLoading(false)
+        }
+      }, [session])
+
+      React.useEffect(() => {
+        if (session === null) {
+          setLoading(false)
+          return
+        }
+        void refresh()
+      }, [refresh, session])
+
+      const command = React.useCallback(async (name, payload = {}) => {
+        const inbox = inboxRef.current
+        if (inbox === null) throw new Error('团队数据尚未加载')
+        if (name === 'conversation.read') return inbox.read(payload.conversationId)
+        if (name === 'conversation.update') return inbox.update(payload.conversationId, payload)
+        if (name === 'conversation.bot') return inbox.update(payload.conversationId, { botPaused: payload.paused })
+        if (name === 'message.send') return inbox.send(payload.conversationId, payload.body ?? payload.text ?? '')
+        throw new Error('这个操作还在本机模式下，尚未接入团队服务')
+      }, [])
+
+      return { snapshot, loading, error, offline: false, command, refresh, intelligence: null }
+    }
+
     /** Where the panel keeps the team token between reloads. */
     const TOKEN_KEY = 'im-omni.session'
 
@@ -5595,7 +5745,9 @@ window.__ModuleLoader__.load({
 
     function App({ t }) {
       const gate = useSession()
-      const workspace = useWorkspace()
+      const hostWorkspace = useWorkspace()
+      const teamWorkspace = useTeamWorkspace(gate.session)
+      const workspace = gate.session === null ? hostWorkspace : teamWorkspace
       const [tab, setTab] = React.useState('inbox')
       const [search, setSearch] = React.useState('')
       const [selectedId, setSelectedId] = React.useState(null)

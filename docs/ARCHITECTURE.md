@@ -161,3 +161,22 @@ core 可以原样抽走。
 - 越权标签即使被强行切过去，也会立刻回落到收件箱，且数据仍受服务端 RLS 约束（前端隐藏只是体验层）。
 
 截图：`docs/panel-login-gate.png`。
+
+### 11. 数据收口（第 1 步）：收件箱读团队服务
+
+登录后，收件箱不再读本机 Host 快照，而是读团队服务——**列表本身已由行级策略过滤**：
+
+| 动作 | 接口 | 说明 |
+| --- | --- | --- |
+| 会话列表 | `GET /v1/conversations?limit=30` | 只返回该成员可见的行 |
+| 联系人/渠道 | `GET /v1/contacts`、`GET /v1/channels` | 同样受策略约束 |
+| 会话消息 | `GET /v1/conversations/{id}/messages` | 前 8 个会话自动补水 |
+| 标记已读 | `POST /v1/conversations/{id}/read` | |
+| 改状态/优先级/标签/静音 | `PATCH /v1/conversations/{id}` | |
+| 发送回复 | `POST /v1/messages` | 越权返回 403 out-of-scope |
+
+- 映射逻辑有两份：`lib/team-inbox.mjs`（带 6 条单测）与 `client.js` 内联副本
+  （客户端 bundle 只 `require` 共享依赖，无法直接 import 本地模块）。**这是已知债务**，
+  等 `@omni/core` 抽出后合并。
+- 未接入的操作会明确报错「这个操作还在本机模式下，尚未接入团队服务」，不静默失败。
+- 其余标签（渠道配置、模板、群发、自动化）仍用本机数据，等后续步骤收口。
