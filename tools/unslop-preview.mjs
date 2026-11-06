@@ -291,6 +291,20 @@ const detailCfg = `
 <div class="imCfg">
   <div class="imCfgHead"><div><h2 class="imCfgTitle">插件配置</h2><p class="imCfgSub">这里的改动立即作用于全渠道 IM 面板，两个入口读写同一份 Host 状态。</p></div></div>
   <section class="imCfgGroup">
+    <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">团队与权限（SaaS）</h3><span class="imCfgGroupNote">演示客服 · 所有者</span></div>
+    <div class="imCfgRow">
+      <div class="imCfgRowMain"><span class="imCfgRowTitle">2 名成员 · 5 个号码可见</span><span class="imCfgRowNote">没有待审批</span></div>
+      <button class="imoBtn imoBtnSm">退出</button>
+    </div>
+    <table class="imCfgMatrix"><thead><tr><th>成员</th><th>角色</th><th>可见范围</th></tr></thead><tbody>
+      <tr><td>演示客服</td><td>所有者</td><td class="imCfgMark">整个团队</td></tr>
+      <tr><td>林小满</td><td>客服</td><td class="imCfgMark">1 个号码</td></tr>
+      <tr><td>周管理</td><td>管理员</td><td class="imCfgMark">整个团队</td></tr>
+    </tbody></table>
+    <p class="imCfgNote">这里只读展示；分配权限与审批在团队权限页操作。</p>
+  </section>
+
+  <section class="imCfgGroup">
     <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">在线升级</h3><span class="imCfgGroupNote">分支 main</span></div>
     <div class="imCfgRow">
       <div class="imCfgRowMain"><span class="imCfgRowTitle">当前 v2.9.0 · 9915ec6</span><span class="imCfgRowNote">更新失败：工作区有未提交改动，为避免覆盖，已停止更新。</span></div>
@@ -396,7 +410,7 @@ ${css}
   <div class="crumb">插件 / 全渠道 IM</div>
   <div class="head"><div class="mark">✉</div><div>
     <h1>全渠道 IM</h1>
-    <p class="meta">dsh-im-omni · v2.9.0 · 已启用</p>
+    <p class="meta">dsh-im-omni · v2.10.0 · 已启用</p>
   </div></div>
   <p class="desc">把 WhatsApp、Telegram、企业微信、飞书等渠道的客户对话收进 DSH：统一收件箱、AI 建议、自动翻译、SLA 与群机器人通知。</p>
   <div class="doc">

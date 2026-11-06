@@ -1380,6 +1380,22 @@ function routeLabel(pattern) {
 /** Create the HTTP server (unbound; tests listen on port 0). */
 export function createApp() {
   return createServer(async (request, response) => {
+    // The plugin page runs on the DSH origin and talks to this API cross-origin,
+    // so every response is exportable and preflights are answered here.
+    const origin = request.headers.origin
+    if (typeof origin === 'string' && origin !== '') {
+      response.setHeader('access-control-allow-origin', origin)
+      response.setHeader('vary', 'origin')
+      response.setHeader('access-control-allow-credentials', 'false')
+      response.setHeader('access-control-allow-headers', 'authorization, content-type, accept')
+      response.setHeader('access-control-allow-methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS')
+      response.setHeader('access-control-max-age', '600')
+    }
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204)
+      response.end()
+      return
+    }
     try {
       const url = new URL(request.url ?? '/', 'http://localhost')
       for (const entry of routes) {

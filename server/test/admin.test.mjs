@@ -32,3 +32,19 @@ test('the permission page is served as HTML', async () => {
   assert.match(html, /\/v1\/tenants\//)
   assert.match(html, /dataScope/)
 })
+
+test('cross-origin preflight from the plugin page is answered', async () => {
+  const response = await fetch(`${base}/v1/channels`, {
+    method: 'OPTIONS',
+    headers: { origin: 'https://dsh.ila3.top', 'access-control-request-method': 'GET' },
+  })
+  assert.equal(response.status, 204)
+  assert.equal(response.headers.get('access-control-allow-origin'), 'https://dsh.ila3.top')
+  assert.match(response.headers.get('access-control-allow-methods') ?? '', /GET/)
+})
+
+test('a normal response carries the origin back', async () => {
+  const response = await fetch(`${base}/healthz`, { headers: { origin: 'https://dsh.ila3.top' } })
+  assert.equal(response.headers.get('access-control-allow-origin'), 'https://dsh.ila3.top')
+  assert.equal(response.headers.get('vary'), 'origin')
+})

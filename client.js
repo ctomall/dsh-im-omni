@@ -5567,6 +5567,83 @@ window.__ModuleLoader__.load({
       const [failure, setFailure] = React.useState(null)
       const [copied, setCopied] = React.useState('')
       const [copyFallback, setCopyFallback] = React.useState(false)
+      const [saas, setSaas] = React.useState({
+        base: 'http://127.0.0.1:8090',
+        email: '',
+        password: '',
+        token: '',
+        tenantId: '',
+        role: '',
+        me: null,
+        members: [],
+        channels: [],
+        approvals: 0,
+        busy: '',
+        error: '',
+      })
+
+      /**
+       * Talk to the SaaS API the team actually shares. Cross-origin by design:
+       * the API answers preflights for this page's origin.
+       * @param {string} path - path under the API base.
+       * @param {object} [options] - fetch options merged in.
+       * @returns {Promise<any>} parsed body.
+       */
+      const saasCall = React.useCallback(async (path, options = {}) => {
+        const token = saas.token
+        const response = await fetch(saas.base.replace(/\/$/, '') + path, {
+          ...options,
+          headers: {
+            'content-type': 'application/json',
+            accept: 'application/json',
+            ...(token === '' ? {} : { authorization: `Bearer ${token}` }),
+            ...(options.headers ?? {}),
+          },
+        })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) {
+          const failure = new Error(payload?.error?.message ?? `HTTP ${response.status}`)
+          failure.code = payload?.error?.code
+          throw failure
+        }
+        return payload
+      }, [saas.base, saas.token])
+
+      const saasLogin = React.useCallback(async () => {
+        setSaas((current) => ({ ...current, busy: 'login', error: '' }))
+        try {
+          const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/auth/login', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            body: JSON.stringify({ email: saas.email, password: saas.password }),
+          })
+          const body = await response.json().catch(() => null)
+          if (!response.ok) throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
+          const me = await fetch(saas.base.replace(/\/$/, '') + '/v1/me', {
+            headers: { authorization: `Bearer ${body.accessToken}`, accept: 'application/json' },
+          }).then((item) => item.json())
+          const tenant = me.tenants.find((item) => item.tenant_id === me.currentTenant) ?? me.tenants[0]
+          const token = body.accessToken
+          const [members, channels, approvals] = await Promise.all([
+            fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + tenant.tenant_id + '/members', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
+            fetch(saas.base.replace(/\/$/, '') + '/v1/channels', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
+            fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + tenant.tenant_id + '/approvals?status=all', { headers: { authorization: `Bearer ${token}` } }).then((item) => (item.ok ? item.json() : { items: [] })),
+          ])
+          setSaas((current) => ({
+            ...current,
+            busy: '',
+            token,
+            tenantId: tenant.tenant_id,
+            role: tenant.role,
+            me: me.user,
+            members: members.items ?? [],
+            channels: channels.items ?? [],
+            approvals: (approvals.items ?? []).filter((item) => item.status === 'pending').length,
+          }))
+        } catch (error) {
+          setSaas((current) => ({ ...current, busy: '', error: error instanceof Error ? error.message : String(error) }))
+        }
+      }, [saas.base, saas.email, saas.password])
 
       const load = React.useCallback(async () => {
         try {
@@ -5851,6 +5928,56 @@ window.__ModuleLoader__.load({
             )
             : (upgrade?.ahead > 0 ? h('p', { className: 'imCfgNote' }, `本地领先远程 ${upgrade.ahead} 个提交。`) : null),
         ),
+        h('section', { className: 'imCfgGroup' },
+          h('div', { className: 'imCfgGroupHead' },
+            h('h3', { className: 'imCfgGroupTitle' }, '团队与权限（SaaS）'),
+            h('span', { className: 'imCfgGroupNote' }, saas.token === '' ? '未登录' : `${saas.me?.name ?? saas.me?.email ?? ''} · ${saas.role === 'owner' ? '所有者' : saas.role === 'admin' ? '管理员' : '客服'}`),
+          ),
+          saas.token === ''
+            ? h('div', { className: 'imCfgGrid' },
+              h('label', { className: 'imCfgField' },
+                h('span', { className: 'imCfgLabel' }, 'SaaS 服务地址'),
+                h('input', { className: 'imCfgInput', value: saas.base, onChange: (event) => setSaas({ ...saas, base: event.target.value }) }),
+              ),
+              h('label', { className: 'imCfgField' },
+                h('span', { className: 'imCfgLabel' }, '账号邮箱'),
+                h('input', { className: 'imCfgInput', value: saas.email, placeholder: 'you@team.com', onChange: (event) => setSaas({ ...saas, email: event.target.value }) }),
+              ),
+              h('label', { className: 'imCfgField' },
+                h('span', { className: 'imCfgLabel' }, '密码'),
+                h('input', { className: 'imCfgInput', type: 'password', value: saas.password, onChange: (event) => setSaas({ ...saas, password: event.target.value }) }),
+              ),
+            )
+            : h('div', { className: 'imCfgSaas' },
+              h('div', { className: 'imCfgRow' },
+                h('div', { className: 'imCfgRowMain' },
+                  h('span', { className: 'imCfgRowTitle' }, `${saas.members.length} 名成员 · ${saas.channels.length} 个号码可见`),
+                  h('span', { className: 'imCfgRowNote' }, saas.approvals > 0 ? `${saas.approvals} 条待审批，需要在团队权限页处理` : '没有待审批'),
+                ),
+                h('button', { type: 'button', className: 'imoBtn imoBtnSm', onClick: () => setSaas({ ...saas, token: '', password: '', members: [], channels: [], approvals: 0 }) }, '退出'),
+              ),
+              h('table', { className: 'imCfgMatrix' },
+                h('thead', null, h('tr', null, h('th', null, '成员'), h('th', null, '角色'), h('th', null, '可见范围'))),
+                h('tbody', null, saas.members.map((member) => {
+                  const permission = member.permissions ?? {}
+                  const all = permission.dataScope === 'all' || (permission.dataScope === undefined && (member.role === 'owner' || member.role === 'admin'))
+                  const granted = Array.isArray(permission.channelIds) ? permission.channelIds.length : 0
+                  return h('tr', { key: member.user_id },
+                    h('td', null, member.name || member.email),
+                    h('td', null, member.role === 'owner' ? '所有者' : member.role === 'admin' ? '管理员' : member.role === 'viewer' ? '只读' : '客服'),
+                    h('td', { className: 'imCfgMark' }, all ? '整个团队' : granted > 0 ? `${granted} 个号码` : '仅自己'),
+                  )
+                })),
+              ),
+            ),
+          saas.token === ''
+            ? h('div', { className: 'imCfgActions' },
+              h('button', { type: 'button', className: 'imoBtn imoBtnSm imoBtnPrimary', disabled: saas.busy !== '', onClick: () => { void saasLogin() } }, saas.busy === 'login' ? '登录中…' : '登录'),
+              saas.error === '' ? null : h('span', { className: 'imCfgNote' }, saas.error),
+            )
+            : h('p', { className: 'imCfgNote' }, '这里只读展示；分配权限与审批在团队权限页操作。'),
+        ),
+
         h('section', { className: 'imCfgGroup' },
           h('div', { className: 'imCfgGroupHead' },
             h('h3', { className: 'imCfgGroupTitle' }, '连接与演示'),

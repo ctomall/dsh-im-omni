@@ -566,3 +566,12 @@ $ cd server && node --test test/isolation.test.mjs
   服务端每小时跑一次（`APPROVAL_REMINDER_MS` 可调，0 关闭）。
   扫描无租户上下文，走 `SECURITY DEFINER` 的 `pending_approvals_due()`，不引入特权连接池。
 截图：`docs/permissions-approval.png` / `docs/permissions-approved.png`。
+
+### 插件详情页接入统一权限（只读）
+
+- 详情页配置区新增「团队与权限（SaaS）」：填服务地址 + 账号密码 → `POST /v1/auth/login`，随后读
+  `/v1/me`、`/v1/tenants/{id}/members`、`/v1/channels`、`/v1/tenants/{id}/approvals`。
+- 展示：成员、角色、可见范围（整个团队 / N 个号码 / 仅自己），以及待审批数量；写操作仍在团队权限页。
+- 跨域：API 对所有带 `Origin` 的请求回 `access-control-allow-origin`，并对 `OPTIONS` 直接 204，
+  允许 `authorization` 头；`vary: origin`。
+截图：`docs/detail-saas-team.png`。
