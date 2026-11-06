@@ -230,8 +230,12 @@ function renderMembers(canAssign) {
   }
 }
 
-function describe(detail) {
-  const grant = detail?.grant ?? {}
+function describe(item) {
+  const detail = item.detail ?? {}
+  const grant = detail.grant ?? {}
+  if (item.action === 'member.join') return '加入团队 · ' + (detail.role ?? 'agent')
+  if (item.action === 'member.remove') return '移出团队'
+  if (item.action === 'member.role') return '角色改为 ' + (grant.role ?? '未知')
   const parts = []
   if (grant.dataScope === 'all') parts.push('整个团队')
   if (grant.dataScope === 'own') parts.push('仅自己')
@@ -252,7 +256,7 @@ function renderHistory(items) {
     host.append(el('div', { class: 'row' },
       el('div', { class: 'who' },
         el('b', { text: (item.actor_name || item.actor_email || '未知操作人') + ' → ' + (item.target_name || item.target_email || item.target) }),
-        el('span', { text: describe(item.detail) }),
+        el('span', { text: describe(item) }),
       ),
       el('span', { class: 'status mono', text: new Date(item.created_at).toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }),
     ))

@@ -306,3 +306,60 @@ test('a permission change is audited and the log is admin-only', async () => {
   const denied = await request('GET', `/v1/tenants/${fixture.tenantId}/audit`, fixture.tokenA)
   assert.equal(denied.status, 403)
 })
+
+test('role changes and removals are audited, and the log paginates by cursor', async () => {
+  const fixture = await buildTenant()
+  const promote = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.ownerToken, { role: 'admin' })
+  assert.equal(promote.status, 200)
+  assert.equal(promote.body.member.role, 'admin')
+
+  const removed = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken)
+  assert.equal(removed.status, 200)
+
+  const first = await request('GET', `/v1/tenants/${fixture.tenantId}/audit?limit=1`, fixture.ownerToken)
+  assert.equal(first.status, 200)
+  assert.equal(first.body.items.length, 1)
+  assert.equal(first.body.items[0].action, 'member.remove')
+
+  const next = await request('GET', `/v1/tenants/${fixture.tenantId}/audit?limit=1&before=${first.body.items[0].id}`, fixture.ownerToken)
+  assert.equal(next.body.items[0].action, 'member.role')
+  assert.notEqual(next.body.items[0].id, first.body.items[0].id)
+
+  // A member who is no longer there answers 404; the owner cannot be removed.
+  const again = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken)
+  assert.equal(again.status, 404)
+})
+
+test('granting the whole tenant alerts the team robot', async () => {
+  const fixture = await buildTenant()
+  const { createServer } = await import('node:http')
+  const received = []
+  const robot = createServer((req, res) => {
+    const chunks = []
+    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('end', () => {
+      received.push(Buffer.concat(chunks).toString('utf8'))
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end('{"errcode":0}')
+    })
+  })
+  await new Promise((resolve) => robot.listen(0, '127.0.0.1', resolve))
+  await admin.query(
+    `INSERT INTO tenant_notify (tenant_id, enabled, wecom_webhook)
+     VALUES ($1, true, $2)
+     ON CONFLICT (tenant_id) DO UPDATE SET enabled = true, wecom_webhook = EXCLUDED.wecom_webhook`,
+    [fixture.tenantId, `http://127.0.0.1:${robot.address().port}/send`],
+  )
+  try {
+    const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all' })
+    assert.equal(grant.status, 200)
+    for (let attempt = 0; attempt < 20 && received.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    assert.ok(received.length > 0, 'no alert was posted')
+    assert.match(received.at(-1), /权限变更/)
+    assert.match(received.at(-1), /整个团队/)
+  } finally {
+    await new Promise((resolve) => robot.close(resolve))
+  }
+})

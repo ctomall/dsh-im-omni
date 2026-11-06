@@ -490,8 +490,17 @@ $ cd server && node --test test/isolation.test.mjs
 
 ### 权限变更审计
 
-- 每次 `PATCH /v1/tenants/{id}/members/{userId}` 在**同一事务**里写一条 `audit_logs`：
-  `action='member.permissions'`、`actor_id`、`target`（成员 id）、`detail={grant, before, after}`。
-- `GET /v1/tenants/{id}/audit?limit=20` 只返回 `member.permissions`，仅 owner/admin 可读（其他人 403）。
+- 写入动作（均在同一事务内写 `audit_logs`，`actor_id` 为操作人，`target` 为成员 id）：
+
+| 动作 | 触发点 | `detail` |
+| --- | --- | --- |
+| `member.permissions` | `PATCH …/members/{userId}` 改可见范围 | `{grant, before, after}` |
+| `member.role` | 同上，改角色（仅所有者） | `{grant:{role}, before, after}` |
+| `member.join` | 邀请码被接受 | `{email, role, source}` |
+| `member.remove` | `DELETE …/members/{userId}`（仅所有者） | `{role}` |
+
+- `GET /v1/tenants/{id}/audit?limit=20&before=<id>` 返回上述四类，按 id 倒序，`before` 为游标；仅 owner/admin 可读（其他人 403）。
+- **授权到"整个团队"时告警**：`PATCH` 里 `dataScope=all` 会异步向租户的企业微信机器人推一张卡片
+  （`sendPermissionAlert`，复用 `tenant_notify`），不阻塞请求；机器人未配置时静默跳过。
 - 管理页「最近变更」卡片展示最近 8 条：`操作人 → 目标成员`、变更内容（整个团队 / 仅自己·N 个号码）、时间（`MM-DD HH:mm`）。
 截图：`docs/permissions-admin-audit.png`。

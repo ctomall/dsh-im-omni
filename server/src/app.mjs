@@ -22,6 +22,7 @@ import { InboundError, handleInbound } from './inbound.mjs'
 import { parseWebhook as parseWhatsappWebhook } from './channels/whatsapp.mjs'
 import { checkScopedAccess } from './scope.mjs'
 import { linkAttachments, publicAttachment, readAttachment, storeAttachment } from './attachments.mjs'
+import { sendPermissionAlert } from './notifications.mjs'
 import {
   notifyInbound as notifyInboundMessage,
   sendTestCard,
@@ -394,6 +395,11 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
   if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有管理员可以分配权限。')
   const input = await body(request)
   const grant = {}
+  if (input.role !== undefined) {
+    if (input.role !== 'admin' && input.role !== 'agent') return fail(response, 422, 'invalid', '角色只能是 admin 或 agent。')
+    if (role !== 'owner') return fail(response, 403, 'owner-only', '只有所有者可以改角色。')
+    grant.role = input.role
+  }
   if (input.dataScope !== undefined) {
     if (input.dataScope !== 'all' && input.dataScope !== 'own') {
       return fail(response, 422, 'invalid', 'dataScope 只能是 all 或 own。')
@@ -413,29 +419,66 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
     if (unknown.length > 0) return fail(response, 422, 'invalid', `这个团队里没有渠道 ${unknown[0]}。`)
     grant.channelIds = ids
   }
+  const permissionsGrant = { ...grant }
+  delete permissionsGrant.role
   const updated = await withTenant(tenantId, async (client) => {
     const before = await client.query('SELECT role, permissions FROM memberships WHERE tenant_id = $1 AND user_id = $2', [tenantId, targetId])
     const result = await client.query(
       `UPDATE memberships
-          SET permissions = permissions || $3::jsonb
+          SET permissions = permissions || $3::jsonb,
+              role = COALESCE($4, role)
         WHERE tenant_id = $1 AND user_id = $2
         RETURNING role, permissions`,
-      [tenantId, targetId, JSON.stringify(grant)],
+      [tenantId, targetId, JSON.stringify(permissionsGrant), grant.role ?? null],
     )
     if (result.rowCount === 0) return null
+    const action = grant.role === undefined ? 'member.permissions' : 'member.role'
     await client.query(
       `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
-       VALUES ($1, $2, 'member.permissions', $3, $4::jsonb)`,
-      [tenantId, claims.userId, targetId, JSON.stringify({
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [tenantId, claims.userId, action, targetId, JSON.stringify({
         grant,
-        before: before.rows[0]?.permissions ?? {},
-        after: result.rows[0].permissions,
+        before: { role: before.rows[0]?.role, permissions: before.rows[0]?.permissions ?? {} },
+        after: { role: result.rows[0].role, permissions: result.rows[0].permissions },
       })],
     )
     return result.rows[0]
   })
   if (updated === null) return fail(response, 404, 'not-found', '这个团队里没有该成员。')
+  if (grant.dataScope === 'all') {
+    const actor = await db().query('SELECT name, email FROM users WHERE id = $1', [claims.userId])
+    const target = await db().query('SELECT name, email FROM users WHERE id = $1', [targetId])
+    void sendPermissionAlert(tenantId, {
+      actor: actor.rows[0]?.name || actor.rows[0]?.email || claims.userId,
+      target: target.rows[0]?.name || target.rows[0]?.email || targetId,
+      scope: '整个团队',
+    }).catch((error) => {
+      console.warn('permission alert failed:', error instanceof Error ? error.message : String(error))
+    })
+  }
   send(response, 200, { member: { userId: targetId, role: updated.role, permissions: updated.permissions } })
+})
+
+route('DELETE', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const tenantId = params[0]
+  const targetId = params[1]
+  const role = await roleIn(claims.userId, tenantId)
+  if (role !== 'owner') return fail(response, 403, 'owner-only', '只有所有者可以移除成员。')
+  if (targetId === claims.userId) return fail(response, 409, 'self', '不能移除自己。')
+  const targetRole = await roleIn(targetId, tenantId)
+  if (targetRole === 'owner') return fail(response, 409, 'owner', '不能移除所有者。')
+  if (targetRole === null) return fail(response, 404, 'not-found', '这个团队里没有该成员。')
+  await withTenant(tenantId, async (client) => {
+    await client.query('DELETE FROM memberships WHERE tenant_id = $1 AND user_id = $2', [tenantId, targetId])
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'member.remove', $3, $4::jsonb)`,
+      [tenantId, claims.userId, targetId, JSON.stringify({ role: targetRole })],
+    )
+  })
+  send(response, 200, { removed: targetId })
 })
 
 route('GET', '/v1/tenants/([0-9a-f-]{36})/audit', async (request, response, params) => {
@@ -446,6 +489,7 @@ route('GET', '/v1/tenants/([0-9a-f-]{36})/audit', async (request, response, para
   if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有管理员可以查看权限变更记录。')
   const url = new URL(request.url ?? '/', 'http://localhost')
   const limit = Math.min(Number(url.searchParams.get('limit') ?? 20) || 20, 100)
+  const before = Number(url.searchParams.get('before') ?? 0) || 0
   const rows = await withTenant(tenantId, async (client) => {
     const result = await client.query(
       `SELECT a.id, a.action, a.target, a.detail, a.created_at,
@@ -454,10 +498,12 @@ route('GET', '/v1/tenants/([0-9a-f-]{36})/audit', async (request, response, para
          FROM audit_logs a
          LEFT JOIN users u ON u.id = a.actor_id
          LEFT JOIN users t ON t.id::text = a.target
-        WHERE a.tenant_id = $1 AND a.action = 'member.permissions'
-        ORDER BY a.created_at DESC, a.id DESC
+        WHERE a.tenant_id = $1
+          AND a.action IN ('member.permissions', 'member.role', 'member.join', 'member.remove')
+          AND ($3 = 0 OR a.id < $3)
+        ORDER BY a.id DESC
         LIMIT $2`,
-      [tenantId, limit],
+      [tenantId, limit, before],
     )
     return result.rows
   })
@@ -512,11 +558,19 @@ route('POST', '/v1/invites/accept', async (request, response) => {
       user = created.rows[0]
     }
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [invite.tenant_id])
-    await client.query(
+    const joined = await client.query(
       `INSERT INTO memberships (tenant_id, user_id, role) VALUES ($1, $2, $3)
-       ON CONFLICT (tenant_id, user_id) DO NOTHING`,
+       ON CONFLICT (tenant_id, user_id) DO NOTHING
+       RETURNING role`,
       [invite.tenant_id, user.id, invite.role],
     )
+    if (joined.rowCount > 0) {
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+         VALUES ($1, $2, 'member.join', $3, $4::jsonb)`,
+        [invite.tenant_id, user.id, user.id, JSON.stringify({ email: invite.email, role: invite.role, source: 'invite' })],
+      )
+    }
     const tokens = await issueTokens(client, {
       userId: user.id,
       tenantId: invite.tenant_id,

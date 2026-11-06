@@ -242,3 +242,29 @@ export async function sendTestCard(tenantId, fetchImpl = fetch) {
   const result = await postWecom(settings.wecom_webhook, payload, fetchImpl)
   return { ok: result.ok, status: result.status, body: result.body }
 }
+
+/**
+ * Alert the team when a member is widened to the whole tenant. It reuses the
+ * tenant's robot and never blocks the request that triggered it.
+ * @param {string} tenantId - tenant uuid.
+ * @param {{actor: string, target: string, scope: string}} change - who widened whom.
+ * @param {typeof fetch} [fetchImpl] - injectable fetch.
+ * @returns {Promise<{skipped?: string, ok?: boolean, status?: number}>} outcome.
+ */
+export async function sendPermissionAlert(tenantId, change, fetchImpl = fetch) {
+  const settings = await notifySettings(tenantId)
+  if (settings.enabled !== true) return { skipped: 'disabled' }
+  if (!settings.wecom_webhook) return { skipped: 'no-webhook' }
+  const payload = {
+    msgtype: 'markdown',
+    markdown: {
+      content: [
+        '**权限变更 · 全租户可见范围**',
+        `> ${change.actor} 把 ${change.target} 设成了「${change.scope}」`,
+        '> 请确认这是有意的授权',
+      ].join('\n'),
+    },
+  }
+  const result = await postWecom(settings.wecom_webhook, payload, fetchImpl)
+  return { ok: result.ok, status: result.status }
+}
