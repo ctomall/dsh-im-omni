@@ -82,7 +82,10 @@ button:disabled{opacity:.5;cursor:default}
   </section>
 
   <section class="card hidden" id="historyCard">
-    <h2>最近变更</h2>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+      <h2>最近变更</h2>
+      <button id="exportBtn" type="button">导出 CSV</button>
+    </div>
     <p class="note">谁在什么时候把哪个成员的可见范围改成了什么。</p>
     <div id="history"></div>
   </section>
@@ -400,6 +403,29 @@ async function save(member, patch) {
   }
 }
 
+async function exportCsv() {
+  const button = document.getElementById('exportBtn')
+  button.setAttribute('disabled', 'disabled')
+  try {
+    const response = await fetch('/v1/tenants/' + state.tenantId + '/audit.csv', {
+      headers: { authorization: 'Bearer ' + state.token },
+    })
+    if (!response.ok) throw new Error('HTTP ' + response.status)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'permission-audit.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    setStatus('导出失败：' + error.message, 'bad')
+  } finally {
+    button.removeAttribute('disabled')
+  }
+}
+
+document.getElementById('exportBtn').addEventListener('click', exportCsv)
 document.getElementById('loginBtn').addEventListener('click', login)
 document.getElementById('password').addEventListener('keydown', (event) => { if (event.key === 'Enter') login() })
 </script>

@@ -533,3 +533,12 @@ $ cd server && node --test test/isolation.test.mjs
 
 三者都做到：**字段缺失或不符 → 422 且不写入**；页面只是同一规则的演示层。
 截图：`docs/permissions-role-confirm.png`。
+
+### 审计导出
+
+- `GET /v1/tenants/{id}/audit.csv`：仅 owner/admin；CSV 头 `id,action,created_at,actor_email,target_email,detail`，
+  最多 5000 行，`content-disposition: attachment`。
+- 页面「最近变更」右上角「导出 CSV」直接下载。
+- 隔离保证：导出走同一 `withTenant` 事务 + 角色校验，**不会带出其他租户的行**（测试用另一个租户验证只得到表头）；
+  非管理员 403。
+截图：`docs/permissions-audit-export.png`。

@@ -499,6 +499,51 @@ route('DELETE', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (re
   send(response, 200, { removed: targetId })
 })
 
+route('GET', '/v1/tenants/([0-9a-f-]{36})/audit.csv', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const tenantId = params[0]
+  const role = await roleIn(claims.userId, tenantId)
+  if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有管理员可以导出权限变更记录。')
+  const rows = await withTenant(tenantId, async (client) => {
+    const result = await client.query(
+      `SELECT a.id, a.action, a.created_at, u.email AS actor_email, t.email AS target_email, a.detail
+         FROM audit_logs a
+         LEFT JOIN users u ON u.id = a.actor_id
+         LEFT JOIN users t ON t.id::text = a.target
+        WHERE a.tenant_id = $1
+          AND a.action IN ('member.permissions', 'member.role', 'member.join', 'member.remove')
+        ORDER BY a.id DESC
+        LIMIT 5000`,
+      [tenantId],
+    )
+    return result.rows
+  })
+  const escape = (value) => {
+    const text = String(value ?? '')
+    return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+  }
+  const lines = ['id,action,created_at,actor_email,target_email,detail']
+  for (const row of rows) {
+    lines.push([
+      row.id,
+      row.action,
+      row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      row.actor_email ?? '',
+      row.target_email ?? '',
+      JSON.stringify(row.detail ?? {}),
+    ].map(escape).join(','))
+  }
+  const body = lines.join('\n') + '\n'
+  response.writeHead(200, {
+    'content-type': 'text/csv; charset=utf-8',
+    'content-disposition': `attachment; filename="permission-audit-${tenantId}.csv"`,
+    'content-length': Buffer.byteLength(body),
+    'cache-control': 'no-store',
+  })
+  response.end(body)
+})
+
 route('GET', '/v1/tenants/([0-9a-f-]{36})/audit', async (request, response, params) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')

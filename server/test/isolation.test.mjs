@@ -409,3 +409,33 @@ test('giving someone admin also requires the email confirmation', async () => {
   assert.equal(confirmed.status, 200)
   assert.equal(confirmed.body.member.role, 'admin')
 })
+
+test('the audit CSV export is admin only and carries no other tenant rows', async () => {
+  const fixture = await buildTenant()
+  const roster = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const email = roster.body.items.find((item) => item.user_id === fixture.agentA).email
+  await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all', confirmEmail: email })
+
+  const csv = await fetch(`${base}/v1/tenants/${fixture.tenantId}/audit.csv`, {
+    headers: { authorization: `Bearer ${fixture.ownerToken}` },
+  })
+  assert.equal(csv.status, 200)
+  assert.match(csv.headers.get('content-type') ?? '', /text\/csv/)
+  assert.match(csv.headers.get('content-disposition') ?? '', /attachment/)
+  const body = await csv.text()
+  assert.match(body, /^id,action,created_at,actor_email,target_email,detail/)
+  assert.match(body, /member\.permissions/)
+  assert.equal(body.includes(email), true)
+  // A different tenant's owner gets their own empty export, never these rows.
+  const other = await buildTenant()
+  const otherCsv = await fetch(`${base}/v1/tenants/${other.tenantId}/audit.csv`, {
+    headers: { authorization: `Bearer ${other.ownerToken}` },
+  })
+  const otherBody = await otherCsv.text()
+  assert.equal(otherBody.trim().split('\n').length, 1)
+
+  const denied = await fetch(`${base}/v1/tenants/${fixture.tenantId}/audit.csv`, {
+    headers: { authorization: `Bearer ${fixture.tokenA}` },
+  })
+  assert.equal(denied.status, 403)
+})
