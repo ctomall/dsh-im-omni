@@ -396,8 +396,22 @@ function renderApprovals(items) {
     const payload = item.payload ?? {}
     host.append(el('div', { class: 'row' },
       el('div', { class: 'who' },
-        el('b', { text: (item.requester_name || item.requester_email) + ' 申请修改 ' + (item.target_name || item.target_email) }),
-        el('span', { text: item.action === 'member.role' ? '角色改为 ' + payload.role : '可见范围改为整个团队' }),
+        el('b', {
+          text: item.action === 'channel.delete'
+            ? (item.requester_name || item.requester_email) + ' 申请删除渠道'
+            : item.action === 'member.remove'
+              ? (item.requester_name || item.requester_email) + ' 申请移除 ' + (item.target_name || item.target_email)
+              : (item.requester_name || item.requester_email) + ' 申请修改 ' + (item.target_name || item.target_email),
+        }),
+        el('span', {
+          text: item.action === 'channel.delete'
+            ? '渠道 ' + (payload.channelId ?? '')
+            : item.action === 'member.remove'
+              ? '移除后立即失去访问'
+              : item.action === 'member.role'
+                ? '角色改为 ' + payload.role
+                : '可见范围改为整个团队',
+        }),
       ),
       canDecide
         ? el('div', { style: 'display:flex;gap:8px' },

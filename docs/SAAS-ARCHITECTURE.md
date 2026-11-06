@@ -553,3 +553,14 @@ $ cd server && node --test test/isolation.test.mjs
 - 所有者自己操作时**不需要**复核（直接生效），避免自己给自己上审批。
 - 提案人不能批准自己的申请（非 owner → 403）。
 截图：`docs/permissions-approval.png`（待审批）、`docs/permissions-approved.png`（批准后成员变为整个团队）。
+
+### 复核范围与提醒
+
+- 纳入复核的操作：`dataScope=all`、改 `role`、移除成员、删除渠道（`DELETE /v1/channels/{id}`）。
+  渠道下有会话时直接 409，不进审批。
+- 提案即时提醒：`notifyProposal()` 向企业微信机器人推一张「待审批 · 权限变更」卡片（未配置机器人则跳过）。
+- 超时提醒：`remindStaleApprovals()` 扫 `pending && reminded_at IS NULL && created_at < now()-24h`，
+  推「审批仍未处理 · 已超过 24 小时」，成功后写 `reminded_at`，**每条只提醒一次**；
+  服务端每小时跑一次（`APPROVAL_REMINDER_MS` 可调，0 关闭）。
+  扫描无租户上下文，走 `SECURITY DEFINER` 的 `pending_approvals_due()`，不引入特权连接池。
+截图：`docs/permissions-approval.png` / `docs/permissions-approved.png`。

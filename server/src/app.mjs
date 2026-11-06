@@ -23,6 +23,7 @@ import { parseWebhook as parseWhatsappWebhook } from './channels/whatsapp.mjs'
 import { checkScopedAccess } from './scope.mjs'
 import { linkAttachments, publicAttachment, readAttachment, storeAttachment } from './attachments.mjs'
 import { sendPermissionAlert } from './notifications.mjs'
+import { notifyProposal } from './approvals.mjs'
 import {
   notifyInbound as notifyInboundMessage,
   sendTestCard,
@@ -447,6 +448,15 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
       )
       return row.rows[0]
     })
+    const actor = await db().query('SELECT name, email FROM users WHERE id = $1', [claims.userId])
+    const target = await db().query('SELECT name, email FROM users WHERE id = $1', [targetId])
+    void notifyProposal(tenantId, {
+      actor: actor.rows[0]?.name || actor.rows[0]?.email || claims.userId,
+      target: target.rows[0]?.name || target.rows[0]?.email || targetId,
+      what: grant.role === undefined ? '设为整个团队可见' : `角色改为${grant.role === 'admin' ? '管理员' : '客服'}`,
+    }).catch((error) => {
+      console.warn('approval notice failed:', error instanceof Error ? error.message : String(error))
+    })
     return send(response, 202, { approval: request, pending: true })
   }
 
@@ -496,7 +506,7 @@ route('DELETE', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (re
   const tenantId = params[0]
   const targetId = params[1]
   const role = await roleIn(claims.userId, tenantId)
-  if (role !== 'owner') return fail(response, 403, 'owner-only', '只有所有者可以移除成员。')
+  if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有所有者和管理员可以提出移除。')
   if (targetId === claims.userId) return fail(response, 409, 'self', '不能移除自己。')
   const targetRole = await roleIn(targetId, tenantId)
   if (targetRole === 'owner') return fail(response, 409, 'owner', '不能移除所有者。')
@@ -508,6 +518,24 @@ route('DELETE', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (re
   if (String(url.searchParams.get('confirmEmail') ?? '').trim().toLowerCase() !== String(email).toLowerCase()) {
     return fail(response, 422, 'confirm-required', `移除成员需要输入对方邮箱 ${email} 确认。`)
   }
+  if (role === 'admin') {
+    const request = await withTenant(tenantId, async (client) => {
+      const row = await client.query(
+        `INSERT INTO approval_requests (tenant_id, action, target_user, payload, requested_by)
+         VALUES ($1, 'member.remove', $2, $3::jsonb, $4)
+         RETURNING id, action, target_user, status, created_at`,
+        [tenantId, targetId, JSON.stringify({ role: targetRole }), claims.userId],
+      )
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+         VALUES ($1, $2, 'approval.requested', $3, $4::jsonb)`,
+        [tenantId, claims.userId, targetId, JSON.stringify({ action: 'member.remove', requestId: row.rows[0].id })],
+      )
+      return row.rows[0]
+    })
+    return send(response, 202, { approval: request, pending: true })
+  }
+
   await withTenant(tenantId, async (client) => {
     await client.query('DELETE FROM memberships WHERE tenant_id = $1 AND user_id = $2', [tenantId, targetId])
     await client.query(
@@ -564,7 +592,26 @@ route('POST', '/v1/tenants/([0-9a-f-]{36})/approvals/([0-9a-f-]{36})', async (re
     if (request.rowCount === 0) return { missing: true }
     const row = request.rows[0]
     const payload = row.payload ?? {}
-    if (decision === 'approved') {
+    if (decision === 'approved' && row.action === 'channel.delete') {
+      const channelId = row.payload?.channelId
+      if (channelId !== undefined) {
+        await client.query('DELETE FROM channels WHERE tenant_id = $1 AND id = $2', [tenantId, channelId])
+        await client.query(
+          `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+           VALUES ($1, $2, 'channel.delete', $3, $4::jsonb)`,
+          [tenantId, claims.userId, channelId, JSON.stringify({ requestId: row.id, approvedBy: claims.userId })],
+        )
+      }
+    }
+    if (decision === 'approved' && row.action === 'member.remove') {
+      await client.query('DELETE FROM memberships WHERE tenant_id = $1 AND user_id = $2', [tenantId, row.target_user])
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+         VALUES ($1, $2, 'member.remove', $3, $4::jsonb)`,
+        [tenantId, claims.userId, row.target_user, JSON.stringify({ requestId: row.id, approvedBy: claims.userId })],
+      )
+    }
+    if (decision === 'approved' && row.action !== 'member.remove' && row.action !== 'channel.delete') {
       const permissions = { ...payload }
       delete permissions.role
       if (payload.role !== undefined) {
@@ -1081,6 +1128,48 @@ route('GET', '/v1/channels', async (request, response) => {
     return result.rows
   })
   send(response, 200, { items })
+})
+
+route('DELETE', '/v1/channels/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const tenantId = claims.tenantId
+  const role = await roleIn(claims.userId, tenantId)
+  if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有所有者和管理员可以提出删除渠道。')
+  if (!allowScoped(response, await checkScopedAccess(tenantId, claims.userId, 'channels', params[0]))) return
+  const inUse = await withTenant(tenantId, async (client) => {
+    const result = await client.query('SELECT count(*)::int AS n FROM conversations WHERE tenant_id = $1 AND channel_id = $2', [tenantId, params[0]])
+    return result.rows[0].n
+  })
+  if (inUse > 0) return fail(response, 409, 'channel-in-use', '这个渠道下还有会话，先处理或归档。')
+
+  if (role === 'admin') {
+    const request = await withTenant(tenantId, async (client) => {
+      const row = await client.query(
+        `INSERT INTO approval_requests (tenant_id, action, target_user, payload, requested_by)
+         VALUES ($1, 'channel.delete', $2, $3::jsonb, $2)
+         RETURNING id, action, target_user, status, created_at`,
+        [tenantId, claims.userId, JSON.stringify({ channelId: params[0] })],
+      )
+      await client.query(
+        `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+         VALUES ($1, $2, 'approval.requested', $3, $4::jsonb)`,
+        [tenantId, claims.userId, params[0], JSON.stringify({ action: 'channel.delete', requestId: row.rows[0].id })],
+      )
+      return row.rows[0]
+    })
+    return send(response, 202, { approval: request, pending: true })
+  }
+
+  await withTenant(tenantId, async (client) => {
+    await client.query('DELETE FROM channels WHERE tenant_id = $1 AND id = $2', [tenantId, params[0]])
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'channel.delete', $3, $4::jsonb)`,
+      [tenantId, claims.userId, params[0], JSON.stringify({ conversations: 0 })],
+    )
+  })
+  send(response, 200, { deleted: params[0] })
 })
 
 route('GET', '/v1/channels/([0-9a-f-]{36})', async (request, response, params) => {

@@ -489,3 +489,62 @@ test('rejecting a proposal leaves the member untouched', async () => {
   const scoped = await request('GET', '/v1/channels', fixture.tokenB)
   assert.equal(scoped.body.items.length, 1)
 })
+
+test('an admin removing a member becomes an approval request', async () => {
+  const fixture = await buildTenant()
+  const roster = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const emailA = roster.body.items.find((item) => item.user_id === fixture.agentA).email
+  await admin.query("UPDATE memberships SET role = 'admin' WHERE tenant_id = $1 AND user_id = $2", [fixture.tenantId, fixture.agentA])
+
+  const proposed = await request('DELETE', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}?confirmEmail=${encodeURIComponent(roster.body.items.find((item) => item.user_id === fixture.agentB).email)}`, fixture.tokenA)
+  assert.equal(proposed.status, 202)
+  assert.equal(proposed.body.pending, true)
+
+  // Still a member until the owner approves.
+  const before = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  assert.ok(before.body.items.some((item) => item.user_id === fixture.agentB))
+
+  const pending = await request('GET', `/v1/tenants/${fixture.tenantId}/approvals`, fixture.ownerToken)
+  const approval = pending.body.items.find((item) => item.action === 'member.remove')
+  assert.ok(approval, 'removal approval is listed')
+  const approved = await request('POST', `/v1/tenants/${fixture.tenantId}/approvals/${approval.id}`, fixture.ownerToken, { decision: 'approve' })
+  assert.equal(approved.status, 200)
+
+  const after = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  assert.equal(after.body.items.some((item) => item.user_id === fixture.agentB), false)
+})
+
+test('channel deletion is guarded, and an admin proposal needs the owner', async () => {
+  const fixture = await buildTenant()
+  // A channel with conversations cannot be deleted at all.
+  const inUse = await request('DELETE', `/v1/channels/${fixture.channelA}`, fixture.ownerToken)
+  assert.equal(inUse.status, 409)
+  assert.equal(inUse.body.error.code, 'channel-in-use')
+
+  const empty = await admin.query(
+    "INSERT INTO channels (tenant_id, type, name) VALUES ($1,'webhook','空渠道') RETURNING id",
+    [fixture.tenantId],
+  )
+  const emptyId = empty.rows[0].id
+
+  // The owner deletes directly; the admin proposes and the owner approves.
+  const direct = await admin.query(
+    "INSERT INTO channels (tenant_id, type, name) VALUES ($1,'webhook','直删渠道') RETURNING id",
+    [fixture.tenantId],
+  )
+  const deleted = await request('DELETE', `/v1/channels/${direct.rows[0].id}`, fixture.ownerToken)
+  assert.equal(deleted.status, 200)
+
+  await admin.query("UPDATE memberships SET role = 'admin' WHERE tenant_id = $1 AND user_id = $2", [fixture.tenantId, fixture.agentA])
+  const proposed = await request('DELETE', `/v1/channels/${emptyId}`, fixture.tokenA)
+  assert.equal(proposed.status, 202)
+  const still = await admin.query('SELECT count(*)::int AS n FROM channels WHERE id = $1', [emptyId])
+  assert.equal(still.rows[0].n, 1)
+
+  const pending = await request('GET', `/v1/tenants/${fixture.tenantId}/approvals`, fixture.ownerToken)
+  const approval = pending.body.items.find((item) => item.action === 'channel.delete')
+  assert.ok(approval, 'the channel removal is listed')
+  await request('POST', `/v1/tenants/${fixture.tenantId}/approvals/${approval.id}`, fixture.ownerToken, { decision: 'approve' })
+  const gone = await admin.query('SELECT count(*)::int AS n FROM channels WHERE id = $1', [emptyId])
+  assert.equal(gone.rows[0].n, 0)
+})
