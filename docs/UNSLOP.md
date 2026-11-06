@@ -90,3 +90,22 @@ Credit: unslop by Damir Sokolovsky (@heydamir), CC BY 4.0.
 
 `node tools/unslop-report.mjs` 生成 `docs/unslop-report.html`（约 1.1 MB，图片内联，双击即看）：
 方向五行 + 四组 before/after + 九道 pass + 署名。封面截图：`docs/unslop-report-cover.png`。
+
+## 生效方式（实测）
+
+`client.js` 是浏览端半边，宿主（`packages/client/hmr`）每 500ms 对每个插件的 bundle 做 stat 轮询，
+mmtime/ctime/size 变化即调用 `rebuilt(id)` 并通过 `/plugins/events` SSE 推送 `rebuilt` 帧，
+浏览器半边据此用新 `rev` 重新导入模块。**改 client.js 既不需要重启 dsh，也不需要手动刷新**。
+
+实测证据（本机 dsh web，pid 3302319）：
+
+```
+$ curl -sN http://127.0.0.1:52102/plugins/events &        # 订阅
+$ touch client.js                                          # 只改 mtime
+data: {"type":"graph",...,"id":"dsh-im-omni","rev":"f13eb1e19943"}
+data: {"type":"rebuilt","id":"dsh-im-omni","rev":"92174c545404"}   # ~1s 内到达
+$ curl "http://127.0.0.1:52102/plugins/??dsh-im-omni/client.js&rev=92174c545404"
+  → 200, 317195 bytes, 内含 .imoKpi.lead / imoWelcomeTitle{font-size:20px / 扁平 imoBrandMark
+```
+
+边界：改**宿主半边**（`index.js`、`lib/*`、`cordis.patch.yml`）仍然需要重启 dsh，因为那是进程内加载的。
