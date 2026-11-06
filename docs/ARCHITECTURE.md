@@ -180,3 +180,20 @@ core 可以原样抽走。
   等 `@omni/core` 抽出后合并。
 - 未接入的操作会明确报错「这个操作还在本机模式下，尚未接入团队服务」，不静默失败。
 - 其余标签（渠道配置、模板、群发、自动化）仍用本机数据，等后续步骤收口。
+
+### 12. 抽出 core：共享实现从"约定"变成"模块"
+
+![core 抽取](./core-extraction.png)
+
+| 项 | 内容 |
+| --- | --- |
+| 包 | `core/`（包名 `dsh-im-omni-core`，独立 socket：`index.js` + `client.js` + `cordis.patch.yml`） |
+| 导出 | `proxySaas`、`toConversation`、`toMessage`、`membershipLabel`、`createTeamInbox` |
+| 消费 | 聊天面板 `require('dsh-im-omni-core')`，失败时用内置兜底，**没装也不崩** |
+| 校验 | `test/core-module.test.js`：注册 id 正确；同一行数据下 core 与 `lib/team-inbox.mjs` 深比较相等 |
+| profile | `dsh-im-omni-core` 与两个插件一起 link 进 profile，`pnpm install --offline` 已生效 |
+
+为什么不是"本地文件共享"：客户端 bundle 只能 `require` 模块系统里的包（`dsh.client.external`），
+本地相对路径不会被解析——所以共享必须做成独立包。
+
+剩余：权限插件下一轮改用它；聊天里的兜底副本等真实页面验证通过后删除。

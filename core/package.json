@@ -1,0 +1,17 @@
+{
+  "name": "dsh-im-omni-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared client module for the dsh-im-omni plugins: same-origin API transport, team-inbox mapping, and role labels.",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./lib/*.mjs": "./lib/*.mjs"
+  },
+  "files": ["index.js", "client.js", "lib/*.mjs", "cordis.patch.yml"],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "immediately": true }
+  }
+}

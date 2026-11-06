@@ -10,6 +10,14 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
+    // Shared implementation, when the core module is installed next to this one.
+    // The fallback keeps the panel working if it is not (see docs/ARCHITECTURE.md §9).
+    let core = null
+    try {
+      core = require('dsh-im-omni-core')
+    } catch {
+      core = null
+    }
 
     /** Locale namespace owned by this plugin. */
     const NS = 'imOmni'
@@ -32,6 +40,9 @@ window.__ModuleLoader__.load({
      * @returns {Promise<{ok: boolean, status: number, json: () => Promise<any>}>} response-like.
      */
     async function proxySaas(path, options = {}) {
+      if (core !== null && typeof core.proxySaas === 'function') {
+        return core.proxySaas(path, { ...options, proxyPath: '/api/im-omni.saas' })
+      }
       const token = options.token ?? ''
       const method = options.method ?? 'GET'
       const headers = { accept: 'application/json' }
@@ -2471,6 +2482,7 @@ window.__ModuleLoader__.load({
      * @returns {string} label.
      */
     function membershipLabel(role) {
+      if (core !== null && typeof core.membershipLabel === 'function') return core.membershipLabel(role)
       if (role === 'owner') return '所有者'
       if (role === 'admin') return '管理员'
       if (role === 'viewer') return '只读'
@@ -5486,6 +5498,9 @@ window.__ModuleLoader__.load({
      * @returns {Record<string, Function>} adapter bound to the same-origin proxy.
      */
     function createTeamInbox(token) {
+      if (core !== null && typeof core.createTeamInbox === 'function') {
+        return core.createTeamInbox({ token, proxyPath: '/api/im-omni.saas' })
+      }
       const call = async (path, init = {}) => {
         const response = await proxySaas(path, { method: init.method ?? 'GET', body: init.body, token })
         const body = await response.json()
