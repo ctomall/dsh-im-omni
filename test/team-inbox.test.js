@@ -134,3 +134,18 @@ test('template writes go to the team template endpoints', async () => {
   assert.deepEqual(calls[1].init.body, { name: '退款进度（新）' })
   assert.equal(calls[2].init.method, 'DELETE')
 })
+
+test('automation writes go to the team rule endpoints', async () => {
+  const { call, calls } = transport({
+    'POST /v1/automations': { status: 201, body: { automation: { id: 'a1' } } },
+    'PATCH /v1/automations/a1': { status: 200, body: { automation: { id: 'a1' } } },
+    'DELETE /v1/automations/a1': { status: 200, body: { deleted: 'a1' } },
+  })
+  const inbox = createTeamInbox({ call, token: 't' })
+  await inbox.createAutomation({ name: '退款转人工', actions: [{ type: 'assign' }] })
+  await inbox.updateAutomation('a1', { enabled: false, ignored: true })
+  await inbox.deleteAutomation('a1')
+  assert.equal(calls[0].init.body.name, '退款转人工')
+  assert.deepEqual(calls[1].init.body, { enabled: false })
+  assert.equal(calls[2].init.method, 'DELETE')
+})

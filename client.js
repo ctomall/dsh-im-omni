@@ -5553,7 +5553,7 @@ window.__ModuleLoader__.load({
       return {
         async load(limits = {}) {
           const limit = Number(limits.limit ?? 30)
-          const [conversations, contacts, channels, settings, notify, templates, analytics] = await Promise.all([
+          const [conversations, contacts, channels, settings, notify, templates, analytics, automations] = await Promise.all([
             call(`/v1/conversations?limit=${limit}`),
             call('/v1/contacts'),
             call('/v1/channels'),
@@ -5561,6 +5561,7 @@ window.__ModuleLoader__.load({
             call('/v1/settings/notify').catch(() => ({ notify: {} })),
             call('/v1/templates').catch(() => ({ items: [] })),
             call('/v1/analytics/summary').catch(() => ({ summary: null })),
+            call('/v1/automations').catch(() => ({ items: [], executes: false })),
           ])
           const snapshot = {
             conversations: (conversations.items ?? []).map(toConversation),
@@ -5568,6 +5569,13 @@ window.__ModuleLoader__.load({
               id: row.id, name: row.name ?? '', handle: row.handle ?? '', phone: row.phone ?? '',
               tags: Array.isArray(row.tags) ? row.tags : [], channelId: row.channel_id ?? null,
             })),
+            automations: (automations.items ?? []).map((row) => ({
+              id: row.id, name: row.name ?? '', enabled: row.enabled === true, trigger: row.trigger ?? 'message',
+              keyword: row.keyword ?? '', channelId: row.channel_id ?? null, contactTag: row.contact_tag ?? '',
+              priority: row.priority ?? 'normal', actions: Array.isArray(row.actions) ? row.actions : [],
+              ownerId: row.owner_user_id ?? null,
+            })),
+            automationRuns: false,
             analytics: analytics.summary ?? {
               generatedAt: new Date().toISOString(),
               totals: { open: 0, awaiting: 0, breached: 0, resolvedToday: 0, contacts: 0, messages7d: 0, avgFirstResponseSeconds: 0, avgResolutionSeconds: 0 },
@@ -5629,6 +5637,19 @@ window.__ModuleLoader__.load({
         async send(conversationId, body) {
           const result = await call('/v1/messages', { method: 'POST', body: { conversationId, body } })
           return result.message ?? null
+        },
+        async createAutomation(input) {
+          return call('/v1/automations', { method: 'POST', body: input })
+        },
+        async updateAutomation(automationId, fields) {
+          const body = {}
+          for (const key of ['name', 'enabled', 'trigger', 'keyword', 'channelId', 'contactTag', 'priority', 'actions']) {
+            if (fields[key] !== undefined) body[key] = fields[key]
+          }
+          return call(`/v1/automations/${automationId}`, { method: 'PATCH', body })
+        },
+        async deleteAutomation(automationId) {
+          return call(`/v1/automations/${automationId}`, { method: 'DELETE' })
         },
         async createTemplate(input) {
           return call('/v1/templates', { method: 'POST', body: { name: input.name, shortcut: input.shortcut ?? '', body: input.body } })
@@ -5696,6 +5717,13 @@ window.__ModuleLoader__.load({
             automations: [],
             broadcasts: [],
             events: [],
+            automations: (automations.items ?? []).map((row) => ({
+              id: row.id, name: row.name ?? '', enabled: row.enabled === true, trigger: row.trigger ?? 'message',
+              keyword: row.keyword ?? '', channelId: row.channel_id ?? null, contactTag: row.contact_tag ?? '',
+              priority: row.priority ?? 'normal', actions: Array.isArray(row.actions) ? row.actions : [],
+              ownerId: row.owner_user_id ?? null,
+            })),
+            automationRuns: false,
             analytics: analytics.summary ?? {
               generatedAt: new Date().toISOString(),
               totals: { open: 0, awaiting: 0, breached: 0, resolvedToday: 0, contacts: 0, messages7d: 0, avgFirstResponseSeconds: 0, avgResolutionSeconds: 0 },
@@ -5742,6 +5770,9 @@ window.__ModuleLoader__.load({
           await inbox.updateWorkspace(rest)
           return { ok: true }
         }
+        if (name === 'automation.create') return inbox.createAutomation(payload)
+        if (name === 'automation.update') return inbox.updateAutomation(payload.automationId, payload)
+        if (name === 'automation.delete') return inbox.deleteAutomation(payload.automationId)
         if (name === 'template.create') return inbox.createTemplate(payload)
         if (name === 'template.update') return inbox.updateTemplate(payload.templateId, payload)
         if (name === 'template.delete') return inbox.deleteTemplate(payload.templateId)
@@ -5978,7 +6009,7 @@ window.__ModuleLoader__.load({
 
       // Inbox and contacts read the team service (already permission-filtered);
       // the other tabs still read the local Host workspace until they migrate.
-      const active = ['inbox', 'contacts', 'channels', 'templates', 'settings', 'analytics'].includes(tab) ? teamWorkspace : hostWorkspace
+      const active = ['inbox', 'contacts', 'channels', 'templates', 'settings', 'analytics', 'automation'].includes(tab) ? teamWorkspace : hostWorkspace
 
       if (active.loading) {
         return h('div', { className: 'imoRoot' },

@@ -1087,6 +1087,128 @@ route('GET', '/v1/analytics/summary', async (request, response) => {
   send(response, 200, { summary })
 })
 
+route('GET', '/v1/automations', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const items = await asMember(claims, async (client) => {
+    const result = await client.query(
+      `SELECT id, name, enabled, trigger, keyword, channel_id, contact_tag, priority, actions, owner_user_id, created_at, updated_at
+         FROM automations ORDER BY name`,
+    )
+    return result.rows
+  })
+  send(response, 200, { items, executes: false })
+})
+
+route('POST', '/v1/automations', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const input = await body(request)
+  const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : ''
+  if (name === '') return fail(response, 422, 'invalid', '规则名不能为空。')
+  const actions = Array.isArray(input.actions) ? input.actions : []
+  const row = await withTenant(claims.tenantId, async (client) => {
+    const result = await client.query(
+      `INSERT INTO automations (tenant_id, name, enabled, trigger, keyword, channel_id, contact_tag, priority, actions, owner_user_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
+       RETURNING id, name, enabled, trigger, keyword, channel_id, contact_tag, priority, actions, owner_user_id, created_at, updated_at`,
+      [
+        claims.tenantId,
+        name,
+        input.enabled !== false,
+        typeof input.trigger === 'string' ? input.trigger.slice(0, 40) : 'message',
+        typeof input.keyword === 'string' ? input.keyword.slice(0, 120) : '',
+        typeof input.channelId === 'string' && /^[0-9a-f-]{36}$/.test(input.channelId) ? input.channelId : null,
+        typeof input.contactTag === 'string' ? input.contactTag.slice(0, 60) : '',
+        typeof input.priority === 'string' ? input.priority.slice(0, 20) : 'normal',
+        JSON.stringify(actions),
+        claims.userId,
+      ],
+    )
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'automation.create', $3, $4::jsonb)`,
+      [claims.tenantId, claims.userId, result.rows[0].id, JSON.stringify({ name, actions: actions.length })],
+    )
+    return result.rows[0]
+  })
+  send(response, 201, { automation: row, executes: false })
+})
+
+route('PATCH', '/v1/automations/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const role = await roleIn(claims.userId, claims.tenantId)
+  const input = await body(request)
+  const result = await withTenant(claims.tenantId, async (client) => {
+    const current = await client.query('SELECT owner_user_id FROM automations WHERE tenant_id = $1 AND id = $2', [claims.tenantId, params[0]])
+    if (current.rowCount === 0) return { missing: true }
+    const isOwner = current.rows[0].owner_user_id === claims.userId
+    if (!isOwner && role !== 'owner' && role !== 'admin') return { forbidden: true }
+    const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : null
+    if (name === '') return { invalid: '规则名不能为空。' }
+    const actions = Array.isArray(input.actions) ? JSON.stringify(input.actions) : null
+    const updated = await client.query(
+      `UPDATE automations SET
+         name = COALESCE($3, name),
+         enabled = COALESCE($4, enabled),
+         trigger = COALESCE($5, trigger),
+         keyword = COALESCE($6, keyword),
+         channel_id = COALESCE($7, channel_id),
+         contact_tag = COALESCE($8, contact_tag),
+         priority = COALESCE($9, priority),
+         actions = COALESCE($10::jsonb, actions),
+         updated_at = now()
+       WHERE tenant_id = $1 AND id = $2
+       RETURNING id, name, enabled, trigger, keyword, channel_id, contact_tag, priority, actions, owner_user_id, created_at, updated_at`,
+      [
+        claims.tenantId,
+        params[0],
+        name,
+        typeof input.enabled === 'boolean' ? input.enabled : null,
+        typeof input.trigger === 'string' ? input.trigger.slice(0, 40) : null,
+        typeof input.keyword === 'string' ? input.keyword.slice(0, 120) : null,
+        typeof input.channelId === 'string' && /^[0-9a-f-]{36}$/.test(input.channelId) ? input.channelId : null,
+        typeof input.contactTag === 'string' ? input.contactTag.slice(0, 60) : null,
+        typeof input.priority === 'string' ? input.priority.slice(0, 20) : null,
+        actions,
+      ],
+    )
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'automation.update', $3, $4::jsonb)`,
+      [claims.tenantId, claims.userId, params[0], JSON.stringify({ name })],
+    )
+    return { row: updated.rows[0] }
+  })
+  if (result.missing) return fail(response, 404, 'not-found', '找不到这条规则。')
+  if (result.forbidden) return fail(response, 403, 'forbidden', '只能修改自己的规则，或由管理员修改。')
+  if (result.invalid !== undefined) return fail(response, 422, 'invalid', result.invalid)
+  send(response, 200, { automation: result.row, executes: false })
+})
+
+route('DELETE', '/v1/automations/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const role = await roleIn(claims.userId, claims.tenantId)
+  const result = await withTenant(claims.tenantId, async (client) => {
+    const current = await client.query('SELECT owner_user_id FROM automations WHERE tenant_id = $1 AND id = $2', [claims.tenantId, params[0]])
+    if (current.rowCount === 0) return { missing: true }
+    const isOwner = current.rows[0].owner_user_id === claims.userId
+    if (!isOwner && role !== 'owner' && role !== 'admin') return { forbidden: true }
+    await client.query('DELETE FROM automations WHERE tenant_id = $1 AND id = $2', [claims.tenantId, params[0]])
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'automation.delete', $3, '{}'::jsonb)`,
+      [claims.tenantId, claims.userId, params[0]],
+    )
+    return { done: true }
+  })
+  if (result.missing) return fail(response, 404, 'not-found', '找不到这条规则。')
+  if (result.forbidden) return fail(response, 403, 'forbidden', '只能删除自己的规则，或由管理员删除。')
+  send(response, 200, { deleted: params[0] })
+})
+
 route('GET', '/v1/templates', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')

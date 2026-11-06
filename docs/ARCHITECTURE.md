@@ -291,3 +291,21 @@ core 可以原样抽走。
 - 真实调用核对（demo 租户）：`totals.open=4, contacts=4, messages7d=21`，7 天序列，2 个渠道。
 
 截图：`docs/analytics-team.png`、`docs/tab-data-sources.png`。
+
+### 19. 自动化规则迁到团队服务（只存储，不执行）
+
+本轮明确只做一件事：**规则成为团队资产**，但**不动任何客户会话**。
+
+| 能力 | 接口 | 规则 |
+| --- | --- | --- |
+| 列表 | `GET /v1/automations` | 团队共享；响应带 `executes: false` |
+| 新增 | `POST /v1/automations` | 任何成员可建；空名 422 |
+| 修改 / 删除 | `PATCH·DELETE /v1/automations/{id}` | 作者或 owner/admin，否则 403 |
+| 审计 | `automation.create/update/delete` | 同事务 |
+
+**为什么不做执行器**：自动化一旦跑起来会改会话状态（转人工、打标签、静默），
+错一条规则就会影响真实客户。所以先让规则可协作、可审阅，执行引擎单独排期
+（需要：触发事件来源、幂等键、失败重试、干跑预览）。
+
+- 客户端 `automation.*` 命令映射到上述接口；`snapshot.automations` 来自团队数据。
+- 测试：共享可见、他人修改 403、作者可改、删除后消失、`executes:false`（isolation 27 条）。

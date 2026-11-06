@@ -667,3 +667,35 @@ test('analytics counts only the rows the member may see', async () => {
   const denied = await fetch(`${base}/v1/analytics/summary`)
   assert.equal(denied.status, 401)
 })
+
+test('automation rules are shared, editable by their author, and never executed', async () => {
+  const fixture = await buildTenant()
+  const created = await request('POST', '/v1/automations', fixture.tokenA, {
+    name: '退款关键词转人工',
+    trigger: 'message',
+    keyword: '退款',
+    actions: [{ type: 'assign', value: 'human' }],
+  })
+  assert.equal(created.status, 201)
+  assert.equal(created.body.executes, false)
+  const automationId = created.body.automation.id
+
+  const empty = await request('POST', '/v1/automations', fixture.tokenA, { name: '  ' })
+  assert.equal(empty.status, 422)
+
+  const listB = await request('GET', '/v1/automations', fixture.tokenB)
+  assert.ok(listB.body.items.some((item) => item.id === automationId))
+  const denied = await request('PATCH', `/v1/automations/${automationId}`, fixture.tokenB, { enabled: false })
+  assert.equal(denied.status, 403)
+
+  const toggled = await request('PATCH', `/v1/automations/${automationId}`, fixture.tokenA, { enabled: false })
+  assert.equal(toggled.status, 200)
+  assert.equal(toggled.body.automation.enabled, false)
+
+  const removed = await request('DELETE', `/v1/automations/${automationId}`, fixture.tokenA)
+  assert.equal(removed.status, 200)
+  const gone = await request('GET', '/v1/automations', fixture.ownerToken)
+  assert.equal(gone.body.items.some((item) => item.id === automationId), false)
+  // The API states explicitly that stored rules are not executed yet.
+  assert.equal(gone.body.executes, false)
+})
