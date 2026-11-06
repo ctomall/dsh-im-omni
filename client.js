@@ -5844,7 +5844,7 @@ window.__ModuleLoader__.load({
 
       async function changeAgent(agentId) {
         try {
-          await workspace.command('settings.update', { currentAgentId: agentId })
+          await active.command('settings.update', { currentAgentId: agentId })
           notify(t('toast.settingsSaved'))
         } catch (error) {
           notify(errorText(t, error), 'error')
@@ -5861,26 +5861,6 @@ window.__ModuleLoader__.load({
         setSelectedId(conversationId)
       }
 
-      if (workspace.loading) {
-        return h('div', { className: 'imoRoot' },
-          h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
-          h('div', { className: 'imoLoading' }, h('span', { className: 'imoSpinner' }), t('app.loading')),
-        )
-      }
-
-      if (workspace.snapshot === null) {
-        return h('div', { className: 'imoRoot' },
-          h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
-          h('div', { className: 'imoLoading', style: { flexDirection: 'column', textAlign: 'center' } },
-            h('span', { className: 'imoEmptyIcon' }, h(Icon, { name: 'alert', size: 20 })),
-            h('div', { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, t('app.loadError')),
-            h('div', { className: 'imoSmall imoMuted', style: { maxWidth: 360 } }, t('app.loadErrorBody')),
-            workspace.error ? h('div', { className: 'imoTiny imoMuted' }, workspace.error) : null,
-            h('button', { type: 'button', className: 'imoBtn imoBtnPrimary', style: { marginTop: 8 }, onClick: () => { void workspace.refresh(false) } }, t('app.retry')),
-          ),
-        )
-      }
-
       if (!gate.ready) {
         return h('div', { className: 'imoRoot imoGate' },
           h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
@@ -5892,6 +5872,30 @@ window.__ModuleLoader__.load({
         return h(LoginGate, { onSubmit: gate.signIn, busy: gate.busy, error: gate.error })
       }
 
+      // Inbox and contacts read the team service (already permission-filtered);
+      // the other tabs still read the local Host workspace until they migrate.
+      const active = tab === 'inbox' || tab === 'contacts' ? teamWorkspace : hostWorkspace
+
+      if (active.loading) {
+        return h('div', { className: 'imoRoot' },
+          h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
+          h('div', { className: 'imoLoading' }, h('span', { className: 'imoSpinner' }), t('app.loading')),
+        )
+      }
+
+      if (active.snapshot === null) {
+        return h('div', { className: 'imoRoot' },
+          h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
+          h('div', { className: 'imoLoading', style: { flexDirection: 'column', textAlign: 'center' } },
+            h('span', { className: 'imoEmptyIcon' }, h(Icon, { name: 'alert', size: 20 })),
+            h('div', { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, t('app.loadError')),
+            h('div', { className: 'imoSmall imoMuted', style: { maxWidth: 360 } }, t('app.loadErrorBody')),
+            active.error ? h('div', { className: 'imoTiny imoMuted' }, active.error) : null,
+            h('button', { type: 'button', className: 'imoBtn imoBtnPrimary', style: { marginTop: 8 }, onClick: () => { void active.refresh(false) } }, t('app.retry')),
+          ),
+        )
+      }
+
       const canManage = gate.session.role === 'owner' || gate.session.role === 'admin'
       const allowed = canManage ? true : !['channels', 'automation', 'broadcasts'].includes(tab)
       if (!allowed) {
@@ -5899,14 +5903,14 @@ window.__ModuleLoader__.load({
         queueMicrotask(() => setTab('inbox'))
       }
 
-      const snapshot = workspace.snapshot
+      const snapshot = active.snapshot
       const unread = snapshot.conversations.reduce((sum, conversation) => sum + (conversation.unread ?? 0), 0)
       let page
       if (tab === 'contacts') {
         page = h(ContactsView, {
           snapshot,
           t,
-          command: workspace.command,
+          command: active.command,
           notify,
           confirm,
           focusContactId,
@@ -5914,17 +5918,17 @@ window.__ModuleLoader__.load({
           onOpenConversation: openConversation,
         })
       } else if (tab === 'channels') {
-        page = h(ChannelsView, { snapshot, t, command: workspace.command, notify, confirm })
+        page = h(ChannelsView, { snapshot, t, command: active.command, notify, confirm })
       } else if (tab === 'templates') {
-        page = h(TemplatesView, { snapshot, t, command: workspace.command, notify, confirm })
+        page = h(TemplatesView, { snapshot, t, command: active.command, notify, confirm })
       } else if (tab === 'broadcasts') {
-        page = h(BroadcastsView, { snapshot, t, command: workspace.command, notify, confirm })
+        page = h(BroadcastsView, { snapshot, t, command: active.command, notify, confirm })
       } else if (tab === 'automation') {
-        page = h(AutomationView, { snapshot, t, command: workspace.command, notify, confirm })
+        page = h(AutomationView, { snapshot, t, command: active.command, notify, confirm })
       } else if (tab === 'analytics') {
         page = h(AnalyticsView, { snapshot, t })
       } else if (tab === 'settings') {
-        page = h(SettingsView, { snapshot, t, command: workspace.command, notify, confirm })
+        page = h(SettingsView, { snapshot, t, command: active.command, notify, confirm })
       } else {
         page = h(InboxView, {
           snapshot,
@@ -5932,8 +5936,8 @@ window.__ModuleLoader__.load({
           search,
           selectedId,
           setSelectedId,
-          command: workspace.command,
-          intelligence: workspace.intelligence,
+          command: active.command,
+          intelligence: active.intelligence,
           notify,
           confirm,
           onOpenContact: openContact,
@@ -5948,8 +5952,8 @@ window.__ModuleLoader__.load({
           search,
           onSearch: setSearch,
           onAgent: (agentId) => { void changeAgent(agentId) },
-          onRefresh: () => { void workspace.refresh(false) },
-          offline: workspace.offline,
+          onRefresh: () => { void active.refresh(false) },
+          offline: active.offline,
         }),
         h(TabBar, { tab, onTab: setTab, t, unread, role: gate.session.role, name: gate.session.name, onSignOut: gate.signOut }),
         h('main', { className: 'imoContent' }, page),
