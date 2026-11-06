@@ -126,3 +126,16 @@ core 可以原样抽走。
 2. 把 access 视图整块搬到 `@omni/access`，复用 core；
 3. 最后搬 settings；
 4. team-api 不动：服务端永远是唯一的权限与数据真源。
+
+### 9.5 落地结果（按"管理员单独装、客服只装聊天"执行）
+
+| 包 | 装给谁 | 内容 | 状态 |
+| --- | --- | --- | --- |
+| `dsh-im-omni` | 客服 | 收件箱、渠道、模板、群发、自动化、数据分析、设置、详情页配置 | ✅ 已移除「团队权限」标签 |
+| `dsh-im-omni-access` | 管理员 | 团队权限面板：登录 → 成员授权 → 审批 → 审计 | ✅ 已建包并 link 进 profile |
+
+- 访问插件独立包：`/home/pro/dsh/dsh-im-omni-access`（自带 `package.json`、`cordis.patch.yml`、
+  侧栏入口 order 47、Host 兜底代理 `/api/im-omni-access.saas`）。
+- profile 注册：`~/.dsh-src/profiles/web/package.json` 增加 `link:` 依赖与 bundles 条目，`pnpm install` 已链接。
+- **生效需要重启 dsh**（宿主侧插件在启动时加载）；重启后侧栏会多出「团队权限」，聊天面板不再有该标签。
+- team-api 未改动：两个包共用同一服务与同一套 RLS。

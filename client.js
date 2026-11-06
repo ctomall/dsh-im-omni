@@ -495,7 +495,6 @@ window.__ModuleLoader__.load({
       'nav.broadcasts': '群发',
       'nav.automation': '自动化',
       'nav.analytics': '数据分析',
-      'nav.team': '团队权限',
       'nav.settings': '设置',
       'common.cancel': '取消',
       'common.save': '保存',
@@ -1147,7 +1146,6 @@ window.__ModuleLoader__.load({
       'nav.broadcasts': 'Broadcasts',
       'nav.automation': 'Automation',
       'nav.analytics': 'Analytics',
-      'nav.team': 'Team access',
       'nav.settings': 'Settings',
       'common.cancel': 'Cancel',
       'common.save': 'Save',
@@ -2434,7 +2432,6 @@ window.__ModuleLoader__.load({
         ['broadcasts', 'megaphone', 0],
         ['automation', 'bolt', 0],
         ['analytics', 'chart', 0],
-        ['team', 'lock', 0],
         ['settings', 'settings', 0],
       ]
       return h('nav', { className: 'imoTabs', 'aria-label': t('panel.label') },
@@ -4916,209 +4913,6 @@ window.__ModuleLoader__.load({
      * @param {Record<string, any>} props - snapshot and services.
      * @returns {import('react').ReactElement} page.
      */
-    /**
-     * Team access inside the plugin: sign in to the shared API, then grant each
-     * teammate their channel numbers and decide pending requests.
-     * @param {{t: Function}} props - translator.
-     * @returns {import('react').ReactElement} page.
-     */
-    function TeamView({ t }) {
-      const [session, setSession] = React.useState({ base: 'http://127.0.0.1:8090', email: '', password: '', token: '', tenantId: '', role: '', name: '' })
-      const [roster, setRoster] = React.useState({ members: [], channels: [], pending: [], audit: [] })
-      const [busy, setBusy] = React.useState('')
-      const [error, setError] = React.useState('')
-      const [notice, setNotice] = React.useState('')
-
-      const headers = React.useCallback((token = session.token) => ({
-        'content-type': 'application/json',
-        accept: 'application/json',
-        ...(token === '' ? {} : { authorization: `Bearer ${token}` }),
-      }), [session.token])
-
-      const load = React.useCallback(async (token, tenantId) => {
-        const [members, channels, approvals, audit] = await Promise.all([
-          proxySaas(`/v1/tenants/${tenantId}/members`, { token }).then((item) => item.json()),
-          proxySaas('/v1/channels', { token }).then((item) => item.json()),
-          proxySaas(`/v1/tenants/${tenantId}/approvals?status=all`, { token }).then((item) => (item.ok ? item.json() : { items: [] })),
-          proxySaas(`/v1/tenants/${tenantId}/audit?limit=8`, { token }).then((item) => (item.ok ? item.json() : { items: [] })),
-        ])
-        setRoster({
-          members: members.items ?? [],
-          channels: channels.items ?? [],
-          pending: (approvals.items ?? []).filter((item) => item.status === 'pending'),
-          audit: audit.items ?? [],
-        })
-      }, [session.base, headers])
-
-      const login = React.useCallback(async () => {
-        setBusy('login')
-        setError('')
-        try {
-            const response = await proxySaas('/v1/auth/login', { method: 'POST', body: { email: session.email, password: session.password } })
-          const body = await response.json().catch(() => null)
-          if (!response.ok) throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
-          const me = await proxySaas('/v1/me', { token: body.accessToken }).then((item) => item.json())
-          const tenant = me.tenants.find((item) => item.tenant_id === me.currentTenant) ?? me.tenants[0]
-          setSession((current) => ({ ...current, token: body.accessToken, tenantId: tenant.tenant_id, role: tenant.role, name: me.user?.name ?? me.user?.email ?? '' }))
-          await load(body.accessToken, tenant.tenant_id)
-        } catch (reason) {
-          setError(reason instanceof Error ? reason.message : String(reason))
-        } finally {
-          setBusy('')
-        }
-      }, [session.base, session.email, session.password, headers, load])
-
-      const grant = React.useCallback(async (member, patch) => {
-        setBusy(member.user_id)
-        setError('')
-        setNotice('')
-        try {
-          const body = { ...patch }
-          if (body.dataScope === 'all') {
-            const typed = window.prompt(`把 ${member.name || member.email} 设成整个团队？输入对方邮箱确认：`, '')
-            if (typed === null) {
-              setBusy('')
-              return
-            }
-            body.confirmEmail = typed.trim()
-          }
-          const response = await proxySaas(`/v1/tenants/${session.tenantId}/members/${member.user_id}`, { method: 'PATCH', body, token: session.token })
-          const payload = await response.json().catch(() => null)
-          if (response.status === 202) {
-            setNotice('已提交审批，等待所有者批准')
-          } else if (!response.ok) {
-            throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
-          } else {
-            setNotice('已保存')
-          }
-          await load(session.token, session.tenantId)
-        } catch (reason) {
-          setError(reason instanceof Error ? reason.message : String(reason))
-        } finally {
-          setBusy('')
-        }
-      }, [session.base, session.tenantId, session.token, headers, load])
-
-      const decide = React.useCallback(async (id, decision) => {
-        setBusy(id)
-        setError('')
-        try {
-          const response = await proxySaas(`/v1/tenants/${session.tenantId}/approvals/${id}`, { method: 'POST', body: { decision }, token: session.token })
-          if (!response.ok) {
-            const payload = await response.json().catch(() => null)
-            throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
-          }
-          setNotice(decision === 'approve' ? '已批准并生效' : '已拒绝')
-          await load(session.token, session.tenantId)
-        } catch (reason) {
-          setError(reason instanceof Error ? reason.message : String(reason))
-        } finally {
-          setBusy('')
-        }
-      }, [session.base, session.tenantId, session.token, headers, load])
-
-      if (session.token === '') {
-        return h('div', { className: 'imoPage' },
-          h('div', { className: 'imoPageHead' },
-            h('div', null,
-              h('h1', { className: 'imoPageTitle' }, t('nav.team')),
-              h('p', { className: 'imoPageSub' }, '登录团队服务后，按员工分配可见的渠道号码与数据范围。'),
-            ),
-          ),
-          h('section', { className: 'imoSection' },
-            h('div', { className: 'imoFormGrid' },
-              h('label', { className: 'imoFieldGroup' }, h('span', { className: 'imoFieldLabel' }, '邮箱'), h('input', { className: 'imoInput', value: session.email, onChange: (event) => setSession({ ...session, email: event.target.value }) })),
-              h('label', { className: 'imoFieldGroup' }, h('span', { className: 'imoFieldLabel' }, '密码'), h('input', { className: 'imoInput', type: 'password', value: session.password, onChange: (event) => setSession({ ...session, password: event.target.value }) })),
-            ),
-            h('div', { className: 'imoBtnRow', style: { marginTop: 12 } },
-              h('button', { type: 'button', className: 'imoBtn imoBtnPrimary', disabled: busy !== '', onClick: () => { void login() } }, busy === 'login' ? '登录中…' : '登录'),
-            ),
-            error === '' ? null : h('p', { className: 'imoSmall imoMuted' }, error),
-          ),
-        )
-      }
-
-      return h('div', { className: 'imoPage' },
-        h('div', { className: 'imoPageHead' },
-          h('div', null,
-            h('h1', { className: 'imoPageTitle' }, t('nav.team')),
-            h('p', { className: 'imoPageSub' }, `${session.name} · ${session.role === 'owner' ? '所有者' : session.role === 'admin' ? '管理员' : '客服'} · 授权立即生效，放开到整个团队需要所有者批准`),
-          ),
-          h('div', { className: 'imoPageActions' },
-            h('button', { type: 'button', className: 'imoBtn', onClick: () => { void load(session.token, session.tenantId) } }, '刷新'),
-            h('button', { type: 'button', className: 'imoBtn', onClick: () => setSession({ ...session, token: '', password: '' }) }, '退出'),
-          ),
-        ),
-        notice === '' ? null : h('p', { className: 'imoSmall', style: { color: 'var(--dsw-alias-state-success-primary)' } }, notice),
-        error === '' ? null : h('p', { className: 'imoSmall', style: { color: 'var(--dsw-alias-state-error-primary)' } }, error),
-        roster.pending.length === 0 ? null : h('section', { className: 'imoSection' },
-          h('div', { className: 'imoSectionTitle' }, `待审批 ${roster.pending.length}`),
-          roster.pending.map((item) => h('div', { key: item.id, className: 'imoRow' },
-            h('div', null,
-              h('div', null, `${item.requester_name || item.requester_email} 申请修改 ${item.payload?.targetName ?? item.target_name ?? ''}`),
-              h('div', { className: 'imoSmall imoMuted' }, item.action === 'channel.delete' ? `删除渠道 ${item.payload?.channelName ?? ''}` : item.action === 'member.remove' ? '移除成员' : item.payload?.dataScope === 'all' ? '放开到整个团队' : `角色改为 ${item.payload?.role ?? ''}`),
-            ),
-            session.role === 'owner'
-              ? h('div', { className: 'imoBtnRow' },
-                h('button', { type: 'button', className: 'imoBtn imoBtnSm imoBtnPrimary', onClick: () => { void decide(item.id, 'approve') } }, '批准'),
-                h('button', { type: 'button', className: 'imoBtn imoBtnSm', onClick: () => { void decide(item.id, 'reject') } }, '拒绝'),
-              )
-              : h('span', { className: 'imoSmall imoMuted' }, '等待所有者'),
-          )),
-        ),
-        h('section', { className: 'imoSection' },
-          h('div', { className: 'imoSectionTitle' }, `成员 ${roster.members.length}`),
-          roster.members.map((member) => {
-            const permission = member.permissions ?? {}
-            const isAdminRole = member.role === 'owner' || member.role === 'admin'
-            const all = permission.dataScope === 'all' || (permission.dataScope === undefined && isAdminRole)
-            const granted = new Set(Array.isArray(permission.channelIds) ? permission.channelIds : [])
-            const canGrant = session.role === 'owner' || session.role === 'admin'
-            return h('div', { key: member.user_id, className: 'imoRow' },
-              h('div', { style: { minWidth: 0 } },
-                h('div', null, member.name || member.email),
-                h('div', { className: 'imoSmall imoMuted' }, all ? '整个团队' : granted.size > 0 ? `${granted.size} 个号码` : '仅自己'),
-                all || !canGrant
-                  ? null
-                  : h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 } }, roster.channels.map((channel) => {
-                    const on = granted.has(channel.id)
-                    return h('label', { key: channel.id, className: 'imoPill', style: { cursor: 'pointer', gap: 4 } },
-                      h('input', {
-                        type: 'checkbox',
-                        checked: on,
-                        onChange: () => {
-                          const next = new Set(granted)
-                          if (on) next.delete(channel.id)
-                          else next.add(channel.id)
-                          void grant(member, { channelIds: [...next], dataScope: 'own' })
-                        },
-                      }),
-                      channel.name,
-                    )
-                  })),
-              ),
-              canGrant && member.role !== 'owner'
-                ? h('select', {
-                  className: 'imoSelect',
-                  value: all ? 'all' : 'own',
-                  onChange: (event) => { void grant(member, event.target.value === 'all' ? { dataScope: 'all', channelIds: [] } : { dataScope: 'own' }) },
-                }, h('option', { value: 'own' }, '仅自己'), h('option', { value: 'all' }, '整个团队'))
-                : h('span', { className: 'imoSmall imoMuted' }, member.role === 'owner' ? '所有者' : isAdminRole ? '管理员' : '客服'),
-            )
-          }),
-        ),
-        h('section', { className: 'imoSection' },
-          h('div', { className: 'imoSectionTitle' }, '最近变更'),
-          roster.audit.length === 0
-            ? h('div', { className: 'imoSmall imoMuted' }, '还没有权限变更记录。')
-            : roster.audit.map((item) => h('div', { key: item.id, className: 'imoRow' },
-              h('div', { className: 'imoSmall' }, `${item.actor_name || item.actor_email} → ${item.target_name || item.target_email}`),
-              h('span', { className: 'imoTiny imoMuted' }, new Date(item.created_at).toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })),
-            )),
-        ),
-      )
-    }
-
     function SettingsView({ snapshot, t, command, notify, confirm }) {
       const workspace = snapshot.workspace
       const [form, setForm] = React.useState({
@@ -5749,8 +5543,6 @@ window.__ModuleLoader__.load({
         page = h(AutomationView, { snapshot, t, command: workspace.command, notify, confirm })
       } else if (tab === 'analytics') {
         page = h(AnalyticsView, { snapshot, t })
-      } else if (tab === 'team') {
-        page = h(TeamView, { t })
       } else if (tab === 'settings') {
         page = h(SettingsView, { snapshot, t, command: workspace.command, notify, confirm })
       } else {
