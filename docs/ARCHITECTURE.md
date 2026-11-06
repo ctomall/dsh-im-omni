@@ -197,3 +197,19 @@ core 可以原样抽走。
 本地相对路径不会被解析——所以共享必须做成独立包。
 
 剩余：权限插件下一轮改用它；聊天里的兜底副本等真实页面验证通过后删除。
+
+### 13. 权限插件接入 core，并修正加载方式
+
+**一个差点翻车的发现**：`dsh-im-omni-access` 最初写成 ESM（`import React from 'react'`），
+而 DSH 的客户端 bundle 必须用 `window.__ModuleLoader__.load({ id, factory(require) })` 形式注册——
+按原写法，重启后它**根本不会加载**。已重写为 loader 形式，并由单测锁住：
+
+| 检查 | 断言 |
+| --- | --- |
+| 注册 id | `dsh-im-omni-access` |
+| 导出 | 工厂返回 `{ apply }` |
+| 依赖 core | 向模块系统请求 `dsh-im-omni-core` |
+| core 缺失 | 仍能构造 `apply`（兜底），不崩 |
+
+两个插件包现在都在产品仓库内：`core/`、`access/`，profile 用 `link:` 指向它们，
+一起提交、一起回滚，各自仍是独立包与独立侧栏入口。
