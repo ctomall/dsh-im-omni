@@ -221,7 +221,9 @@ test('an owner can widen one member to the whole tenant', async () => {
   const before = await request('GET', '/v1/channels', fixture.tokenA)
   assert.equal(before.body.items.length, 1)
 
-  const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all' })
+  const email = (await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)).body.items
+    .find((item) => item.user_id === fixture.agentA).email
+  const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all', confirmEmail: email })
   assert.equal(grant.status, 200)
   assert.equal(grant.body.member.permissions.dataScope, 'all')
 
@@ -351,7 +353,9 @@ test('granting the whole tenant alerts the team robot', async () => {
     [fixture.tenantId, `http://127.0.0.1:${robot.address().port}/send`],
   )
   try {
-    const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all' })
+    const email = (await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)).body.items
+    .find((item) => item.user_id === fixture.agentA).email
+  const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all', confirmEmail: email })
     assert.equal(grant.status, 200)
     for (let attempt = 0; attempt < 20 && received.length === 0; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 50))
@@ -362,4 +366,25 @@ test('granting the whole tenant alerts the team robot', async () => {
   } finally {
     await new Promise((resolve) => robot.close(resolve))
   }
+})
+
+test('widening to the whole tenant requires typing the member email', async () => {
+  const fixture = await buildTenant()
+  const members = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const email = members.body.items.find((item) => item.user_id === fixture.agentA).email
+
+  const missing = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all' })
+  assert.equal(missing.status, 422)
+  assert.equal(missing.body.error.code, 'confirm-required')
+
+  const wrong = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all', confirmEmail: 'someone@else.test' })
+  assert.equal(wrong.status, 422)
+
+  const scope = await request('GET', '/v1/channels', fixture.tokenA)
+  assert.equal(scope.body.items.length, 1, 'a refused confirmation must not widen the scope')
+
+  const confirmed = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all', confirmEmail: email.toUpperCase() })
+  assert.equal(confirmed.status, 200)
+  const widened = await request('GET', '/v1/channels', fixture.tokenA)
+  assert.equal(widened.body.items.length, 2)
 })

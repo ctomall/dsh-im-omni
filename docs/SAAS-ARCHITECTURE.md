@@ -504,3 +504,13 @@ $ cd server && node --test test/isolation.test.mjs
   （`sendPermissionAlert`，复用 `tenant_notify`），不阻塞请求；机器人未配置时静默跳过。
 - 管理页「最近变更」卡片展示最近 8 条：`操作人 → 目标成员`、变更内容（整个团队 / 仅自己·N 个号码）、时间（`MM-DD HH:mm`）。
 截图：`docs/permissions-admin-audit.png`。
+
+### 放开到「整个团队」需要二次确认
+
+- 服务端：`PATCH …/members/{userId}` 带 `dataScope=all` 时**必须**同时传 `confirmEmail`，且必须与该成员邮箱一致
+  （大小写不敏感）；缺失或不符返回 `422 confirm-required`，且**不写入**。
+- 页面：把下拉切到「整个团队」不会立即保存，而是在该成员下方展开确认条——写明后果、要求输入对方邮箱，
+  只有点「确认放开」且邮箱一致才发请求；取消则回到原状态。
+- 组合效果：即使有人绕过页面直接调接口，也过不了确认这一关；页面层只是把同一规则演示得更清楚。
+
+截图：`docs/permissions-confirm-all.png`。

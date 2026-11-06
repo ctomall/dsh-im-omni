@@ -38,6 +38,9 @@ button:disabled{opacity:.5;cursor:default}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--ink2);cursor:pointer;user-select:none;background:var(--layer)}
 .chip input{width:auto;height:auto;margin:0;accent-color:var(--green)}
 .chip.on{color:var(--ink);border-color:var(--line2);background:var(--layer2)}
+.confirm{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px;margin:8px 0;border:1px solid var(--line2);border-radius:10px;background:var(--layer2)}
+.confirm .who b{font-size:13px}
+.confirm .who span{display:block;color:var(--ink2);font-size:11.5px;margin-top:2px}
 .status{font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
 .status.ok{color:var(--green)}
 .status.bad{color:var(--red)}
@@ -180,6 +183,49 @@ async function loadTeam() {
   renderMembers(canAssign)
 }
 
+let confirmState = null
+
+function openConfirm(member, select) {
+  confirmState = { member }
+  renderMembers(state.role === 'owner' || state.role === 'admin')
+}
+
+function closeConfirm() {
+  confirmState = null
+  renderMembers(state.role === 'owner' || state.role === 'admin')
+}
+
+function renderConfirm() {
+  const member = confirmState.member
+  const input = el('input', { placeholder: '输入该成员邮箱', style: 'max-width:260px' })
+  const error = el('span', { class: 'status bad' })
+  const confirm = el('button', {
+    class: 'primary',
+    onclick: async () => {
+      if (input.value.trim().toLowerCase() !== member.email.toLowerCase()) {
+        error.textContent = '邮箱不一致'
+        return
+      }
+      confirm.setAttribute('disabled', 'disabled')
+      await save(member, { dataScope: 'all', channelIds: [], confirmEmail: input.value.trim() })
+      confirmState = null
+      renderMembers(true)
+    },
+  }, '确认放开')
+  return el('div', { class: 'confirm' },
+    el('div', { class: 'who' },
+      el('b', { text: '把 ' + (member.name || member.email) + ' 设成整个团队？' }),
+      el('span', { text: '这会让他看到所有渠道号码与全部会话。输入对方邮箱确认。' }),
+    ),
+    el('div', { style: 'display:flex;align-items:center;gap:8px;flex-wrap:wrap' },
+      input,
+      confirm,
+      el('button', { onclick: closeConfirm }, '取消'),
+      error,
+    ),
+  )
+}
+
 function renderMembers(canAssign) {
   const host = document.getElementById('members')
   host.textContent = ''
@@ -193,7 +239,13 @@ function renderMembers(canAssign) {
 
     const scopeSelect = el('select', {
       ...(canAssign ? {} : { disabled: 'disabled' }),
-      onchange: (event) => save(member, { dataScope: event.target.value, channelIds: event.target.value === 'all' ? [] : [...granted] }),
+      onchange: (event) => {
+        if (event.target.value === 'all') {
+          openConfirm(member, event.target)
+          return
+        }
+        save(member, { dataScope: 'own', channelIds: [...granted] })
+      },
     },
       el('option', { value: 'own', ...(!allVisible ? { selected: 'selected' } : {}) }, '仅自己'),
       el('option', { value: 'all', ...(allVisible ? { selected: 'selected' } : {}) }, '整个团队'),
@@ -227,6 +279,9 @@ function renderMembers(canAssign) {
       ),
     )
     host.append(row)
+    if (confirmState !== null && confirmState.member.user_id === member.user_id) {
+      host.append(renderConfirm())
+    }
   }
 }
 
