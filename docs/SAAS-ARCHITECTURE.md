@@ -607,3 +607,16 @@ $ cd server && node --test test/isolation.test.mjs
 - 与 `:8090/admin` 是同一套接口与权限规则，只是入口不同；数据不会出现两份。
 
 截图：`docs/panel-team-access.png`。
+
+### 浏览器如何访问团队 API（"Failed to fetch" 的根因）
+
+页面在 `https://dsh.ila3.top`，而团队 API 是 `http://127.0.0.1:8090`：
+
+1. **混合内容**：HTTPS 页面直连 HTTP 会被浏览器拦掉（表现为 `Failed to fetch`）；
+2. **回环地址**：`127.0.0.1` 指的是**看页面这台机器**，不是 Host。
+
+修法（已落地）：nginx 在同一 origin 增加 `location /im-omni-api/ → 127.0.0.1:8090/`，
+客户端 `proxySaas()` 优先打 `/im-omni-api/v1/...`（同源、无 CORS、无混合内容），
+失败再回落到插件 Host 的 `/api/im-omni.saas` 代理（`lib/saas-proxy.mjs`，仅允许 `/v1/` 与标准方法）。
+
+验证：`curl http://127.0.0.1:52101/im-omni-api/healthz` → 401（nginx Basic Auth，说明已路由到后端而非 404）。

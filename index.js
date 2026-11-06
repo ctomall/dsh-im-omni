@@ -15,6 +15,7 @@ import { createIntelligence } from './lib/intelligence.js'
 import { ReceptionBot } from './lib/bot.js'
 import { APK_PATH, VERSION_PATH, apkResponse, versionResponse } from './lib/app.js'
 import { recordUpgrade } from './lib/audit.js'
+import { forwardSaas } from './lib/saas-proxy.mjs'
 import { UpgradeError, applyUpgrade, checkUpgrade } from './lib/upgrade.js'
 import {
   MAX_ATTACHMENT_BYTES,
@@ -326,6 +327,39 @@ export async function apply(ctx) {
       },
     }),
     'im-omni: attachment download',
+  )
+
+  // The panel reaches the team API through this route: same-origin, no CORS,
+  // no mixed-content block, and 127.0.0.1 resolves on the Host, not the viewer.
+  ctx.effect(
+    () => ctx.connection.fetch.register({
+      path: '/api/im-omni.saas',
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        let body
+        try {
+          body = await request.json()
+        } catch {
+          return json({ ok: false, error: { code: 'bad-json', message: 'The request body is not valid JSON.' } }, 400)
+        }
+        const base = String(process.env.IM_OMNI_SAAS ?? body?.base ?? 'http://127.0.0.1:8090')
+        try {
+          const result = await forwardSaas({
+            base,
+            path: String(body?.path ?? ''),
+            method: String(body?.method ?? 'GET'),
+            headers: typeof body?.token === 'string' && body.token !== '' ? { authorization: `Bearer ${body.token}` } : {},
+            body: body?.body,
+          })
+          return json(result.body, result.status)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          return json({ ok: false, error: { code: 'proxy-failed', message } }, 502)
+        }
+      },
+    }),
+    'im-omni: team API proxy',
   )
 
   ctx.effect(

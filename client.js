@@ -23,6 +23,45 @@ window.__ModuleLoader__.load({
     const UPLOAD_PATH = '/api/im-omni.upload'
     /** Authenticated translation/AI route. */
     const INTELLIGENCE_PATH = '/api/im-omni.ai'
+    /**
+     * Call the team API. Prefers the same-origin path nginx exposes
+     * (`/im-omni-api/...`), which avoids mixed content and CORS entirely; falls
+     * back to the Host proxy route so a bare `dsh web` without nginx still works.
+     * @param {string} path - absolute API path starting with /v1/.
+     * @param {{method?: string, body?: unknown, token?: string}} [options] - request.
+     * @returns {Promise<{ok: boolean, status: number, json: () => Promise<any>}>} response-like.
+     */
+    async function proxySaas(path, options = {}) {
+      const token = options.token ?? ''
+      const method = options.method ?? 'GET'
+      const headers = { accept: 'application/json' }
+      if (token !== '') headers.authorization = `Bearer ${token}`
+      const init = { method, headers }
+      if (options.body !== undefined) {
+        headers['content-type'] = 'application/json'
+        init.body = JSON.stringify(options.body)
+      }
+      try {
+        const direct = await fetch(`/im-omni-api${path}`, init)
+        const text = await direct.text()
+        let payload = null
+        try { payload = text === '' ? null : JSON.parse(text) } catch { payload = null }
+        // A JSON body means the API answered; a bare 404 means no proxy route.
+        if (payload !== null || direct.status !== 404) {
+          return { ok: direct.ok, status: direct.status, json: async () => payload }
+        }
+      } catch {
+        // Network failure: fall through to the Host proxy.
+      }
+      const response = await fetch('/api/im-omni.saas', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ path, method, body: options.body, token }),
+      })
+      const payload = await response.json().catch(() => null)
+      return { ok: response.ok, status: response.status, json: async () => payload }
+    }
+
     /** Sidebar and main panel id. */
     const PANEL_ID = 'im-omni'
     /** Locale used for date formatting when the document has no lang. */
@@ -4897,12 +4936,11 @@ window.__ModuleLoader__.load({
       }), [session.token])
 
       const load = React.useCallback(async (token, tenantId) => {
-        const base = session.base.replace(/\/$/, '')
         const [members, channels, approvals, audit] = await Promise.all([
-          fetch(`${base}/v1/tenants/${tenantId}/members`, { headers: headers(token) }).then((item) => item.json()),
-          fetch(`${base}/v1/channels`, { headers: headers(token) }).then((item) => item.json()),
-          fetch(`${base}/v1/tenants/${tenantId}/approvals?status=all`, { headers: headers(token) }).then((item) => (item.ok ? item.json() : { items: [] })),
-          fetch(`${base}/v1/tenants/${tenantId}/audit?limit=8`, { headers: headers(token) }).then((item) => (item.ok ? item.json() : { items: [] })),
+          proxySaas(`/v1/tenants/${tenantId}/members`, { token }).then((item) => item.json()),
+          proxySaas('/v1/channels', { token }).then((item) => item.json()),
+          proxySaas(`/v1/tenants/${tenantId}/approvals?status=all`, { token }).then((item) => (item.ok ? item.json() : { items: [] })),
+          proxySaas(`/v1/tenants/${tenantId}/audit?limit=8`, { token }).then((item) => (item.ok ? item.json() : { items: [] })),
         ])
         setRoster({
           members: members.items ?? [],
@@ -4916,15 +4954,10 @@ window.__ModuleLoader__.load({
         setBusy('login')
         setError('')
         try {
-          const base = session.base.replace(/\/$/, '')
-          const response = await fetch(`${base}/v1/auth/login`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ email: session.email, password: session.password }),
-          })
+            const response = await proxySaas('/v1/auth/login', { method: 'POST', body: { email: session.email, password: session.password } })
           const body = await response.json().catch(() => null)
           if (!response.ok) throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
-          const me = await fetch(`${base}/v1/me`, { headers: headers(body.accessToken) }).then((item) => item.json())
+          const me = await proxySaas('/v1/me', { token: body.accessToken }).then((item) => item.json())
           const tenant = me.tenants.find((item) => item.tenant_id === me.currentTenant) ?? me.tenants[0]
           setSession((current) => ({ ...current, token: body.accessToken, tenantId: tenant.tenant_id, role: tenant.role, name: me.user?.name ?? me.user?.email ?? '' }))
           await load(body.accessToken, tenant.tenant_id)
@@ -4949,11 +4982,7 @@ window.__ModuleLoader__.load({
             }
             body.confirmEmail = typed.trim()
           }
-          const response = await fetch(`${session.base.replace(/\/$/, '')}/v1/tenants/${session.tenantId}/members/${member.user_id}`, {
-            method: 'PATCH',
-            headers: headers(),
-            body: JSON.stringify(body),
-          })
+          const response = await proxySaas(`/v1/tenants/${session.tenantId}/members/${member.user_id}`, { method: 'PATCH', body, token: session.token })
           const payload = await response.json().catch(() => null)
           if (response.status === 202) {
             setNotice('已提交审批，等待所有者批准')
@@ -4974,11 +5003,7 @@ window.__ModuleLoader__.load({
         setBusy(id)
         setError('')
         try {
-          const response = await fetch(`${session.base.replace(/\/$/, '')}/v1/tenants/${session.tenantId}/approvals/${id}`, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify({ decision }),
-          })
+          const response = await proxySaas(`/v1/tenants/${session.tenantId}/approvals/${id}`, { method: 'POST', body: { decision }, token: session.token })
           if (!response.ok) {
             const payload = await response.json().catch(() => null)
             throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
@@ -5002,7 +5027,6 @@ window.__ModuleLoader__.load({
           ),
           h('section', { className: 'imoSection' },
             h('div', { className: 'imoFormGrid' },
-              h('label', { className: 'imoFieldGroup' }, h('span', { className: 'imoFieldLabel' }, '服务地址'), h('input', { className: 'imoInput', value: session.base, onChange: (event) => setSession({ ...session, base: event.target.value }) })),
               h('label', { className: 'imoFieldGroup' }, h('span', { className: 'imoFieldLabel' }, '邮箱'), h('input', { className: 'imoInput', value: session.email, onChange: (event) => setSession({ ...session, email: event.target.value }) })),
               h('label', { className: 'imoFieldGroup' }, h('span', { className: 'imoFieldLabel' }, '密码'), h('input', { className: 'imoInput', type: 'password', value: session.password, onChange: (event) => setSession({ ...session, password: event.target.value }) })),
             ),
@@ -5817,54 +5841,21 @@ window.__ModuleLoader__.load({
         error: '',
       })
 
-      /**
-       * Talk to the SaaS API the team actually shares. Cross-origin by design:
-       * the API answers preflights for this page's origin.
-       * @param {string} path - path under the API base.
-       * @param {object} [options] - fetch options merged in.
-       * @returns {Promise<any>} parsed body.
-       */
-      const saasCall = React.useCallback(async (path, options = {}) => {
-        const token = saas.token
-        const response = await fetch(saas.base.replace(/\/$/, '') + path, {
-          ...options,
-          headers: {
-            'content-type': 'application/json',
-            accept: 'application/json',
-            ...(token === '' ? {} : { authorization: `Bearer ${token}` }),
-            ...(options.headers ?? {}),
-          },
-        })
-        const payload = await response.json().catch(() => null)
-        if (!response.ok) {
-          const failure = new Error(payload?.error?.message ?? `HTTP ${response.status}`)
-          failure.code = payload?.error?.code
-          throw failure
-        }
-        return payload
-      }, [saas.base, saas.token])
-
       const saasLogin = React.useCallback(async () => {
         setSaas((current) => ({ ...current, busy: 'login', error: '' }))
         try {
-          const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/auth/login', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({ email: saas.email, password: saas.password }),
-          })
+          const response = await proxySaas('/v1/auth/login', { method: 'POST', body: { email: saas.email, password: saas.password } })
           const body = await response.json().catch(() => null)
           if (!response.ok) throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
-          const me = await fetch(saas.base.replace(/\/$/, '') + '/v1/me', {
-            headers: { authorization: `Bearer ${body.accessToken}`, accept: 'application/json' },
-          }).then((item) => item.json())
+          const me = await proxySaas('/v1/me', { token: body.accessToken }).then((item) => item.json())
           const tenant = me.tenants.find((item) => item.tenant_id === me.currentTenant) ?? me.tenants[0]
           const token = body.accessToken
           const [members, channels, approvals, notifySettings, workspaceSettings] = await Promise.all([
-            fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + tenant.tenant_id + '/members', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
-            fetch(saas.base.replace(/\/$/, '') + '/v1/channels', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
-            fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + tenant.tenant_id + '/approvals?status=all', { headers: { authorization: `Bearer ${token}` } }).then((item) => (item.ok ? item.json() : { items: [] })),
-            fetch(saas.base.replace(/\/$/, '') + '/v1/settings/notify', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
-            fetch(saas.base.replace(/\/$/, '') + '/v1/settings/workspace', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
+            proxySaas(`/v1/tenants/${tenant.tenant_id}/members`, { token }).then((item) => item.json()),
+            proxySaas('/v1/channels', { token }).then((item) => item.json()),
+            proxySaas(`/v1/tenants/${tenant.tenant_id}/approvals?status=all`, { token }).then((item) => (item.ok ? item.json() : { items: [] })),
+            proxySaas('/v1/settings/notify', { token }).then((item) => item.json()),
+            proxySaas('/v1/settings/workspace', { token }).then((item) => item.json()),
           ])
           const notify = notifySettings.notify ?? {}
           const workspaceDefaults = workspaceSettings.settings ?? {}
@@ -5896,7 +5887,7 @@ window.__ModuleLoader__.load({
         } catch (error) {
           setSaas((current) => ({ ...current, busy: '', error: error instanceof Error ? error.message : String(error) }))
         }
-      }, [saas.base, saas.email, saas.password])
+      }, [saas.email, saas.password])
 
       /**
        * Reload the roster the SaaS API reports for the signed-in member.
@@ -5904,12 +5895,10 @@ window.__ModuleLoader__.load({
        */
       const saasRefresh = React.useCallback(async () => {
         if (saas.token === '' || saas.tenantId === '') return
-        const base = saas.base.replace(/\/$/, '')
-        const headers = { authorization: `Bearer ${saas.token}`, accept: 'application/json' }
         const [members, channels, approvals] = await Promise.all([
-          fetch(`${base}/v1/tenants/${saas.tenantId}/members`, { headers }).then((item) => item.json()),
-          fetch(`${base}/v1/channels`, { headers }).then((item) => item.json()),
-          fetch(`${base}/v1/tenants/${saas.tenantId}/approvals?status=all`, { headers }).then((item) => (item.ok ? item.json() : { items: [] })),
+          proxySaas(`/v1/tenants/${saas.tenantId}/members`, { token: saas.token }).then((item) => item.json()),
+          proxySaas('/v1/channels', { token: saas.token }).then((item) => item.json()),
+          proxySaas(`/v1/tenants/${saas.tenantId}/approvals?status=all`, { token: saas.token }).then((item) => (item.ok ? item.json() : { items: [] })),
         ])
         setSaas((current) => ({
           ...current,
@@ -5918,7 +5907,7 @@ window.__ModuleLoader__.load({
           approvals: (approvals.items ?? []).filter((item) => item.status === 'pending').length,
           pending: (approvals.items ?? []).filter((item) => item.status === 'pending'),
         }))
-      }, [saas.base, saas.token, saas.tenantId])
+      }, [saas.token, saas.tenantId])
 
       /**
        * Change one member's visibility, asking for the email before a tenant-wide grant.
@@ -5935,11 +5924,7 @@ window.__ModuleLoader__.load({
           body.confirmEmail = typed.trim()
         }
         try {
-          const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + saas.tenantId + '/members/' + member.user_id, {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
-            body: JSON.stringify(body),
-          })
+          const response = await proxySaas(`/v1/tenants/${saas.tenantId}/members/${member.user_id}`, { method: 'PATCH', body, token: saas.token })
           const payload = await response.json().catch(() => null)
           if (response.status === 202) {
             setSaas((current) => ({ ...current, error: '', approvals: current.approvals + 1 }))
@@ -5950,7 +5935,7 @@ window.__ModuleLoader__.load({
         } catch (error) {
           setSaas((current) => ({ ...current, error: error instanceof Error ? error.message : String(error) }))
         }
-      }, [saas.base, saas.token, saas.tenantId, saasRefresh])
+      }, [saas.token, saas.tenantId, saasRefresh])
 
       /**
        * Approve or reject a pending request as the owner.
@@ -5961,11 +5946,7 @@ window.__ModuleLoader__.load({
       const saasDecide = React.useCallback(async (id, decision) => {
         if (saas.token === '') return
         try {
-          const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + saas.tenantId + '/approvals/' + id, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
-            body: JSON.stringify({ decision }),
-          })
+          const response = await proxySaas(`/v1/tenants/${saas.tenantId}/approvals/${id}`, { method: 'POST', body: { decision }, token: saas.token })
           if (!response.ok) {
             const payload = await response.json().catch(() => null)
             throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
@@ -5974,7 +5955,7 @@ window.__ModuleLoader__.load({
         } catch (error) {
           setSaas((current) => ({ ...current, error: error instanceof Error ? error.message : String(error) }))
         }
-      }, [saas.base, saas.token, saas.tenantId, saasRefresh])
+      }, [saas.token, saas.tenantId, saasRefresh])
 
       const load = React.useCallback(async () => {
         try {
@@ -6107,16 +6088,16 @@ window.__ModuleLoader__.load({
       const saveNotify = async () => {
         if (saas.token !== '') {
           try {
-            const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/settings/notify', {
+            const response = await proxySaas('/v1/settings/notify', {
               method: 'PUT',
-              headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
-              body: JSON.stringify({
+              token: saas.token,
+              body: {
                 enabled: form.notifyEnabled,
                 wecomWebhook: form.webhook,
                 quietStart: form.quietStart,
                 quietEnd: form.quietEnd,
                 linkTemplate: form.linkTemplate,
-              }),
+              },
             })
             const payload = await response.json().catch(() => null)
             if (!response.ok) throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
@@ -6140,16 +6121,16 @@ window.__ModuleLoader__.load({
       const saveReception = async () => {
         if (saas.token !== '') {
           try {
-            const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/settings/workspace', {
+            const response = await proxySaas('/v1/settings/workspace', {
               method: 'PATCH',
-              headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
-              body: JSON.stringify({
+              token: saas.token,
+              body: {
                 defaultSlaMinutes: Number(form.sla) || 30,
                 autoAssign: form.autoAssign,
                 autoTranslate: form.autoTranslate,
                 translationTarget: form.translationTarget,
                 aiSuggestions: form.aiSuggestions,
-              }),
+              },
             })
             const payload = await response.json().catch(() => null)
             if (!response.ok) throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
@@ -6313,10 +6294,6 @@ window.__ModuleLoader__.load({
           ),
           saas.token === ''
             ? h('div', { className: 'imCfgGrid' },
-              h('label', { className: 'imCfgField' },
-                h('span', { className: 'imCfgLabel' }, 'SaaS 服务地址'),
-                h('input', { className: 'imCfgInput', value: saas.base, onChange: (event) => setSaas({ ...saas, base: event.target.value }) }),
-              ),
               h('label', { className: 'imCfgField' },
                 h('span', { className: 'imCfgLabel' }, '账号邮箱'),
                 h('input', { className: 'imCfgInput', value: saas.email, placeholder: 'you@team.com', onChange: (event) => setSaas({ ...saas, email: event.target.value }) }),
