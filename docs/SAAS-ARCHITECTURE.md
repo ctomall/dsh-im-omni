@@ -620,3 +620,14 @@ $ cd server && node --test test/isolation.test.mjs
 失败再回落到插件 Host 的 `/api/im-omni.saas` 代理（`lib/saas-proxy.mjs`，仅允许 `/v1/` 与标准方法）。
 
 验证：`curl http://127.0.0.1:52101/im-omni-api/healthz` → 401（nginx Basic Auth，说明已路由到后端而非 404）。
+
+### 为什么 /im-omni-api/ 要关掉 Basic Auth
+
+nginx 的 server 块整体开了 Basic Auth（DSH 登录）。如果代理路径继承它，面板里每个 fetch 都会收到
+`401 + WWW-Authenticate`，浏览器于是反复弹"登录 dsh"。
+
+- `/im-omni-api/`：`auth_basic off`——团队 API 自己用 JWT 鉴权，页面里那次登录就是团队账号；
+- `/im-omni-api/metrics`、`/im-omni-api/healthz`：直接 `return 404`，内部指标不对外；
+- 其余路径仍受 DSH Basic Auth 保护。
+
+验证（经 nginx）：`POST /im-omni-api/v1/auth/login` → 200 JSON；`healthz`/`metrics` → 404。
