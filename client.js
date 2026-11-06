@@ -28,6 +28,9 @@ window.__ModuleLoader__.load({
     /** Locale used for date formatting when the document has no lang. */
     const LANG = typeof navigator !== 'undefined' ? (navigator.language || 'en') : 'en'
 
+    /** Build marker printed by the bundle; verifies which revision the page loaded. */
+    const BUNDLE_REV = 'im-omni-config-13'
+
     /** Theme-aware, host-consistent styles. Literal colors are limited to avatar artwork. */
     const CSS = String.raw`
 /* --- Plugin detail page: configuration section --------------------------- */
@@ -67,6 +70,7 @@ window.__ModuleLoader__.load({
 .imCfgHistoryText{color:var(--dsw-alias-label-secondary)}
 .imCfgHistoryNote{color:var(--dsw-alias-label-tertiary);font-size:11px;margin-left:auto;padding-right:12px}
 .imCfgHistoryTime{color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.imCfgError{font-size:11.5px;color:var(--dsw-alias-state-error-primary);white-space:pre-wrap;margin:8px 0 0}
 .imCfgCopy{height:24px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer}
 .imCfgCopy:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .imCfgFailure{border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--dsw-alias-bg-layer-1)}
@@ -6058,18 +6062,47 @@ window.__ModuleLoader__.load({
        */
       function PluginConfigView(props) {
         if (props?.view !== undefined && props.view !== 'page') return null
-        return h(PluginConfigSection, null)
+        return h(ConfigBoundary, null, h(PluginConfigSection, null))
+      }
+
+      /**
+       * Keep one failing section from blanking the plugin page: a render error
+       * shows here instead of unmounting the subtree silently.
+       */
+      class ConfigBoundary extends React.Component {
+        constructor(props) {
+          super(props)
+          this.state = { message: '' }
+        }
+
+        static getDerivedStateFromError(error) {
+          return { message: error instanceof Error ? error.message : String(error) }
+        }
+
+        render() {
+          if (this.state.message !== '') {
+            return h('div', { className: 'imCfg', 'data-im-omni-config': 'error' },
+              h('p', { className: 'imCfgSub' }, '插件配置渲染失败'),
+              h('pre', { className: 'imCfgError' }, this.state.message),
+            )
+          }
+          return h('div', { className: 'imCfgHost', 'data-im-omni-config': 'mounted' }, this.props.children)
+        }
       }
       ctx.slots.inject('plugins.bundle.config', () => {
         try {
-          return ctx.slots.register({
+          const dispose = ctx.slots.register({
             name: 'plugins.bundle.config',
             key: 'dsh-im-omni',
             locale: NS,
           }, PluginConfigView)
+          if (typeof globalThis !== 'undefined') globalThis.__imOmniConfig = { registered: true, rev: BUNDLE_REV }
+          return dispose
         } catch (error) {
           // A rejected contribution must not take the sidebar panel down with it.
-          if (typeof console !== 'undefined') console.warn('[im-omni] bundle config not registered:', error)
+          const message = error instanceof Error ? error.message : String(error)
+          if (typeof globalThis !== 'undefined') globalThis.__imOmniConfig = { registered: false, error: message }
+          if (typeof console !== 'undefined') console.warn('[im-omni] bundle config not registered:', message)
           return () => {}
         }
       })
