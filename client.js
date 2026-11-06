@@ -2442,8 +2442,13 @@ window.__ModuleLoader__.load({
      * @param {Record<string, any>} props - active tab, counts, and callback.
      * @returns {import('react').ReactElement} tabs.
      */
-    function TabBar({ tab, onTab, t, unread, role, name, onSignOut }) {
-      const canManage = role === 'owner' || role === 'admin'
+    /**
+     * Tabs a role may open. Pure so the rule can be tested without React.
+     * @param {string} role - owner/admin/agent/viewer.
+     * @param {number} unread - unread badge count.
+     * @returns {Array<[string, string, number]>} [id, icon, badge].
+     */
+    function tabItems(role, unread = 0) {
       const all = [
         ['inbox', 'inbox', unread],
         ['contacts', 'users', 0],
@@ -2454,6 +2459,12 @@ window.__ModuleLoader__.load({
         ['analytics', 'chart', 0],
         ['settings', 'settings', 0],
       ]
+      if (role === 'owner' || role === 'admin') return all
+      return all.filter(([id]) => id !== 'channels' && id !== 'automation' && id !== 'broadcasts')
+    }
+
+    function TabBar({ tab, onTab, t, unread, role, name, onSignOut }) {
+      const items = tabItems(role, unread)
       return h('nav', { className: 'imoTabs', 'aria-label': t('panel.label') },
         items.map(([id, icon, badge]) => h('button', {
           key: id,
@@ -6803,6 +6814,6 @@ window.__ModuleLoader__.load({
       })
     }
 
-    return { name: 'im-omni', inject, apply }
+    return { name: 'im-omni', inject, apply, tabItems, membershipLabel }
   },
 })
