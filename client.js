@@ -105,9 +105,9 @@ window.__ModuleLoader__.load({
 .imoAvatarSm{width:25px;height:25px;border-radius:8px;font-size:10px}
 .imoConvMain{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
 .imoConvTop{display:flex;align-items:center;gap:6px;min-width:0}
-.imoConvName{font-size:12.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.imoConvName{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .imoConvTime{font-size:10px;color:var(--dsw-alias-label-secondary);white-space:nowrap;flex:none}
-.imoConvPreview{font-size:11.5px;color:var(--dsw-alias-label-secondary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imoConvPreview{font-size:12px;color:var(--dsw-alias-label-secondary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .imoConvMeta{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden}
 .imoUnread{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);font-size:10px;font-weight:650;flex:none}
 .imoDot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--dsw-alias-state-idle-primary)}
@@ -125,14 +125,16 @@ window.__ModuleLoader__.load({
 .imoEmptyTitle{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
 .imoEmptyBody{font-size:12px;max-width:320px}
 .imoThread{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--dsw-alias-bg-base)}
-.imoThreadHead{display:flex;align-items:flex-start;gap:8px 12px;padding:12px 20px;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;flex-wrap:wrap;z-index:2}
-.imoThreadIdentity{display:flex;align-items:center;gap:9px;min-width:0;flex:1 1 100%}
+.imoThreadHead{display:flex;align-items:center;gap:8px 12px;padding:12px 20px;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;flex-wrap:nowrap;z-index:2}
+.imoThreadIdentity{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}
 .imoThreadTitle{font-size:14px;font-weight:600;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .imoThreadMeta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dsw-alias-label-secondary);min-width:0;overflow:hidden;white-space:nowrap}
-.imoThreadActions{display:flex;align-items:center;gap:8px;flex:1 1 100%;justify-content:flex-end;overflow-x:auto}
-.imoThreadActions .imoSelect{height:28px;font-size:11.5px;max-width:132px}
+.imoThreadActions{display:flex;align-items:center;gap:6px;flex:0 0 auto;justify-content:flex-end;overflow:visible}
+.imoThreadActions .imoSelect{height:28px;font-size:12px;max-width:140px;border-color:transparent;background:transparent;color:var(--dsw-alias-label-secondary);padding:0 6px}
+.imoThreadActions .imoSelect:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
+.imoThreadActions .imoSelect:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
 .imoThreadBody{flex:1;min-height:0;overflow:auto;padding:24px 24px 16px;background:var(--dsw-alias-bg-base)}
-.imoDay{display:flex;align-items:center;gap:10px;margin:4px 0 12px;color:var(--dsw-alias-label-secondary);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.imoDay{display:flex;align-items:center;gap:10px;margin:4px 0 12px;color:var(--dsw-alias-label-tertiary);font-size:11px;letter-spacing:0}
 .imoDay:before,.imoDay:after{content:"";height:.5px;background:var(--dsw-alias-border-l1);flex:1}
 .imoMsgRow{display:flex;gap:8px;margin-bottom:11px;align-items:flex-end}
 .imoMsgRow.out{flex-direction:row-reverse}
@@ -162,13 +164,13 @@ window.__ModuleLoader__.load({
 .imoComposerBox .imoTextarea:focus,.imoComposerBox .imoTextarea:focus-visible{outline:none !important;box-shadow:none !important;border:none}
 .imoComposerFoot{display:flex;align-items:center;gap:7px;margin-top:6px;flex-wrap:wrap}
 .imoComposerHint{font-size:10px;color:var(--dsw-alias-label-secondary);margin-left:auto;white-space:nowrap}
-.imoContext{min-width:0;min-height:0;overflow:auto;border-left:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);padding:13px;animation:imoSlideIn .16s ease-out}
-.imoContextSection{padding:11px 0;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.imoContext{min-width:0;min-height:0;overflow:auto;border-left:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);padding:16px}
+.imoContextSection{padding:14px 0;border-bottom:.5px solid var(--dsw-alias-border-l1)}
 .imoContextHead{display:flex;align-items:center;gap:6px;padding:0 0 8px;border-bottom:.5px solid var(--dsw-alias-border-l1);margin-bottom:2px}
-.imoContextTitleHead{font-size:11px;font-weight:650;flex:1;min-width:0}
+.imoContextTitleHead{font-size:12px;font-weight:600;flex:1;min-width:0}
 .imoContextSection:first-child{padding-top:2px}
 .imoContextSection:last-child{border-bottom:none;padding-bottom:2px}
-.imoContextTitle{font-size:10px;font-weight:650;text-transform:uppercase;letter-spacing:.07em;color:var(--dsw-alias-label-secondary);margin-bottom:8px}
+.imoContextTitle{font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--dsw-alias-label-secondary);margin-bottom:8px}
 .imoContactHero{display:flex;align-items:center;gap:9px;margin-bottom:9px}
 .imoContactName{font-size:13px;font-weight:650;line-height:17px}
 .imoContactSub{font-size:10.5px;color:var(--dsw-alias-label-secondary);line-height:15px}
@@ -2932,7 +2934,7 @@ window.__ModuleLoader__.load({
               disabled: suggesting,
               title: t('ai.suggest'),
               style: { marginLeft: 'auto' },
-            }, suggesting ? h('span', { className: 'imoSpinner' }) : h(Icon, { name: 'sparkles', size: 12 }), t('ai.suggest'))
+            }, suggesting ? h('span', { className: 'imoSpinner' }) : null, t('ai.suggest'))
             : null,
         ),
         suggestions.length > 0

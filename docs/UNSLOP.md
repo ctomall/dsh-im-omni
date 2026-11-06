@@ -46,3 +46,17 @@ Credit: unslop by Damir Sokolovsky (@heydamir), CC BY 4.0.
 
 - 会话页头部仍有一排状态胶囊（语义色）+ "AI 建议" 的 sparkles 图标，可再做一轮减法。
 - 渠道卡片的 `ChannelBadge` 依赖平台 hue（品牌识别），属品牌资产，未动。
+
+## 第二轮：会话页
+
+| 位置 | 改前 | 改后 |
+| --- | --- | --- |
+| `imoThreadHead` | 身份一行 + 五枚控件挤在第二行，换行堆叠 | 单行：身份左、控件右（≤900px 才换行） |
+| 头部下拉 | 实心描边 select，视觉重量等同按钮 | 透明 ghost select，hover 才出底色，主操作仍是唯一的绿按钮 |
+| "AI 建议" | sparkles 图标 | 纯文字，去掉闪光符号 |
+| `imoDay` | 10px 大写 + 字距 | 11px 常规、`label-tertiary` |
+| `imoContextTitle` | 10px 大写 + `.07em` 字距 | 11px / 500、大小写不转换 |
+| 右栏 | padding 13、分区 11px | padding 16、分区 14px |
+| 会话行 | 名称 12.5/600、预览 11.5 | 13/600、12 |
+
+截图：`docs/unslop-chat-before.png` / `docs/unslop-chat-after.png`（预览由 `tools/unslop-preview.mjs <variant> out chat` 生成，before 用 `IMO_CSS` 指向旧版 CSS）。
