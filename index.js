@@ -342,7 +342,17 @@ export async function apply(ctx) {
         const action = text(body?.action, 20)
         try {
           if (action === 'check') return json({ ok: true, result: { status: await checkUpgrade() } })
-          if (action === 'pull') return json({ ok: true, result: await applyUpgrade() })
+          if (action === 'pull') {
+            const result = await applyUpgrade()
+            if (result.changed === true) {
+              store.event('plugin.upgraded', `插件更新 ${result.before?.short ?? '?'} → ${result.after?.short ?? '?'}`, {
+                actorId: store.state.workspace.currentAgentId ?? null,
+              })
+              store.state.meta = { ...store.state.meta, revision: (Number(store.state.meta?.revision) || 0) + 1 }
+              await store.commit({ bumpRevision: false })
+            }
+            return json({ ok: true, result })
+          }
           return json({ ok: false, error: { code: 'unknown-action', message: 'Action must be "check" or "pull".' } }, 400)
         } catch (error) {
           if (error instanceof UpgradeError) {

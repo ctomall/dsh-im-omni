@@ -62,6 +62,10 @@ window.__ModuleLoader__.load({
 .imCfgMark.yes{color:var(--dsw-alias-label-primary)}
 .imCfgMark.no{color:var(--dsw-alias-label-tertiary)}
 .imCfgSelect{height:30px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;padding:0 8px}
+.imCfgHistory{display:flex;flex-direction:column;gap:6px;padding-top:4px}
+.imCfgHistoryRow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:12px}
+.imCfgHistoryText{color:var(--dsw-alias-label-secondary)}
+.imCfgHistoryTime{color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .imCfgCopy{height:24px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer}
 .imCfgCopy:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .imCfgFailure{border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--dsw-alias-bg-layer-1)}
@@ -4890,6 +4894,7 @@ window.__ModuleLoader__.load({
       const [hints, setHints] = React.useState([])
       const [failure, setFailure] = React.useState(null)
       const [copied, setCopied] = React.useState('')
+      const [copyFallback, setCopyFallback] = React.useState(false)
 
       const workspaceSignature = JSON.stringify([
         workspace.name,
@@ -5624,6 +5629,7 @@ window.__ModuleLoader__.load({
           setTimeout(() => setCopied(''), 1500)
         } catch {
           setCopied('')
+          setCopyFallback(true)
         }
       }, [])
 
@@ -5785,9 +5791,23 @@ window.__ModuleLoader__.load({
                 : null,
             )
             : null,
+          (() => {
+            const history = (Array.isArray(state.events) ? state.events : []).filter((event) => event.type === 'plugin.upgraded').slice(-3).reverse()
+            if (history.length === 0) return null
+            return h('div', { className: 'imCfgHistory' },
+              h('p', { className: 'imCfgGroupTitle' }, '升级历史'),
+              history.map((event) => h('div', { key: event.id, className: 'imCfgHistoryRow' },
+                h('span', { className: 'imCfgHistoryText' }, event.text),
+                h('span', { className: 'imCfgHistoryTime' }, new Date(event.createdAt).toLocaleString()),
+              )),
+            )
+          })(),
           hints.length > 0
             ? h('div', { className: 'imCfgHints' },
               h('p', { className: 'imCfgGroupTitle' }, '让新代码生效'),
+              copyFallback
+                ? h('p', { className: 'imCfgNote' }, '当前页面不是安全上下文，浏览器不允许自动复制——请手动选中命令。')
+                : null,
               hints.map((hint) => h('div', { key: hint.label, className: 'imCfgHintRow' },
                 h('span', { className: 'imCfgHintLabel' }, hint.label),
                 hint.command === undefined

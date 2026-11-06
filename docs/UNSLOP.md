@@ -186,3 +186,11 @@ Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pul
   - 已拉到一半 → `git reset --hard <升级前 sha>`（文案明确"会丢弃本地未提交改动"）
 - 只在失败时出现；成功时回到重启指引，两块互斥。
 截图：`docs/unslop-detail-recovery.png`。
+
+### 升级历史与复制降级（第十轮）
+
+- 升级成功后宿主写一条 `plugin.upgraded` 事件（`before → after`，actor=当前坐席），详情页展示最近 3 条
+  （`升级历史`，等宽时间、右对齐）。
+- 复制降级：`navigator.clipboard` 在非安全上下文会抛错，此时提示"浏览器不允许自动复制，请手动选中命令"，
+  命令本身保持可选中。
+截图：`docs/unslop-detail-history.png`。

@@ -301,6 +301,11 @@ const detailCfg = `
         <button class="imoBtn imoBtnSm imoBtnPrimary">确认升级</button>
       </div>
     </div>
+    <div class="imCfgHistory">
+      <p class="imCfgGroupTitle">升级历史</p>
+      <div class="imCfgHistoryRow"><span class="imCfgHistoryText">插件更新 7cc96fb → 9915ec6</span><span class="imCfgHistoryTime">2026/11/6 04:09</span></div>
+      <div class="imCfgHistoryRow"><span class="imCfgHistoryText">插件更新 b619555 → 7cc96fb</span><span class="imCfgHistoryTime">2026/11/6 03:51</span></div>
+    </div>
     <div class="imCfgFailure">
       <p class="imCfgGroupTitle">这次没升成，怎么处理</p>
       <div class="imCfgHintRow"><span class="imCfgHintLabel">先收起本地改动，再升级</span><code class="imCfgHintCommand">git stash push -u -m "im-omni: before upgrade"</code><button class="imCfgCopy">复制</button></div>
