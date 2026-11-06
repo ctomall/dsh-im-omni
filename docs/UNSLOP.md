@@ -203,3 +203,12 @@ Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pul
 - 详情页优先读 `workspace.upgrades`（不再受事件流 2000 条裁剪影响），展示 `from → to`、变更文件数、时间；
   旧工作区回退读事件流。
 - 新增 `test/audit.test.js` 3 条：正常记录、未变更不记录、超过 20 条裁剪。
+
+### 位置修正（第十二轮）
+
+- 原先注册到 `plugins.detail.section`，插件管理器把该槽渲染在页面**最末**（README → 行 → 版本 → 来源 之后），
+  等于把配置塞到页脚。
+- 改注册到 `plugins.bundle.config`（`kind: keyed`，key = 包名 `dsh-im-omni`）：页面顺序变为
+  **README → 插件配置 → 行 → 版本 → 来源**；注册后 `configured` 为真，该 section 才会出现。
+- 宿主侧验证：`/plugins/events` 的 rebuilt 帧 rev 变化后，取回的 bundle 含 `plugins.bundle.config`、
+  `PluginConfigView`，且不再含 `plugins.detail.section`。

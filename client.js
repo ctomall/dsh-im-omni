@@ -6051,27 +6051,25 @@ window.__ModuleLoader__.load({
         locale: NS,
       }, App))
       /**
-       * Section contributed to this plugin's page inside the plugin manager.
-       * A contribution renders through the component argument; the subject is
-       * the open page, so anything that is not this package renders null.
-       * @param {{subject?: {pkg?: {name?: string}}}} props - owner props.
-       * @returns {import('react').ReactNode} the section or null.
+       * The form this bundle registers for its own page in the plugin manager.
+       * It sits right after the README, above rows, versions and source.
+       * @param {{view?: 'summary'|'page'}} props - the view the page asks for.
+       * @returns {import('react').ReactNode} the section, or null for a summary.
        */
-      function PluginConfigContribution(props) {
-        const pkg = props?.subject?.pkg
-        if (pkg === undefined || pkg.name !== 'dsh-im-omni') return null
+      function PluginConfigView(props) {
+        if (props?.view !== undefined && props.view !== 'page') return null
         return h(PluginConfigSection, null)
       }
-      ctx.slots.inject('plugins.detail.section', () => {
+      ctx.slots.inject('plugins.bundle.config', () => {
         try {
           return ctx.slots.register({
-            name: 'plugins.detail.section',
-            id: 'im-omni.config',
+            name: 'plugins.bundle.config',
+            key: 'dsh-im-omni',
             locale: NS,
-          }, PluginConfigContribution)
+          }, PluginConfigView)
         } catch (error) {
           // A rejected contribution must not take the sidebar panel down with it.
-          if (typeof console !== 'undefined') console.warn('[im-omni] detail section not registered:', error)
+          if (typeof console !== 'undefined') console.warn('[im-omni] bundle config not registered:', error)
           return () => {}
         }
       })

@@ -405,6 +405,14 @@ ${css}
     <p>通知走企业微信群机器人，需要群主提供 <code>webhook</code> 地址。安静时段内不发卡片，消息仍会入库。</p>
   </div>
   ${variant === 'after' ? detailCfg : ''}
+  <div class="doc" style="margin-top:32px">
+    <h2>这个插件的行</h2>
+    <p><code>im-omni</code> · 已启用</p>
+    <h2 style="margin-top:20px">版本</h2>
+    <p>v2.9.0 · 已是最新</p>
+    <h2 style="margin-top:20px">来源</h2>
+    <p>本地链接安装 · <code>/home/pro/dsh/dsh-im-omni</code></p>
+  </div>
 </div></div></div></body></html>`
 
 if (view === 'detail') {
