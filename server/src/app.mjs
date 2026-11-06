@@ -1127,10 +1127,12 @@ route('GET', '/v1/contacts', async (request, response) => {
 route('GET', '/v1/channels', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const url = new URL(request.url ?? '/', 'http://localhost')
+  const query = (url.searchParams.get('q') ?? '').trim().slice(0, 120)
   const items = await asMember(claims, async (client) => {
-    const result = await client.query(
-      'SELECT id, name, type, status, health, created_at, owner_user_id FROM channels ORDER BY name',
-    )
+    const result = query === ''
+      ? await client.query('SELECT id, name, type, status, health, created_at, owner_user_id FROM channels ORDER BY name')
+      : await client.query('SELECT id, name, type, status, health, created_at, owner_user_id FROM channels WHERE name ILIKE $1 ORDER BY name', [`%${query}%`])
     return result.rows
   })
   send(response, 200, { items })
@@ -1352,15 +1354,38 @@ route('POST', '/v1/webhooks/([0-9a-f-]{36})', async (request, response, params) 
 route('GET', '/v1/conversations', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const url = new URL(request.url ?? '/', 'http://localhost')
+  const query = (url.searchParams.get('q') ?? '').trim().slice(0, 120)
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? 50) || 50, 100)
   const rows = await asMember(claims, async (client) => {
-    const result = await client.query(
-      `SELECT id, channel_id, contact_id, subject, status, priority, unread, tags,
-              bot_paused, muted, last_inbound_at, updated_at, owner_user_id
-         FROM conversations ORDER BY updated_at DESC LIMIT 50`,
-    )
+    // Search runs inside the member's row policies, so it can only match rows
+    // they may already see; there is no separate scope filter to forget.
+    const result = query === ''
+      ? await client.query(
+        `SELECT v.id, v.channel_id, v.contact_id, v.subject, v.status, v.priority, v.unread, v.tags,
+                v.bot_paused, v.muted, v.last_inbound_at, v.updated_at, v.owner_user_id,
+                c.name AS contact_name, ch.name AS channel_name
+           FROM conversations v
+           LEFT JOIN contacts c ON c.id = v.contact_id
+           LEFT JOIN channels ch ON ch.id = v.channel_id
+          ORDER BY v.updated_at DESC LIMIT $1`,
+        [limit],
+      )
+      : await client.query(
+        `SELECT v.id, v.channel_id, v.contact_id, v.subject, v.status, v.priority, v.unread, v.tags,
+                v.bot_paused, v.muted, v.last_inbound_at, v.updated_at, v.owner_user_id,
+                c.name AS contact_name, ch.name AS channel_name
+           FROM conversations v
+           LEFT JOIN contacts c ON c.id = v.contact_id
+           LEFT JOIN channels ch ON ch.id = v.channel_id
+          WHERE v.subject ILIKE $2 OR c.name ILIKE $2 OR ch.name ILIKE $2
+             OR EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = v.id AND m.body ILIKE $2)
+          ORDER BY v.updated_at DESC LIMIT $1`,
+        [limit, `%${query}%`],
+      )
     return result.rows
   })
-  send(response, 200, { items: rows })
+  send(response, 200, { items: rows, query })
 })
 
 /**

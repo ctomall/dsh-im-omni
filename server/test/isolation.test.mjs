@@ -571,3 +571,27 @@ test('approval requests keep the target name snapshot and page by cursor', async
   assert.equal(next.body.items[0].action, 'member.permissions')
   assert.equal(next.body.items[0].payload.targetName.length > 0, true)
 })
+
+test('search only matches rows inside the member scope', async () => {
+  const fixture = await buildTenant()
+  const contactB = await admin.query("UPDATE contacts SET name = '独家客户B' WHERE id = (SELECT contact_id FROM conversations WHERE id = $1) RETURNING id", [fixture.convB])
+  assert.equal(contactB.rowCount, 1)
+  await admin.query("UPDATE conversations SET subject = '蓝海订单查询' WHERE id = $1", [fixture.convB])
+
+  // The owner finds it by contact name and by subject.
+  const byContact = await request('GET', '/v1/conversations?q=' + encodeURIComponent('独家客户B'), fixture.ownerToken)
+  assert.deepEqual(byContact.body.items.map((item) => item.id), [fixture.convB])
+  const bySubject = await request('GET', '/v1/conversations?q=' + encodeURIComponent('蓝海订单'), fixture.ownerToken)
+  assert.deepEqual(bySubject.body.items.map((item) => item.id), [fixture.convB])
+
+  // Another member's search returns nothing for that row, and no 403 leak.
+  const memberLookup = await request('GET', '/v1/conversations?q=' + encodeURIComponent('独家客户B'), fixture.tokenA)
+  assert.equal(memberLookup.status, 200)
+  assert.deepEqual(memberLookup.body.items, [])
+
+  // Channel search follows the same policy.
+  const channels = await request('GET', '/v1/channels?q=' + encodeURIComponent('B 的号码'), fixture.tokenA)
+  assert.deepEqual(channels.body.items, [])
+  const own = await request('GET', '/v1/channels?q=' + encodeURIComponent('A 的号码'), fixture.tokenA)
+  assert.equal(own.body.items.length, 1)
+})

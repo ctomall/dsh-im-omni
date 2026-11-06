@@ -20,8 +20,8 @@
 | 租户 / 成员 | `POST /v1/tenants`、`GET /v1/tenants/{id}/members`、`PATCH /v1/tenants/{id}/members/{userId}`、`DELETE /v1/tenants/{id}/members/{userId}`、`GET /v1/tenants/{id}/audit`、`GET /v1/tenants/{id}/audit.csv`、`GET /v1/tenants/{id}/approvals`、`POST /v1/tenants/{id}/approvals/{approvalId}` | ✅ 已实现（PATCH 分配可见范围/角色并写审计；`dataScope=all` 或改 `role` 必须带 `confirmEmail`；DELETE 移除成员（需 `confirmEmail`）；audit 支持 before 游标） |
 | 邀请 | `POST /v1/tenants/{id}/invites`、`POST /v1/invites/accept` | ✅ 已实现 |
 | 设备 | `POST /v1/devices/{code,link,register}`、`GET /v1/devices`、`DELETE /v1/devices/{id}` | ✅ 已实现 |
-| 会话列表 | `GET /v1/conversations` | ✅ 已实现（无分页，限 50 条） |
-| 联系人 / 渠道 | `GET /v1/contacts`、`GET /v1/channels`、`GET /v1/channels/{id}`、`DELETE /v1/channels/{id}` | ✅ 已实现（按成员权限范围隔离） |
+| 会话列表 | `GET /v1/conversations?q=` | ✅ 已实现（无分页，限 50 条） |
+| 联系人 / 渠道 | `GET /v1/contacts`、`GET /v1/channels?q=`、`GET /v1/channels/{id}`、`DELETE /v1/channels/{id}` | ✅ 已实现（按成员权限范围隔离） |
 | 会话消息 / 已读 / 属性 | `GET /v1/conversations/{id}/messages`、`POST /v1/conversations/{id}/read`、`PATCH /v1/conversations/{id}` | ✅ 已实现 |
 | 发消息 | `POST /v1/messages` | ✅ 已实现（幂等 + 配额 + 计量） |
 | 计费 | `GET /v1/billing/{plan,usage,invoices}`、`POST /v1/billing/invoices`、`POST /v1/billing/invoices/{id}/status` | ✅ 已实现 |

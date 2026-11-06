@@ -296,13 +296,21 @@ const detailCfg = `
       <div class="imCfgRowMain"><span class="imCfgRowTitle">2 名成员 · 5 个号码可见</span><span class="imCfgRowNote">没有待审批</span></div>
       <button class="imoBtn imoBtnSm">退出</button>
     </div>
-    <table class="imCfgMatrix"><thead><tr><th>成员</th><th>角色</th><th>可见范围</th></tr></thead><tbody>
-      <tr><td>演示客服</td><td>所有者</td><td class="imCfgMark">整个团队</td></tr>
-      <tr><td>林小满</td><td>客服</td><td class="imCfgMark">1 个号码</td></tr>
-      <tr><td>周管理</td><td>管理员</td><td class="imCfgMark">整个团队</td></tr>
-    </tbody></table>
-    <p class="imCfgNote">这里只读展示；分配权限与审批在团队权限页操作。</p>
-  </section>
+    <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">演示客服</span><span class="imCfgRowNote">整个团队</span></div><span class="imCfgStatus">所有者</span></div>
+    <div class="imCfgRow">
+      <div class="imCfgRowMain"><span class="imCfgRowTitle">林小满</span><span class="imCfgRowNote">1 个号码</span>
+        <div class="imCfgChips"><label class="imCfgChip on"><input type="checkbox" checked>售后 WhatsApp</label><label class="imCfgChip"><input type="checkbox">社群 Telegram</label></div>
+      </div>
+      <select class="imCfgSelect"><option>仅自己</option><option>整个团队</option></select>
+    </div>
+    <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">周管理</span><span class="imCfgRowNote">整个团队</span></div><span class="imCfgStatus">管理员</span></div>
+    <p class="imCfgNote">授权立即生效；把成员放开到「整个团队」会在下方生成待审批。</p>
+    <div class="imCfgPending">
+      <p class="imCfgGroupTitle">待审批 1</p>
+      <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">周管理 申请修改 林小满</span><span class="imCfgRowNote">放开到整个团队</span></div>
+        <div class="imCfgActions"><button class="imoBtn imoBtnSm imoBtnPrimary">批准</button><button class="imoBtn imoBtnSm">拒绝</button></div></div>
+    </div>
+
 
   <section class="imCfgGroup">
     <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">在线升级</h3><span class="imCfgGroupNote">分支 main</span></div>

@@ -82,6 +82,11 @@ window.__ModuleLoader__.load({
 .imCfgConfirmTitle{font-size:12.5px;margin:0;line-height:1.5}
 .imCfgDirty{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .imCfgDirtyFile{font-size:11px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);padding:1px 6px;border-radius:4px}
+.imCfgChips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.imCfgChip{display:inline-flex;align-items:center;gap:6px;border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--dsw-alias-label-secondary);cursor:pointer}
+.imCfgChip.on{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2)}
+.imCfgChip input{accent-color:var(--dsw-alias-brand-primary);margin:0}
+.imCfgPending{border-top:.5px solid var(--dsw-alias-border-l1);margin-top:12px;padding-top:12px}
 .imCfgCommits{display:flex;flex-direction:column;gap:6px;padding:4px 0 0}
 .imCfgCommit{display:flex;align-items:baseline;gap:10px;font-size:12px;min-width:0}
 .imCfgCommit code{font-size:11px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);padding:1px 5px;border-radius:4px;flex:none}
@@ -5578,6 +5583,7 @@ window.__ModuleLoader__.load({
         members: [],
         channels: [],
         approvals: 0,
+        pending: [],
         busy: '',
         error: '',
       })
@@ -5639,11 +5645,90 @@ window.__ModuleLoader__.load({
             members: members.items ?? [],
             channels: channels.items ?? [],
             approvals: (approvals.items ?? []).filter((item) => item.status === 'pending').length,
+            pending: (approvals.items ?? []).filter((item) => item.status === 'pending'),
           }))
         } catch (error) {
           setSaas((current) => ({ ...current, busy: '', error: error instanceof Error ? error.message : String(error) }))
         }
       }, [saas.base, saas.email, saas.password])
+
+      /**
+       * Reload the roster the SaaS API reports for the signed-in member.
+       * @returns {Promise<void>} nothing.
+       */
+      const saasRefresh = React.useCallback(async () => {
+        if (saas.token === '' || saas.tenantId === '') return
+        const base = saas.base.replace(/\/$/, '')
+        const headers = { authorization: `Bearer ${saas.token}`, accept: 'application/json' }
+        const [members, channels, approvals] = await Promise.all([
+          fetch(`${base}/v1/tenants/${saas.tenantId}/members`, { headers }).then((item) => item.json()),
+          fetch(`${base}/v1/channels`, { headers }).then((item) => item.json()),
+          fetch(`${base}/v1/tenants/${saas.tenantId}/approvals?status=all`, { headers }).then((item) => (item.ok ? item.json() : { items: [] })),
+        ])
+        setSaas((current) => ({
+          ...current,
+          members: members.items ?? [],
+          channels: channels.items ?? [],
+          approvals: (approvals.items ?? []).filter((item) => item.status === 'pending').length,
+          pending: (approvals.items ?? []).filter((item) => item.status === 'pending'),
+        }))
+      }, [saas.base, saas.token, saas.tenantId])
+
+      /**
+       * Change one member's visibility, asking for the email before a tenant-wide grant.
+       * @param {Record<string, any>} member - roster row.
+       * @param {{dataScope?: string, channelIds?: string[]}} patch - requested change.
+       * @returns {Promise<void>} nothing.
+       */
+      const saasGrant = React.useCallback(async (member, patch) => {
+        if (saas.token === '') return
+        const body = { ...patch }
+        if (body.dataScope === 'all') {
+          const typed = window.prompt(`把 ${member.name || member.email} 设成整个团队？输入对方邮箱确认：`, '')
+          if (typed === null) return
+          body.confirmEmail = typed.trim()
+        }
+        try {
+          const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + saas.tenantId + '/members/' + member.user_id, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
+            body: JSON.stringify(body),
+          })
+          const payload = await response.json().catch(() => null)
+          if (response.status === 202) {
+            setSaas((current) => ({ ...current, error: '', approvals: current.approvals + 1 }))
+            return
+          }
+          if (!response.ok) throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
+          await saasRefresh()
+        } catch (error) {
+          setSaas((current) => ({ ...current, error: error instanceof Error ? error.message : String(error) }))
+        }
+      }, [saas.base, saas.token, saas.tenantId, saasRefresh])
+
+      /**
+       * Approve or reject a pending request as the owner.
+       * @param {string} id - approval id.
+       * @param {'approve'|'reject'} decision - what to do.
+       * @returns {Promise<void>} nothing.
+       */
+      const saasDecide = React.useCallback(async (id, decision) => {
+        if (saas.token === '') return
+        try {
+          const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + saas.tenantId + '/approvals/' + id, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
+            body: JSON.stringify({ decision }),
+          })
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null)
+            throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
+          }
+          await saasRefresh()
+        } catch (error) {
+          setSaas((current) => ({ ...current, error: error instanceof Error ? error.message : String(error) }))
+        }
+      }, [saas.base, saas.token, saas.tenantId, saasRefresh])
 
       const load = React.useCallback(async () => {
         try {
@@ -5956,26 +6041,75 @@ window.__ModuleLoader__.load({
                 ),
                 h('button', { type: 'button', className: 'imoBtn imoBtnSm', onClick: () => setSaas({ ...saas, token: '', password: '', members: [], channels: [], approvals: 0 }) }, '退出'),
               ),
-              h('table', { className: 'imCfgMatrix' },
-                h('thead', null, h('tr', null, h('th', null, '成员'), h('th', null, '角色'), h('th', null, '可见范围'))),
-                h('tbody', null, saas.members.map((member) => {
-                  const permission = member.permissions ?? {}
-                  const all = permission.dataScope === 'all' || (permission.dataScope === undefined && (member.role === 'owner' || member.role === 'admin'))
-                  const granted = Array.isArray(permission.channelIds) ? permission.channelIds.length : 0
-                  return h('tr', { key: member.user_id },
-                    h('td', null, member.name || member.email),
-                    h('td', null, member.role === 'owner' ? '所有者' : member.role === 'admin' ? '管理员' : member.role === 'viewer' ? '只读' : '客服'),
-                    h('td', { className: 'imCfgMark' }, all ? '整个团队' : granted > 0 ? `${granted} 个号码` : '仅自己'),
-                  )
-                })),
-              ),
+              saas.members.map((member) => {
+                const permission = member.permissions ?? {}
+                const isAdminRole = member.role === 'owner' || member.role === 'admin'
+                const all = permission.dataScope === 'all' || (permission.dataScope === undefined && isAdminRole)
+                const granted = new Set(Array.isArray(permission.channelIds) ? permission.channelIds : [])
+                const canGrant = saas.role === 'owner' || saas.role === 'admin'
+                return h('div', { key: member.user_id, className: 'imCfgRow' },
+                  h('div', { className: 'imCfgRowMain' },
+                    h('span', { className: 'imCfgRowTitle' }, member.name || member.email),
+                    h('span', { className: 'imCfgRowNote' }, all ? '整个团队' : granted.size > 0 ? `${granted.size} 个号码` : '仅自己'),
+                    all || !canGrant
+                      ? null
+                      : h('div', { className: 'imCfgChips' }, saas.channels.map((channel) => {
+                        const on = granted.has(channel.id)
+                        return h('label', { key: channel.id, className: `imCfgChip ${on ? 'on' : ''}`.trim() },
+                          h('input', {
+                            type: 'checkbox',
+                            checked: on,
+                            onChange: () => {
+                              const next = new Set(granted)
+                              if (on) next.delete(channel.id)
+                              else next.add(channel.id)
+                              void saasGrant(member, { channelIds: [...next], dataScope: 'own' })
+                            },
+                          }),
+                          channel.name,
+                        )
+                      })),
+                  ),
+                  canGrant && member.role !== 'owner'
+                    ? h('select', {
+                      className: 'imCfgSelect',
+                      value: all ? 'all' : 'own',
+                      onChange: (event) => {
+                        void saasGrant(member, event.target.value === 'all'
+                          ? { dataScope: 'all', channelIds: [] }
+                          : { dataScope: 'own' })
+                      },
+                    }, h('option', { value: 'own' }, '仅自己'), h('option', { value: 'all' }, '整个团队'))
+                    : h('span', { className: 'imCfgStatus' }, member.role === 'owner' ? '所有者' : isAdminRole ? '管理员' : '客服'),
+                )
+              }),
             ),
           saas.token === ''
             ? h('div', { className: 'imCfgActions' },
               h('button', { type: 'button', className: 'imoBtn imoBtnSm imoBtnPrimary', disabled: saas.busy !== '', onClick: () => { void saasLogin() } }, saas.busy === 'login' ? '登录中…' : '登录'),
               saas.error === '' ? null : h('span', { className: 'imCfgNote' }, saas.error),
             )
-            : h('p', { className: 'imCfgNote' }, '这里只读展示；分配权限与审批在团队权限页操作。'),
+            : h('div', null,
+              h('p', { className: 'imCfgNote' }, '授权立即生效；把成员放开到「整个团队」会在下方生成待审批。'),
+              saas.pending.length === 0
+                ? null
+                : h('div', { className: 'imCfgPending' },
+                  h('p', { className: 'imCfgGroupTitle' }, `待审批 ${saas.pending.length}`),
+                  saas.pending.map((item) => h('div', { key: item.id, className: 'imCfgRow' },
+                    h('div', { className: 'imCfgRowMain' },
+                      h('span', { className: 'imCfgRowTitle' }, `${item.requester_name || item.requester_email} 申请修改 ${item.payload?.targetName ?? item.target_name ?? ''}`),
+                      h('span', { className: 'imCfgRowNote' }, item.action === 'channel.delete' ? `删除渠道 ${item.payload?.channelName ?? ''}` : item.action === 'member.remove' ? '移除成员' : item.payload?.dataScope === 'all' ? '放开到整个团队' : `角色改为 ${item.payload?.role ?? ''}`),
+                    ),
+                    saas.role === 'owner'
+                      ? h('div', { className: 'imCfgActions' },
+                        h('button', { type: 'button', className: 'imoBtn imoBtnSm imoBtnPrimary', onClick: () => { void saasDecide(item.id, 'approve') } }, '批准'),
+                        h('button', { type: 'button', className: 'imoBtn imoBtnSm', onClick: () => { void saasDecide(item.id, 'reject') } }, '拒绝'),
+                      )
+                      : h('span', { className: 'imCfgStatus' }, '等待所有者'),
+                  )),
+                ),
+              saas.error === '' ? null : h('span', { className: 'imCfgNote' }, saas.error),
+            ),
         ),
 
         h('section', { className: 'imCfgGroup' },

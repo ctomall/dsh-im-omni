@@ -567,11 +567,20 @@ $ cd server && node --test test/isolation.test.mjs
   扫描无租户上下文，走 `SECURITY DEFINER` 的 `pending_approvals_due()`，不引入特权连接池。
 截图：`docs/permissions-approval.png` / `docs/permissions-approved.png`。
 
-### 插件详情页接入统一权限（只读）
+### 插件详情页接入统一权限
 
 - 详情页配置区新增「团队与权限（SaaS）」：填服务地址 + 账号密码 → `POST /v1/auth/login`，随后读
   `/v1/me`、`/v1/tenants/{id}/members`、`/v1/channels`、`/v1/tenants/{id}/approvals`。
-- 展示：成员、角色、可见范围（整个团队 / N 个号码 / 仅自己），以及待审批数量；写操作仍在团队权限页。
+- **可写**：每个成员的可见范围下拉 + 渠道号码 chip 勾选（`PATCH …/members/{userId}`）；
+  选「整个团队」时用浏览器 prompt 要求输入对方邮箱（与服务端 `confirmEmail` 校验一致）；
+  待审批列表可直接批准/拒绝（仅所有者）。
+- 管理员提案返回 202 时页面只增加待审批计数，不谎报生效。
 - 跨域：API 对所有带 `Origin` 的请求回 `access-control-allow-origin`，并对 `OPTIONS` 直接 204，
   允许 `authorization` 头；`vary: origin`。
 截图：`docs/detail-saas-team.png`。
+
+### 搜索接口的隔离
+
+- `GET /v1/conversations?q=` 在会话主题、联系人名、渠道名、消息正文上做 `ILIKE`，
+  查询本身就跑在成员行策略里，**不需要额外的范围条件**；`GET /v1/channels?q=` 同理。
+- 测试：所有者搜得到，其他成员搜同一关键词返回空数组（不是 403），渠道搜索同规则。
