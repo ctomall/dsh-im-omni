@@ -62,6 +62,10 @@ window.__ModuleLoader__.load({
 .imCfgMark.yes{color:var(--dsw-alias-label-primary)}
 .imCfgMark.no{color:var(--dsw-alias-label-tertiary)}
 .imCfgSelect{height:30px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;padding:0 8px}
+.imCfgHints{border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--dsw-alias-bg-layer-1)}
+.imCfgHintRow{display:flex;align-items:center;gap:10px;font-size:12px}
+.imCfgHintLabel{color:var(--dsw-alias-label-secondary)}
+.imCfgHintCommand{font-size:11.5px;background:var(--dsw-alias-bg-layer-2);padding:2px 8px;border-radius:4px;color:var(--dsw-alias-label-primary)}
 .imCfgConfirm{border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .imCfgConfirmTitle{font-size:12.5px;margin:0;line-height:1.5}
 .imCfgDirty{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -4880,6 +4884,7 @@ window.__ModuleLoader__.load({
       const [upgradeBusy, setUpgradeBusy] = React.useState('')
       const [upgradeNote, setUpgradeNote] = React.useState('')
       const [confirming, setConfirming] = React.useState(false)
+      const [hints, setHints] = React.useState([])
 
       const workspaceSignature = JSON.stringify([
         workspace.name,
@@ -5613,6 +5618,7 @@ window.__ModuleLoader__.load({
           setUpgradeNote(result.restartRequired
             ? `已更新${short === undefined ? '' : `到 ${short}`}，重启 DSH 后生效。`
             : (result.message ?? ''))
+          setHints(result.restartRequired ? (result.restartHints ?? []) : [])
           setConfirming(false)
         } catch (error) {
           setUpgradeNote(`更新失败：${error instanceof Error ? error.message : String(error)}`)
@@ -5729,6 +5735,17 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'imCfgDirty' },
               h('p', { className: 'imCfgNote' }, `工作区有 ${upgrade.dirtyFiles.length} 个未提交改动，升级会被拒绝：`),
               upgrade.dirtyFiles.slice(0, 5).map((file) => h('code', { key: file, className: 'imCfgDirtyFile' }, file)),
+            )
+            : null,
+          hints.length > 0
+            ? h('div', { className: 'imCfgHints' },
+              h('p', { className: 'imCfgGroupTitle' }, '让新代码生效'),
+              hints.map((hint) => h('div', { key: hint.label, className: 'imCfgHintRow' },
+                h('span', { className: 'imCfgHintLabel' }, hint.label),
+                hint.command === undefined
+                  ? null
+                  : h('code', { className: 'imCfgHintCommand' }, hint.command),
+              )),
             )
             : null,
           upgrade?.commits?.length > 0

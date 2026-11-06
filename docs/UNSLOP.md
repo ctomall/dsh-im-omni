@@ -164,3 +164,15 @@ Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pul
 - 按钮改为 `取消` / `确认升级`；确认后按钮变 `升级中…`，完成后回写「已更新到 <sha>，重启 DSH 后生效。」
 
 截图：`docs/unslop-detail-upgrade-confirm.png`。
+
+### 升级后的重启指引（第八轮）
+
+`applyUpgrade` 返回里新增 `restartHints`：宿主按启动方式推断（`INVOCATION_ID` → systemd），
+详情页在升级成功后直接渲染「让新代码生效」块：
+
+- 这个 DSH 跑在 systemd 下 → `sudo systemctl restart dsh-web`
+- 重新启动 Host → `dsh web`
+- 页面硬刷新（客户端半边会先热替换）
+
+不伪造"自动重启"：更新器只负责拉取，重启方式交给用户确认。单测覆盖了 systemd 与无 systemd 两条分支。
+截图：`docs/unslop-detail-restart.png`。

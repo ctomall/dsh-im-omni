@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { UpgradeError, applyUpgrade, checkUpgrade } from '../lib/upgrade.js'
+import { UpgradeError, applyUpgrade, checkUpgrade, restartHints } from '../lib/upgrade.js'
 
 /** Build a fake package directory that looks like a Git checkout. */
 async function checkout(version = '2.7.0') {
@@ -192,4 +192,16 @@ test('an unreachable remote is reported instead of pretending to be current', as
   } finally {
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('restart hints name the systemd unit when the Host runs under systemd', () => {
+  const hints = restartHints({ INVOCATION_ID: 'abc123' })
+  assert.equal(hints[0].command, 'sudo systemctl restart dsh-web')
+  assert.ok(hints.some((hint) => hint.command === 'dsh web'))
+})
+
+test('restart hints fall back to the CLI command without systemd', () => {
+  const hints = restartHints({})
+  assert.equal(hints[0].command, 'dsh web')
+  assert.ok(hints.some((hint) => hint.command === undefined))
 })
