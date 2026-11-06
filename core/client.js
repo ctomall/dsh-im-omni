@@ -152,6 +152,17 @@ window.__ModuleLoader__.load({
       }
     }
 
-    return { proxySaas, toConversation, toMessage, membershipLabel, createTeamInbox }
+    // A client bundle must expose the plugin face; the same object also carries
+    // the shared helpers so consumers can `require('dsh-im-omni-core')`.
+    return {
+      name: 'im-omni-core',
+      inject: [],
+      apply() {},
+      proxySaas,
+      toConversation,
+      toMessage,
+      membershipLabel,
+      createTeamInbox,
+    }
   },
 })

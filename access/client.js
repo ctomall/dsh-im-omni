@@ -329,6 +329,6 @@ function apply(ctx) {
   }, App))
 }
 
-return { apply }
+return { name: 'im-omni-access', inject: [], apply }
   },
 })

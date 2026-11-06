@@ -10,14 +10,10 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    // Shared implementation, when the core module is installed next to this one.
-    // The fallback keeps the panel working if it is not (see docs/ARCHITECTURE.md §9).
-    let core = null
-    try {
-      core = require('dsh-im-omni-core')
-    } catch {
-      core = null
-    }
+    // The shared module is temporarily disabled while its load path is verified:
+    // requiring an undeclared external broke client boot, and a white page is
+    // worse than one duplicated mapping.
+    const core = null
 
     /** Locale namespace owned by this plugin. */
     const NS = 'imOmni'
@@ -40,7 +36,7 @@ window.__ModuleLoader__.load({
      * @returns {Promise<{ok: boolean, status: number, json: () => Promise<any>}>} response-like.
      */
     async function proxySaas(path, options = {}) {
-      if (core !== null && typeof core.proxySaas === 'function') {
+      if (core && typeof core.proxySaas === 'function') {
         return core.proxySaas(path, { ...options, proxyPath: '/api/im-omni.saas' })
       }
       const token = options.token ?? ''
@@ -2482,7 +2478,7 @@ window.__ModuleLoader__.load({
      * @returns {string} label.
      */
     function membershipLabel(role) {
-      if (core !== null && typeof core.membershipLabel === 'function') return core.membershipLabel(role)
+      if (core && typeof core.membershipLabel === 'function') return core.membershipLabel(role)
       if (role === 'owner') return '所有者'
       if (role === 'admin') return '管理员'
       if (role === 'viewer') return '只读'
@@ -5498,7 +5494,7 @@ window.__ModuleLoader__.load({
      * @returns {Record<string, Function>} adapter bound to the same-origin proxy.
      */
     function createTeamInbox(token) {
-      if (core !== null && typeof core.createTeamInbox === 'function') {
+      if (core && typeof core.createTeamInbox === 'function') {
         return core.createTeamInbox({ token, proxyPath: '/api/im-omni.saas' })
       }
       const call = async (path, init = {}) => {
@@ -5756,6 +5752,50 @@ window.__ModuleLoader__.load({
           h('p', { className: 'imoTiny imoMuted imoGateHint' }, '权限范围（可见号码、可做操作）由团队服务返回，前端只按结果渲染。'),
         ),
       )
+    }
+
+    /**
+     * Keep a render error readable instead of leaving the panel blank.
+     */
+    class AppBoundary extends React.Component {
+      /** @param {Record<string, any>} props - children. */
+      constructor(props) {
+        super(props)
+        this.state = { error: null }
+      }
+
+      /**
+       * Capture a descendant render error.
+       * @param {Error} error - thrown error.
+       * @returns {{error: Error}} next state.
+       */
+      static getDerivedStateFromError(error) {
+        return { error }
+      }
+
+      /**
+       * Log the failure for the browser console.
+       * @param {Error} error - thrown error.
+       * @param {{componentStack?: string}} info - React info.
+       */
+      componentDidCatch(error, info) {
+        if (typeof console !== 'undefined') console.error('[im-omni] panel crashed:', error, info?.componentStack)
+      }
+
+      /** @returns {import('react').ReactNode} children or a readable failure. */
+      render() {
+        if (this.state.error === null) return this.props.children
+        const message = this.state.error instanceof Error ? this.state.error.message : String(this.state.error)
+        return h('div', { className: 'imoRoot', style: { padding: 24 } },
+          h('style', { dangerouslySetInnerHTML: { __html: CSS } }),
+          h('div', { className: 'imoGateCard' },
+            h('h1', { className: 'imoGateTitle' }, '面板加载出错'),
+            h('p', { className: 'imoGateSub' }, message),
+            h('button', { type: 'button', className: 'imoBtn imoBtnPrimary imoGateSubmit', onClick: () => { window.location.reload() } }, '重新加载'),
+            h('p', { className: 'imoTiny imoMuted imoGateHint' }, '详情见浏览器 Console；把这段文字发我即可定位。'),
+          ),
+        )
+      }
     }
 
     function App({ t }) {
@@ -6704,7 +6744,7 @@ window.__ModuleLoader__.load({
         name: 'main',
         key: PANEL_ID,
         locale: NS,
-      }, App))
+      }, (props) => h(AppBoundary, null, h(App, props))))
       /**
        * The form this bundle registers for its own page in the plugin manager.
        * It sits right after the README, above rows, versions and source.
