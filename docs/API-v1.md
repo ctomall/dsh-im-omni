@@ -28,6 +28,7 @@
 | 计费 | `GET /v1/billing/{plan,usage,invoices}`、`POST /v1/billing/invoices`、`POST /v1/billing/invoices/{id}/status` | ✅ 已实现 |
 | 运维 | `GET /healthz`、`GET /metrics` | ✅ 已实现 |
 | 入站回调 | `POST /v1/webhooks/{channelId}` | ✅ 已实现（HMAC 验签、外部 id 幂等） |
+| 接待默认值 | `GET /v1/settings/workspace`、`PATCH /v1/settings/workspace` | ✅ 已实现（租户级 SLA/自动分配/自动翻译） |
 | 通知设置 | `GET /v1/settings/notify`、`PUT /v1/settings/notify`、`POST /v1/settings/notify/test` | ✅ 已实现（企业微信群机器人） |
 | 增量同步 | `GET /v1/sync`、`GET /v1/bootstrap` | ⏳ 规划中（S2 数据面迁移） |
 | 增量同步游标 | `GET /sync?cursor=` | ⏳ 规划中 |

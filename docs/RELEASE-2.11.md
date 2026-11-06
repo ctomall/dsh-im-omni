@@ -17,6 +17,7 @@
 | 审批/租户级 CSV 导出 | `GET /v1/tenants/{id}/audit.csv` | isolation |
 | 服务端搜索（会话/渠道） | `GET /v1/conversations?q=`、`/v1/channels?q=` | isolation |
 | 插件详情页团队权限（读写） | `client.js` `团队与权限（SaaS）` | `docs/detail-saas-team.png` |
+| 租户级接待默认值 API | `GET/PATCH /v1/settings/workspace`（migration 018） | `test/admin.test.mjs` |
 | 跨域（插件页 → API） | `src/app.mjs` CORS + preflight | `test/admin.test.mjs` |
 | 去 slop 视觉规范 | `docs/UNSLOP.md`、`client.js` | `docs/unslop-*`、`docs/detail-*` |
 

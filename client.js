@@ -5630,11 +5630,28 @@ window.__ModuleLoader__.load({
           }).then((item) => item.json())
           const tenant = me.tenants.find((item) => item.tenant_id === me.currentTenant) ?? me.tenants[0]
           const token = body.accessToken
-          const [members, channels, approvals] = await Promise.all([
+          const [members, channels, approvals, notifySettings, workspaceSettings] = await Promise.all([
             fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + tenant.tenant_id + '/members', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
             fetch(saas.base.replace(/\/$/, '') + '/v1/channels', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
             fetch(saas.base.replace(/\/$/, '') + '/v1/tenants/' + tenant.tenant_id + '/approvals?status=all', { headers: { authorization: `Bearer ${token}` } }).then((item) => (item.ok ? item.json() : { items: [] })),
+            fetch(saas.base.replace(/\/$/, '') + '/v1/settings/notify', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
+            fetch(saas.base.replace(/\/$/, '') + '/v1/settings/workspace', { headers: { authorization: `Bearer ${token}` } }).then((item) => item.json()),
           ])
+          const notify = notifySettings.notify ?? {}
+          const workspaceDefaults = workspaceSettings.settings ?? {}
+          setForm((current) => (current === null ? current : {
+            ...current,
+            notifyEnabled: notify.enabled === true,
+            webhook: notify.webhookMasked !== undefined && notify.webhookMasked !== '' ? '' : (notify.wecomWebhook ?? ''),
+            quietStart: notify.quietStart ?? current.quietStart,
+            quietEnd: notify.quietEnd ?? current.quietEnd,
+            linkTemplate: notify.linkTemplate ?? current.linkTemplate,
+            sla: String(workspaceDefaults.defaultSlaMinutes ?? current.sla),
+            autoAssign: workspaceDefaults.autoAssign === true,
+            autoTranslate: workspaceDefaults.autoTranslate !== false,
+            translationTarget: workspaceDefaults.translationTarget ?? current.translationTarget,
+            aiSuggestions: workspaceDefaults.aiSuggestions !== false,
+          }))
           setSaas((current) => ({
             ...current,
             busy: '',
@@ -5858,7 +5875,29 @@ window.__ModuleLoader__.load({
       const role = currentAgent === undefined ? 'owner' : workspace.ownerId === currentAgent.id ? 'owner' : currentAgent.role === 'admin' ? 'admin' : 'agent'
       const canConfigure = role === 'owner' || role === 'admin'
 
-      const saveNotify = () => run('通知默认值', 'workspace.update', {
+      const saveNotify = async () => {
+        if (saas.token !== '') {
+          try {
+            const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/settings/notify', {
+              method: 'PUT',
+              headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
+              body: JSON.stringify({
+                enabled: form.notifyEnabled,
+                wecomWebhook: form.webhook,
+                quietStart: form.quietStart,
+                quietEnd: form.quietEnd,
+                linkTemplate: form.linkTemplate,
+              }),
+            })
+            const payload = await response.json().catch(() => null)
+            if (!response.ok) throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
+            setNotice('通知默认值已保存到团队')
+          } catch (error) {
+            setError(error instanceof Error ? error.message : String(error))
+          }
+          return
+        }
+        return run('通知默认值', 'workspace.update', {
         notify: {
           enabled: form.notifyEnabled,
           wecomWebhook: form.webhook,
@@ -5867,13 +5906,38 @@ window.__ModuleLoader__.load({
           linkTemplate: form.linkTemplate,
         },
       })
-      const saveReception = () => run('接待默认值', 'workspace.update', {
+      }
+
+      const saveReception = async () => {
+        if (saas.token !== '') {
+          try {
+            const response = await fetch(saas.base.replace(/\/$/, '') + '/v1/settings/workspace', {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json', authorization: `Bearer ${saas.token}` },
+              body: JSON.stringify({
+                defaultSlaMinutes: Number(form.sla) || 30,
+                autoAssign: form.autoAssign,
+                autoTranslate: form.autoTranslate,
+                translationTarget: form.translationTarget,
+                aiSuggestions: form.aiSuggestions,
+              }),
+            })
+            const payload = await response.json().catch(() => null)
+            if (!response.ok) throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
+            setNotice('接待默认值已保存到团队')
+          } catch (error) {
+            setError(error instanceof Error ? error.message : String(error))
+          }
+          return
+        }
+        return run('接待默认值', 'workspace.update', {
         defaultSlaMinutes: Number(form.sla) || 30,
         autoAssign: form.autoAssign,
         autoTranslate: form.autoTranslate,
         translationTarget: form.translationTarget,
         aiSuggestions: form.aiSuggestions,
       })
+      }
 
       return h('div', { className: 'imCfg' },
         h('div', { className: 'imCfgHead' },

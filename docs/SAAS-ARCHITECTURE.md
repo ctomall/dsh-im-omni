@@ -584,3 +584,15 @@ $ cd server && node --test test/isolation.test.mjs
 - `GET /v1/conversations?q=` 在会话主题、联系人名、渠道名、消息正文上做 `ILIKE`，
   查询本身就跑在成员行策略里，**不需要额外的范围条件**；`GET /v1/channels?q=` 同理。
 - 测试：所有者搜得到，其他成员搜同一关键词返回空数组（不是 403），渠道搜索同规则。
+
+### 详情页四组配置统一到 SaaS
+
+登录 SaaS 后，详情页的四组配置全部读写团队数据，而不是本机 Host 状态：
+
+| 组 | 接口 | 层级 |
+| --- | --- | --- |
+| 团队与权限（成员/渠道） | `GET/PATCH …/members`、`PATCH …/members/{userId}`、`GET /v1/channels` | 按员工授权 |
+| 通知默认值 | `GET/PUT /v1/settings/notify` | 租户级 |
+| 接待默认值 | `GET/PATCH /v1/settings/workspace` | 租户级（`tenant_settings`，migration 018） |
+
+未登录 SaaS 时，组仍落到本机 Host 状态（单人/离线可用），页面上通过登录状态区分，不做二次真相。

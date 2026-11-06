@@ -48,3 +48,40 @@ test('a normal response carries the origin back', async () => {
   assert.equal(response.headers.get('access-control-allow-origin'), 'https://dsh.ila3.top')
   assert.equal(response.headers.get('vary'), 'origin')
 })
+
+test('workspace defaults are readable by any member and writable by admins', async () => {
+  const register = async (label) => fetch(`${base}/v1/auth/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: `${label}-${Date.now()}@test.local`,
+      password: 'correct horse battery',
+      name: label,
+      tenantName: `${label} 团队`,
+    }),
+  }).then((response) => response.json())
+
+  const owner = await register('ws-owner')
+  const read = await fetch(`${base}/v1/settings/workspace`, { headers: { authorization: `Bearer ${owner.accessToken}` } }).then((response) => response.json())
+  assert.equal(read.settings.defaultSlaMinutes, 30)
+  assert.equal(read.settings.autoAssign, true)
+
+  const patched = await fetch(`${base}/v1/settings/workspace`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${owner.accessToken}` },
+    body: JSON.stringify({ defaultSlaMinutes: 45, autoAssign: false, translationTarget: 'en-US' }),
+  }).then((response) => response.json())
+  assert.equal(patched.settings.defaultSlaMinutes, 45)
+  assert.equal(patched.settings.autoAssign, false)
+  assert.equal(patched.settings.translationTarget, 'en-US')
+
+  const again = await fetch(`${base}/v1/settings/workspace`, { headers: { authorization: `Bearer ${owner.accessToken}` } }).then((response) => response.json())
+  assert.equal(again.settings.defaultSlaMinutes, 45)
+
+  const invalid = await fetch(`${base}/v1/settings/workspace`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${owner.accessToken}` },
+    body: JSON.stringify({ defaultSlaMinutes: 0 }),
+  })
+  assert.equal(invalid.status, 422)
+})
