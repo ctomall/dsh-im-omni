@@ -5618,7 +5618,6 @@ window.__ModuleLoader__.load({
       const [copied, setCopied] = React.useState('')
       const [copyFallback, setCopyFallback] = React.useState(false)
       const [saas, setSaas] = React.useState({
-        base: 'http://127.0.0.1:8090',
         email: '',
         password: '',
         token: '',
