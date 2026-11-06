@@ -72,3 +72,16 @@ Credit: unslop by Damir Sokolovsky (@heydamir), CC BY 4.0.
 | 图例 | "我们回复"用品牌色 35% 浅绿 | 中性灰阶，让绿色只属于一条系列 |
 
 截图：`docs/unslop-analytics-before.png` / `docs/unslop-analytics-after.png`。
+
+## 第四轮：设置页
+
+| 位置 | 改前 | 改后 |
+| --- | --- | --- |
+| 分组卡片 | 14px 圆角、15/16 padding、`.5px` 边框 + 1px 投影 | 12px 圆角、20 padding、纯发丝边框、无投影 |
+| 分组标题 | 13/650、下间距 10 | 14/600、下间距 16 |
+| 表单网格 | 11px gap | 16px gap；字段标签 11 → 12 |
+| 输入框 | 32px 高、12.5px 字 | 34px 高、13px 字、内边距 10 |
+| 详情行（营业时间） | 11.5px、标签列 74 | 12.5px、标签列 88、行距 8 |
+| 文案 | `默认 SLA（分钟）` 在双列里换行 | `默认 SLA`，标签单行不折行（`white-space:nowrap`） |
+
+截图：`docs/unslop-settings-before.png` / `docs/unslop-settings-after.png`。

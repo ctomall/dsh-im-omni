@@ -233,7 +233,64 @@ ${css}
   </div>
 </div></div></div></div></body></html>`
 
-if (view === 'analytics') {
+const settingsHtml = `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>im-omni · settings · ${variant}</title>
+<style>
+:root{
+  --dsw-alias-bg-base:#fafafa; --dsw-alias-bg-layer-1:#ffffff; --dsw-alias-bg-layer-2:#f4f4f5;
+  --dsw-alias-label-primary:#18181b; --dsw-alias-label-secondary:#71717a; --dsw-alias-label-tertiary:#a1a1aa;
+  --dsw-alias-border-l1:#e6e6e8; --dsw-alias-border-l2:#d4d4d8;
+  --dsw-alias-brand-primary:#15803d; --dsw-alias-state-success-primary:#16a34a;
+  --dsw-alias-state-warn-primary:#b45309; --dsw-alias-state-error-primary:#b91c1c;
+  --dsw-alias-state-idle-primary:#a1a1aa; --dsw-font-family:"PingFang SC","Segoe UI",system-ui,sans-serif;
+}
+body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family)}
+.stage{width:1440px;height:1000px;display:flex}
+.main{width:1176px;display:flex;flex-direction:column}
+${css}
+</style></head>
+<body><div class="stage"><div class="main"><div class="imoRoot"><div class="imoTop">
+  <div class="imoBrand">${brandMark}<span class="imoBrandText"><span class="imoBrandTitle">全渠道 IM</span><span class="imoBrandSub">统一收件箱 · 官方 API · 扫码登录</span></span></div>
+</div>
+<div class="imoTabs"><span class="imoTab">收件箱</span><span class="imoTab">联系人</span><span class="imoTab">渠道</span><span class="imoTab">快捷回复</span><span class="imoTab">群发</span><span class="imoTab">自动化</span><span class="imoTab">数据分析</span><span class="imoTab on">设置</span></div>
+<div class="imoPage">
+  <div class="imoPageHead"><div><h1 class="imoPageTitle">设置</h1><p class="imoPageSub">工作区、营业时间、自动接待与团队。</p></div>
+    <div class="imoPageActions"><button class="imoBtn imoBtnPrimary">保存修改</button></div></div>
+  <section class="imoSection">
+    <div class="imoSectionTitle">工作区</div>
+    <div class="imoFormGrid">
+      <div class="imoFieldGroup"><span class="imoFieldLabel">名称</span><input class="imoInput" value="ctomall 客服"></div>
+      <div class="imoFieldGroup"><span class="imoFieldLabel">时区</span><input class="imoInput" value="Asia/Shanghai"></div>
+      <div class="imoFieldGroup"><span class="imoFieldLabel">默认 SLA</span><input class="imoInput" value="30"></div>
+      <div class="imoFieldGroup"><span class="imoFieldLabel">翻译目标语言</span><input class="imoInput" value="zh-CN"></div>
+    </div>
+  </section>
+  <section class="imoSection">
+    <div class="imoSectionTitle">自动接待</div>
+    <div class="imoFormGrid">
+      <div class="imoFieldGroup"><span class="imoFieldLabel">机器人名称</span><input class="imoInput" value="AI 接待"></div>
+      <div class="imoFieldGroup"><span class="imoFieldLabel">最大回合</span><input class="imoInput" value="12"></div>
+      <div class="imoFieldGroup full"><span class="imoFieldLabel">转人工关键词</span><input class="imoInput" value="人工,转人工,投诉,退款,human,agent"></div>
+      <div class="imoFieldGroup full"><span class="imoFieldLabel">接待说明</span><textarea class="imoTextarea" style="min-height:72px">先确认订单号，再给出处理时限；涉及退款先转人工。</textarea></div>
+    </div>
+  </section>
+  <section class="imoSection">
+    <div class="imoSectionTitle">营业时间</div>
+    <div class="imoField"><span class="imoFieldLabel">工作日</span><span class="imoFieldValue">周一至周五 09:00 – 21:00</span></div>
+    <div class="imoField"><span class="imoFieldLabel">周末</span><span class="imoFieldValue">仅自动接待</span></div>
+  </section>
+  <section class="imoSection">
+    <div class="imoSectionTitle">团队</div>
+    <div class="imoTableWrap" style="border:none"><table class="imoTable"><thead><tr><th>姓名</th><th>邮箱</th><th>角色</th><th>状态</th></tr></thead>
+    <tbody><tr><td>You</td><td>you@ctomall.cn</td><td>所有者</td><td><span class="imoPill success">在线</span></td></tr>
+    <tr><td>林小满</td><td>lin@ctomall.cn</td><td>客服</td><td><span class="imoPill warn">忙碌</span></td></tr></tbody></table></div>
+  </section>
+</div></div></div></div></body></html>`
+
+if (view === 'settings') {
+  await writeFile(process.argv[3] ?? '/tmp/imo-settings.html', settingsHtml)
+  console.log('wrote settings preview')
+} else if (view === 'analytics') {
   await writeFile(process.argv[3] ?? '/tmp/imo-analytics.html', analyticsHtml)
   console.log('wrote analytics preview')
 } else if (view === 'chat') {

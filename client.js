@@ -73,8 +73,8 @@ window.__ModuleLoader__.load({
 .imoPageTitle{font-size:19px;font-weight:650;line-height:26px;margin:0}
 .imoPageSub{color:var(--dsw-alias-label-secondary);font-size:12.5px;margin:2px 0 0;max-width:760px}
 .imoPageActions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
-.imoSection{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:14px;padding:15px 16px;margin-bottom:14px;min-width:0;box-shadow:0 1px 2px color-mix(in srgb,#000 5%,transparent)}
-.imoSectionTitle{font-size:13px;font-weight:650;margin:0 0 10px}
+.imoSection{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;padding:20px;margin-bottom:20px;min-width:0}
+.imoSectionTitle{font-size:14px;font-weight:600;margin:0 0 16px}
 .imoMuted{color:var(--dsw-alias-label-secondary)}
 .imoFaint{color:var(--dsw-alias-label-secondary);opacity:.78}
 .imoSmall{font-size:12px}
@@ -174,8 +174,8 @@ window.__ModuleLoader__.load({
 .imoContactHero{display:flex;align-items:center;gap:9px;margin-bottom:9px}
 .imoContactName{font-size:13px;font-weight:650;line-height:17px}
 .imoContactSub{font-size:10.5px;color:var(--dsw-alias-label-secondary);line-height:15px}
-.imoField{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:11.5px;line-height:1.35;min-width:0}
-.imoFieldLabel{color:var(--dsw-alias-label-secondary);width:74px;flex:none}
+.imoField{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px;font-size:12.5px;line-height:1.45;min-width:0}
+.imoFieldLabel{color:var(--dsw-alias-label-secondary);width:88px;flex:none}
 .imoFieldValue{min-width:0;overflow-wrap:anywhere;flex:1}
 .imoFieldValue a{color:var(--dsw-alias-brand-primary);text-decoration:none}
 .imoDivider{height:.5px;background:var(--dsw-alias-border-l1);margin:9px 0}
@@ -231,12 +231,12 @@ window.__ModuleLoader__.load({
 .imoPill.warn{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 30%,var(--dsw-alias-border-l1))}
 .imoPill.bad{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 30%,var(--dsw-alias-border-l1))}
 .imoPill.brand{color:var(--dsw-alias-brand-primary);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,var(--dsw-alias-border-l1))}
-.imoInput{width:100%;height:32px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px;padding:0 9px;outline:none}
+.imoInput{width:100%;height:34px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;padding:0 10px;outline:none}
 .imoTextareaForm{width:100%;min-height:86px;resize:vertical;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px;line-height:1.45;padding:8px 9px;outline:none}
-.imoFormGrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.imoFormGrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .imoFormGrid .full{grid-column:1/-1}
-.imoFieldGroup{display:flex;flex-direction:column;gap:4px;min-width:0}
-.imoFieldLabel{font-size:11px;color:var(--dsw-alias-label-secondary)}
+.imoFieldGroup{display:flex;flex-direction:column;gap:6px;min-width:0}
+.imoFieldLabel{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .imoHelp{font-size:10.5px;color:var(--dsw-alias-label-secondary);line-height:1.4}
 .imoFormError{display:flex;align-items:flex-start;gap:6px;padding:8px 9px;border-radius:8px;border:.5px solid color-mix(in srgb,var(--dsw-alias-state-error-primary) 35%,var(--dsw-alias-border-l1));background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 8%,var(--dsw-alias-bg-base));color:var(--dsw-alias-state-error-primary);font-size:11.5px;line-height:1.45;margin-bottom:10px}
 .imoCheck{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dsw-alias-label-primary);cursor:pointer}
@@ -901,7 +901,7 @@ window.__ModuleLoader__.load({
       'bot.resumed': '已恢复 AI 接待',
       'settings.workspaceName': '工作区名称',
       'settings.timezone': '时区',
-      'settings.sla': '默认 SLA（分钟）',
+      'settings.sla': '默认 SLA',
       'settings.slaHint': '从首次客户消息到首次回复的目标时长。',
       'settings.autoAssign': '自动分配',
       'settings.autoAssignHint': '新会话自动分配给在线且负载最低的坐席。',
@@ -1552,7 +1552,7 @@ window.__ModuleLoader__.load({
       'bot.resumed': 'AI reception resumed',
       'settings.workspaceName': 'Workspace name',
       'settings.timezone': 'Time zone',
-      'settings.sla': 'Default SLA (minutes)',
+      'settings.sla': 'Default SLA',
       'settings.slaHint': 'Target time from the first customer message to the first reply.',
       'settings.autoAssign': 'Auto-assign',
       'settings.autoAssignHint': 'Route new conversations to the online agent with the lightest load.',
