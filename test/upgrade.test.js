@@ -205,3 +205,54 @@ test('restart hints fall back to the CLI command without systemd', () => {
   assert.equal(hints[0].command, 'dsh web')
   assert.ok(hints.some((hint) => hint.command === undefined))
 })
+
+test('a timed-out fetch is retried once and reports clearly when both fail', async () => {
+  const root = await checkout('2.7.0')
+  let calls = 0
+  const exec = fakeGit([
+    [(a) => a.includes('--symbolic-full-name'), 'origin/main'],
+    [(a) => a.join(' ') === 'rev-parse --abbrev-ref HEAD', 'main'],
+    [(a) => a[0] === 'log' && a.at(-1) === 'HEAD', describeOf('1111111aaaa', 'local work')],
+    [(a) => a[0] === 'status', ''],
+    [(a) => {
+      if (a[0] === 'fetch') {
+        calls += 1
+        const error = new Error('Command failed: git fetch --quiet --prune origin')
+        error.killed = true
+        return true
+      }
+      return false
+    }, (() => { const error = new Error('killed'); error.killed = true; return error })()],
+  ])
+  const result = await checkUpgrade({ root, exec, retryDelayMs: 0 })
+  assert.equal(calls, 2, 'fetch is attempted twice')
+  assert.match(result.message, /超时/, 'the message names the timeout instead of a bare git failure')
+})
+
+test('a second-attempt success hides the first failure', async () => {
+  const root = await checkout('2.7.0')
+  let calls = 0
+  const exec = fakeGit([
+    [(a) => a.includes('--symbolic-full-name'), 'origin/main'],
+    [(a) => a.join(' ') === 'rev-parse --abbrev-ref HEAD', 'main'],
+    [(a) => a[0] === 'log' && a.at(-1) === 'HEAD', describeOf('1111111aaaa', 'local work')],
+    [(a) => a[0] === 'status', ''],
+    [(a) => {
+      if (a[0] !== 'fetch') return false
+      calls += 1
+      return true
+    }, () => {
+      if (calls === 1) {
+        const error = new Error('stalled')
+        error.killed = true
+        throw error
+      }
+      return ''
+    }],
+    [(a) => a[0] === 'log' && a.at(-1) === 'origin/main', describeOf('1111111aaaa', 'local work')],
+    [(a) => a[0] === 'rev-list', '0\t0'],
+  ])
+  const result = await checkUpgrade({ root, exec, retryDelayMs: 0 })
+  assert.equal(calls, 2)
+  assert.ok(!result.fetchError, 'a successful retry leaves no fetch error behind')
+})
