@@ -196,26 +196,28 @@ window.__ModuleLoader__.load({
 .imoCardSub{font-size:11px;color:var(--dsw-alias-label-secondary);line-height:1.4;overflow-wrap:anywhere}
 .imoCardActions{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:auto}
 .imoStatsRow{display:flex;gap:14px;flex-wrap:wrap}
-.imoStatValue{font-size:16px;font-weight:650;line-height:20px}
-.imoStatLabel{font-size:10px;color:var(--dsw-alias-label-secondary);text-transform:uppercase;letter-spacing:.05em}
-.imoKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
-.imoKpi{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:11px;padding:12px 13px;min-width:0}
-.imoKpiValue{font-size:21px;font-weight:650;line-height:27px;letter-spacing:-.02em}
-.imoKpiLabel{font-size:10.5px;color:var(--dsw-alias-label-secondary);margin-top:1px}
-.imoKpiHint{font-size:10px;color:var(--dsw-alias-label-secondary);margin-top:3px}
+.imoStatValue{font-size:16px;font-weight:600;line-height:20px;font-variant-numeric:tabular-nums}
+.imoStatLabel{font-size:11px;color:var(--dsw-alias-label-secondary);letter-spacing:0;text-transform:none}
+.imoKpis{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px;margin-bottom:24px}
+.imoKpi{background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;padding:16px 18px;min-width:0}
+.imoKpiValue{font-size:22px;font-weight:600;line-height:28px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.imoKpiLabel{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px}
+.imoKpi.lead{border-color:var(--dsw-alias-border-l2)}
+.imoKpi.lead .imoKpiValue{font-size:30px;line-height:36px}
+.imoKpiHint{font-size:11px;color:var(--dsw-alias-label-tertiary);margin-top:6px}
 .imoTwoCol{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:14px}
-.imoChart{display:flex;align-items:flex-end;gap:7px;height:170px;padding:6px 0 0}
+.imoChart{display:flex;align-items:flex-end;gap:8px;height:200px;padding:8px 0 0;border-bottom:.5px solid var(--dsw-alias-border-l1)}
 .imoChartCol{flex:1;min-width:10px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:5px;position:relative}
-.imoChartStack{width:100%;max-width:34px;display:flex;flex-direction:column;justify-content:flex-end;height:100%;border-radius:5px 5px 2px 2px;overflow:hidden;background:color-mix(in srgb,var(--dsw-alias-label-primary) 4%,transparent)}
+.imoChartStack{width:100%;max-width:28px;display:flex;flex-direction:column;justify-content:flex-end;height:100%;border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--dsw-alias-label-primary) 3%,transparent)}
 .imoChartIn{background:var(--dsw-alias-brand-primary);width:100%;min-height:0}
-.imoChartOut{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 35%,var(--dsw-alias-bg-layer-1));width:100%;min-height:0}
-.imoChartLabel{font-size:9px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.imoChartOut{background:color-mix(in srgb,var(--dsw-alias-label-primary) 22%,var(--dsw-alias-bg-layer-1));width:100%;min-height:0}
+.imoChartLabel{font-size:10px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}
 .imoLegend{display:flex;align-items:center;gap:12px;font-size:10.5px;color:var(--dsw-alias-label-secondary);flex-wrap:wrap}
 .imoLegendSwatch{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px}
 .imoBars{display:flex;flex-direction:column;gap:9px}
 .imoBarRow{display:grid;grid-template-columns:minmax(80px,1.2fr) minmax(60px,2fr) auto;gap:8px;align-items:center;font-size:11px;min-width:0}
-.imoBarTrack{height:6px;border-radius:4px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 7%,transparent);overflow:hidden}
-.imoBarFill{height:100%;border-radius:4px;background:var(--dsw-alias-brand-primary)}
+.imoBarTrack{height:4px;border-radius:2px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 8%,transparent);overflow:hidden}
+.imoBarFill{height:100%;border-radius:2px;background:var(--dsw-alias-brand-primary)}
 .imoTableWrap{overflow:auto;border:.5px solid var(--dsw-alias-border-l1);border-radius:11px;background:var(--dsw-alias-bg-layer-1)}
 .imoTable{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}
 .imoTable th{text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-secondary);font-weight:600;padding:9px 11px;border-bottom:.5px solid var(--dsw-alias-border-l1);white-space:nowrap;background:var(--dsw-alias-bg-layer-1);position:sticky;top:0;z-index:1}
@@ -4727,10 +4729,10 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'imoPageActions' }, h(Pill, { tone: 'brand' }, fmtDateTime(analytics.generatedAt))),
         ),
-        h('div', { className: 'imoKpis' }, kpis.map(([label, value, hint], index) => h('div', { key: index, className: 'imoKpi' },
+        h('div', { className: 'imoKpis' }, kpis.map(([label, value, hint], index) => h('div', { key: index, className: `imoKpi ${index === 0 ? 'lead' : ''}`.trim() },
           h('div', { className: 'imoKpiValue' }, typeof value === 'number' ? String(value) : value),
           h('div', { className: 'imoKpiLabel' }, label),
-          h('div', { className: 'imoKpiHint' }, hint),
+          index === 0 ? h('div', { className: 'imoKpiHint' }, hint) : null,
         ))),
         h('div', { className: 'imoTwoCol' },
           h('section', { className: 'imoSection' },
@@ -4744,7 +4746,7 @@ window.__ModuleLoader__.load({
             ))),
             h('div', { className: 'imoLegend', style: { marginTop: 7 } },
               h('span', null, h('span', { className: 'imoLegendSwatch', style: { background: 'var(--dsw-alias-brand-primary)' } }), t('analytics.inbound')),
-              h('span', null, h('span', { className: 'imoLegendSwatch', style: { background: 'color-mix(in srgb,var(--dsw-alias-brand-primary) 35%,var(--dsw-alias-bg-layer-1))' } }), t('analytics.outbound')),
+              h('span', null, h('span', { className: 'imoLegendSwatch', style: { background: 'color-mix(in srgb,var(--dsw-alias-label-primary) 22%,var(--dsw-alias-bg-layer-1))' } }), t('analytics.outbound')),
               h('span', { style: { marginLeft: 'auto' } }, t('analytics.volumeHint')),
             ),
           ),

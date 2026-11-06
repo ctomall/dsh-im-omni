@@ -60,3 +60,15 @@ Credit: unslop by Damir Sokolovsky (@heydamir), CC BY 4.0.
 | 会话行 | 名称 12.5/600、预览 11.5 | 13/600、12 |
 
 截图：`docs/unslop-chat-before.png` / `docs/unslop-chat-after.png`（预览由 `tools/unslop-preview.mjs <variant> out chat` 生成，before 用 `IMO_CSS` 指向旧版 CSS）。
+
+## 第三轮：数据分析页
+
+| 位置 | 改前 | 改后 |
+| --- | --- | --- |
+| KPI 卡 | 8 张等宽卡、每张都带一行重复 hint、21/650 数字 | 4×2 网格；首张为 30px 主数字 + 唯一 hint；数字 `tabular-nums`、22/600 |
+| 统计标签 | 10px 大写 + `.05em` | 11px 常规、不转换大小写 |
+| 消息量图 | 9px 标签、品牌色两种深浅做双系列、无基线 | 200px 高 + 发丝基线；来信=品牌绿、回复=中性 22% 灰阶；日期 10px 等宽 |
+| 渠道条 | 6px 轨道、品牌色填充 | 4px 轨道、2px 圆角、中性轨道 + 品牌绿填充，计数等宽 |
+| 图例 | "我们回复"用品牌色 35% 浅绿 | 中性灰阶，让绿色只属于一条系列 |
+
+截图：`docs/unslop-analytics-before.png` / `docs/unslop-analytics-after.png`。

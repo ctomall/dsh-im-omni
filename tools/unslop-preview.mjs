@@ -178,7 +178,65 @@ ${css}
   </aside>
 </div></div></div></div></body></html>`
 
-if (view === 'chat') {
+const analyticsHtml = `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>im-omni · analytics · ${variant}</title>
+<style>
+:root{
+  --dsw-alias-bg-base:#fafafa; --dsw-alias-bg-layer-1:#ffffff; --dsw-alias-bg-layer-2:#f4f4f5;
+  --dsw-alias-label-primary:#18181b; --dsw-alias-label-secondary:#71717a; --dsw-alias-label-tertiary:#a1a1aa;
+  --dsw-alias-border-l1:#e6e6e8; --dsw-alias-border-l2:#d4d4d8;
+  --dsw-alias-brand-primary:#15803d; --dsw-alias-state-success-primary:#16a34a;
+  --dsw-alias-state-warn-primary:#b45309; --dsw-alias-state-error-primary:#b91c1c;
+  --dsw-alias-state-idle-primary:#a1a1aa; --dsw-font-family:"PingFang SC","Segoe UI",system-ui,sans-serif;
+}
+body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family)}
+.stage{width:1440px;height:1000px;display:flex}
+.main{width:1176px;display:flex;flex-direction:column}
+${css}
+</style></head>
+<body><div class="stage"><div class="main"><div class="imoRoot"><div class="imoTop">
+  <div class="imoBrand">${brandMark}<span class="imoBrandText"><span class="imoBrandTitle">全渠道 IM</span><span class="imoBrandSub">统一收件箱 · 官方 API · 扫码登录</span></span></div>
+  <label class="imoTopSearch"><span>⌕</span><input placeholder="搜索会话、联系人、消息…"></label>
+</div>
+<div class="imoTabs"><span class="imoTab">收件箱</span><span class="imoTab">联系人</span><span class="imoTab">渠道</span><span class="imoTab">快捷键回复</span><span class="imoTab">群发</span><span class="imoTab">自动化</span><span class="imoTab on">数据分析</span><span class="imoTab">设置</span></div>
+<div class="imoPage">
+  <div class="imoPageHead"><div><h1 class="imoPageTitle">数据分析</h1><p class="imoPageSub">最近 14 天消息量、渠道分布与坐席负载。</p></div>
+    <div class="imoPageActions"><span class="imoPill">11 月 6 日 11:20 更新</span></div></div>
+  <div class="imoKpis">
+    ${[['4','未结会话','按当前筛选',true],['2','等待客户','首次响应 SLA',false],['0','超时未响应','首次响应 SLA',false],['9','今日已解决','今天',false],['6 分','平均首次响应','响应时长',false],['42 分','平均解决时长','解决时长',false],['128','近 7 天消息','全部渠道',false],['24','联系人','通讯录',false]].map(([v,l,h,lead]) => `
+    <div class="imoKpi ${lead ? 'lead' : ''}"><div class="imoKpiValue">${v}</div><div class="imoKpiLabel">${l}</div>${lead ? `<div class="imoKpiHint">${h}</div>` : ''}</div>`).join('')}
+  </div>
+  <div class="imoTwoCol">
+    <section class="imoSection">
+      <div class="imoSectionTitle">消息量</div>
+      <div class="imoChart">
+        ${[38,52,44,61,70,55,48,66,74,58,49,63,71,57].map((v,i) => `
+        <div class="imoChartCol"><div class="imoChartStack"><div class="imoChartIn" style="height:${Math.round(v*0.6)}%"></div><div class="imoChartOut" style="height:${Math.round(v*0.4)}%"></div></div><span class="imoChartLabel">${i % 2 === 0 ? '10-' + String(24 + i) : ''}</span></div>`).join('')}
+      </div>
+      <div class="imoLegend" style="margin-top:7px"><span><span class="imoLegendSwatch" style="background:var(--dsw-alias-brand-primary)"></span>客户来信</span><span><span class="imoLegendSwatch" style="background:color-mix(in srgb,var(--dsw-alias-label-primary) 22%,var(--dsw-alias-bg-layer-1))"></span>我们回复</span><span style="margin-left:auto">按自然日统计</span></div>
+    </section>
+    <section class="imoSection">
+      <div class="imoSectionTitle">按渠道</div>
+      <div class="imoBars">
+        ${[['售后 WhatsApp',0.9,62,48],['社群 Telegram',0.6,31,22],['官网在线客服',0.35,18,15],['企业微信',0.2,9,11]].map(([name,ratio,a,b]) => `
+        <div class="imoBarRow"><span class="imoEllipsis">${name}</span><div class="imoBarTrack"><div class="imoBarFill" style="width:${ratio*100}%"></div></div><span class="imoTiny imoMuted imoNowrap">${a} / ${b}</span></div>`).join('')}
+      </div>
+    </section>
+  </div>
+  <div class="imoTwoCol" style="margin-top:14px">
+    <section class="imoSection"><div class="imoSectionTitle">按坐席</div>
+      <div class="imoTableWrap" style="border:none"><table class="imoTable"><thead><tr><th>姓名</th><th>状态</th><th>未结</th><th>今日解决</th><th>负载</th></tr></thead>
+      <tbody><tr><td>You</td><td><span class="imoPill success">在线</span></td><td>2</td><td>5</td><td>中</td></tr>
+      <tr><td>林小满</td><td><span class="imoPill warn">忙碌</span></td><td>2</td><td>3</td><td>中</td></tr></tbody></table></div>
+    </section>
+    <section class="imoSection"><div class="imoSectionTitle">SLA</div><div class="imoSmall imoMuted">首次响应目标 30 分钟，今天达标 7 / 9。</div></section>
+  </div>
+</div></div></div></div></body></html>`
+
+if (view === 'analytics') {
+  await writeFile(process.argv[3] ?? '/tmp/imo-analytics.html', analyticsHtml)
+  console.log('wrote analytics preview')
+} else if (view === 'chat') {
   await writeFile(process.argv[3] ?? '/tmp/imo-chat.html', chatHtml)
   console.log('wrote chat preview')
 } else {
