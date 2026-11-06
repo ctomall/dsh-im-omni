@@ -1,179 +1,85 @@
-# DSH Omni 架构：手机为主客户端
+# dsh-im-omni 架构（按"多人共用"重排）
 
-> 状态：规划稿（v0.1）。描述目标架构、数据归属、同步与推送模型，以及从当前实现的迁移路径。
-> 当前实现是"Host 全量快照 + 手机轮询"，本文是把它改成"手机为主"的设计。
-> 多租户 / 账号 / 计费 / 高可用见 `SAAS-ARCHITECTURE.md`；内部部署见 `DEPLOYMENT-INTERNAL.md`。
+> 出发点（来自产品要求）：多人共用一套收件箱；渠道号码与数据按员工权限隔离；隔离必须由服务端强制；
+> 功能要长在插件里，而不是另开一个要让用户记地址的站点；每个事实只有一个真源。
 
-## 1. 现状与目标
+![目标架构](./architecture-target.png)
 
-### 现状（as built）
+## 1. 四个运行单元
 
-```
-WhatsApp / Telegram / 企业微信
-        │ webhook
-        ▼
-DSH Host（Node 插件 dsh-im-omni）
-  ├─ lib/store.js        权威数据（JSON 文件）
-  ├─ lib/commands.js     单一 command switch
-  ├─ /api/im-omni.state  全量快照（手机每次轮询）
-  ├─ /api/im-omni.command 所有写操作
-  └─ client.js           DSH Web 内的聊天 UI
-        ▲
-        │ 配对 cookie + 轮询
-   Android App（薄客户端）
-```
+| # | 单元 | 位置 | 职责 | 不做什么 |
+| --- | --- | --- | --- | --- |
+| ① | 插件 UI | `client.js`（DSH 页面内） | 收件箱、渠道、团队权限、设置、详情页配置 | 不做权限判断；不直连团队 API |
+| ② | Host 半边 | `index.js` + `lib/*` | 本机能力（命令/媒体/通知/升级）、API 兜底代理 | 不再是团队数据真源 |
+| ③ | 接入层 | nginx `/im-omni-api/` | 同源转发到 team-api | 不做业务判断 |
+| ④ | 团队服务 | `server/`（Node + Postgres） | 鉴权、成员与授权、审批、审计、设置 | 不做界面 |
 
-问题：全量快照、无增量、无推送、无本地缓存，手机只是"远程显示器"。
-
-### 目标（phone-first）
+## 2. 一条主链路（读数据）
 
 ```
-                    ┌──────────────────────────────┐
-  渠道 webhook ───▶ │  Host（常驻后端，24×7）        │
-                    │  core：接入 / 数据 / AI / 推送 │
-                    └───────┬──────────────┬───────┘
-                            │ v1 REST      │ 配置/运营 API
-                            ▼              ▼
-                   ┌────────────────┐  ┌──────────────────┐
-                   │ Phone（主客户端）│  │ Web 控制台        │
-                   │ Room 缓存+队列  │  │ 账号/团队/模板/审计 │
-                   └────────────────┘  └──────────────────┘
+面板 proxySaas('/v1/...')            ← 只带 JWT，不带 tenant 猜测
+  → /im-omni-api/v1/...              ← 同源：无 CORS、无混合内容
+    → authenticate()                 ← JWT → userId
+      → withTenant(tenantId, fn, userId)   ← 事务内 SET app.tenant_id / app.user_id
+        → Postgres RLS               ← 行级策略决定"看得见哪些行"
+          → 403 out-of-scope / 404 not-found
 ```
 
-**原则**
+**关键点**：隔离发生在数据库，不在 UI。"前端隐藏"从来不算隔离。
 
-1. 手机负责"用"：日常收发、通知、离线、搜索。
-2. Host 负责"活"：接收 webhook、跑 AI/翻译、存权威数据、发推送。手机不能当网关（后台会被杀）。
-3. Web 负责"配"：接入、团队、模板群发、审计、看板。
-4. 手机不直接依赖 DSH 内部实现，只依赖版本化的 `/api/im-omni/v1/*`。
+## 3. 权限模型（单一规则，两处使用）
 
-## 2. 数据归属
+| 概念 | 存储 | 说明 |
+| --- | --- | --- |
+| 角色 | `memberships.role` | owner / admin / agent / viewer，提供**默认**范围 |
+| 成员授权 | `memberships.permissions` | `dataScope`（all/own）+ `channelIds`，**覆盖默认** |
+| 生效判定 | `app_scope()` / `app_channel_ids()` | SQL 函数，策略直接调用 |
+| 危险操作 | `confirmEmail` + `approval_requests` + `audit_logs` | 确认 → 复核 → 追溯 |
 
-| 数据 | 权威来源 | 手机端 | 说明 |
+角色只决定默认值；"这个人能看什么"永远由 `permissionOf()` 的合成结果回答。
+
+## 4. 危险操作三件套
+
+```
+改可见范围 / 改角色 / 移除成员 / 删渠道
+  ├─ 1. 确认：必须输入目标邮箱（防误触）
+  ├─ 2. 复核：管理员 → approval_requests(202)；所有者 → 直接执行
+  └─ 3. 追溯：变更与审批同事务写 audit_logs
+```
+
+## 5. 边界规则（防止再次跑偏）
+
+| 关注点 | 唯一负责方 | 明确禁止 |
+| --- | --- | --- |
+| 谁能看哪些号码/会话 | team-api + Postgres RLS | 前端过滤、按 UI 隐藏 |
+| 权限变更历史 | `audit_logs` | Host JSON、插件本地文件 |
+| 用户入口 | 插件面板「团队权限」 | 让用户记 `:8090/admin` |
+| 本机离线数据 | Host `store.js` | 与团队数据双写 |
+| 升级来源 | Host `lib/upgrade.js` | 把 github.com 当单点 |
+
+## 6. 现状 vs 目标
+
+| 项 | 现状 | 目标 | 差距 |
 | --- | --- | --- | --- |
-| 消息 | Host | Room 缓存 + 出站队列 | 手机可离线写，靠 `clientId` 幂等补发 |
-| 会话状态/负责人/标签 | Host | 只读缓存 | 手机改通过 PATCH，Host 回写 revision |
-| 联系人 | Host | 只读缓存 | 手机侧可编辑备注（PATCH） |
-| 账号配置/密钥 | Host | 不落地 | 只在控制台与账号详情展示脱敏信息 |
-| 模板/群发 | Host | 缓存只读 | 管理入口在控制台 |
-| 推送 token | Host | 本地加密保存 | 每设备一条，可撤销 |
-| 搜索索引 | 手机（本地 FTS）+ Host（全量兜底） | 本地 FTS | 离线可搜 |
+| 面板入口 | 已有「团队权限」标签页 | 唯一入口 | ✅ |
+| 详情页配置 | 登录后走 v1，未登录走 Host | 只保留登录态路径 | 🟡 双路径并存 |
+| 团队数据 | team-api 为准 | 唯一真源 | 🟡 Host store 仍存历史字段 |
+| 管理页 | `:8090/admin` 仍可访问 | 降级为运维只读 | 🟡 两个界面 |
+| 升级 | 依赖 github.com | remote 可配置 + 备用源 | ❌ 未做 |
+| Host 代理 | 已实现 `/api/im-omni.saas` | 保留为兜底 | ✅ |
 
-## 3. 同步模型
+## 7. 迁移顺序（每步可验收）
 
-### revision
+1. **收口入口**：详情页配置去掉"未登录写本机"分支，统一要求登录（离线只读快照）。
+2. **收口数据**：Host store 只保留 `token`、`lastSnapshot` 与本机渠道配置，不再存成员/权限。
+3. **收口管理页**：`:8090/admin` 加开关默认关闭，仅运维只读；所有写操作从面板发起。
+4. **升级解耦**：`IM_OMNI_UPGRADE_REMOTE` 支持自定义 remote / 备用源，GitHub 不可用时可切换。
+5. **通知升级**：审批与提醒同时支持企业微信与站内（面板红点）。
 
-Host 维护单调递增的 `revision`（与现有 `/api/im-omni.state` 的 `meta.revision` 同源）。任何写操作 +1。
+## 8. 验收口径
 
-### 客户端游标
-
-手机保存 `lastRevision`，前台恢复时：
-
-```
-GET /api/im-omni/v1/sync?cursor=<lastRevision>
-→ {
-    revision: 1234,
-    upserts:  { conversations: [...], messages: [...], contacts: [...], channels: [...] },
-    deletions:{ conversations: [...], messages: [...] },
-    reset: false          // Host 数据被重建时为 true，手机清库重拉
-  }
-```
-
-规则：
-
-- `upserts` 只含 `updatedAt > cursor` 的记录；`deletions` 同理（用 tombstone 表）。
-- 单次响应限制 500 条；`hasMore=true` 时手机继续拉。
-- `reset=true` 时手机清空本地与会话无关的缓存（保留出站队列）。
-- 冲突：会话状态类字段 **Host 赢**；消息体 **客户端赢**（本地乐观显示直到 ack）。
-
-### 分页
-
-| 端点 | 默认 | 上限 |
-| --- | --- | --- |
-| 会话列表 | 50 | 100 |
-| 消息 | 50（`before` 游标向旧翻） | 100 |
-
-### 出站队列（outbox）
-
-```
-发送 → 写 Room（status=queued, clientId=uuid）
-     → POST /v1/messages {clientId, conversationId, text}
-     → 200: status=sent（Host 返回消息 id）
-     → 5xx/超时: 保留 queued，指数退避重试（2s→4s→8s…上限 5min）
-     → 4xx(业务): status=failed，展示重试按钮
-```
-
-`clientId` 由 Host 落库去重，重试不会产生重复消息。
-
-## 4. 推送模型
-
-```
-Host 收到 inbound ──▶ 查订阅设备 ──▶ 推送
-                                     ├─ 海外/有 GMS：FCM
-                                     └─ 国内 ROM：华为 HMS / 小米 / OPPO / vivo（或聚合：个推/极光）
-```
-
-- 注册：`POST /v1/devices {platform, token, deviceName}` → `deviceId`；卸载/换机 `DELETE /v1/devices/{id}`。
-- 载荷最小化：`{ conversationId, messageId, title, body, unread }`；正文按企业策略可脱敏为"你有一条新消息"。
-- 折叠：同一会话用 `collapseKey=conversationId`，避免刷屏。
-- 通知动作：`Reply`（带 `clientId` 直接进 outbox）、`MarkRead`（`POST /conversations/{id}/read`）。
-- 前台：收到推送只作为"有新数据"信号，走增量同步；不直接渲染推送内容。
-
-> 内部自用场景不接厂商推送，改用企业微信/钉钉机器人：见 `docs/DEPLOYMENT-INTERNAL.md` §3。
-
-### 通道决策（若将来对外）
-
-| 场景 | 方案 | 前置条件 |
-| --- | --- | --- |
-| 海外 / 有 GMS | FCM | Google 账号、`google-services.json` |
-| 国内 | 厂商通道 + 聚合 SDK | 各厂商开发者资质、应用上架 |
-| 自建内网 | WebSocket 长连接 + 前台服务 | 系统可能杀后台，不保证 |
-
-## 5. 模块边界
-
-### Host（Node）
-
-```
-lib/
-  core/
-    http/        路由与中间件（v1、旧端点兼容层）
-    auth/        设备 token、会话、撤销
-    sync/        revision、delta 生成、tombstone
-    store/       仓储（SQLite 目标，现为 JSON）
-    channels/    WhatsApp / Telegram / 企业微信适配器
-    push/        设备注册、FCM/HMS 发送
-  console/       Web 控制台 API（账号/团队/模板/审计）
-```
-
-现有 `lib/commands.js` 的 switch 保留为 v1 的命令实现层，路由层拆薄。
-
-### Android（Compose）
-
-```
-data/
-  local/    Room：ConversationEntity、MessageEntity、ContactEntity、OutboxEntity、CursorEntity
-  remote/   Ktor/OkHttp：/v1/* DTO
-  sync/     SyncEngine（增量）、OutboxWorker（WorkManager）
-  push/     FirebaseMessagingService（或厂商）
-domain/     use case：SendMessage、MarkRead、UpdateConversation
-ui/         compose：chat/ inbox/ contacts/ channels/ settings/
-```
-
-## 6. 迁移里程碑
-
-| 阶段 | 内容 | 验收 |
-| --- | --- | --- |
-| **M0** | Host 增加 `/v1/sync`、分页、幂等发送；手机接入 Room + 增量 | 断网可看历史；飞行模式发送，恢复后不重复不丢失 |
-| **M1** | 设备注册 + 推送 + 通知动作 | 锁屏收到消息，通知内直接回复 |
-| **M2** | 手机主用：搜索、媒体库、转发、多选、置顶/免打扰 | 连续一周只在手机处理会话 |
-| **M3** | 控制台拆分：core / console，补团队/分配/模板/审计 | 新账号接入全程在 Web 完成 |
-
-## 7. 与现有实现的兼容
-
-> 现状（S4 结束）：账号、租户、设备、计费、发消息已经在新服务 `server/`；
-> 会话/消息的**读取面**与 webhook 接入仍在 DSH 插件（`/api/im-omni.*`），
-> 插件端点为 deprecated，仅作开发壳与数据面过渡，计划在数据面迁移后下线。
-
-- 旧端点 `/api/im-omni.state`、`.command` 保留给 Web 控制台与旧版 App，标记 deprecated。
-- v1 是对旧命令的**薄封装**：`POST /v1/messages` → `message.send`，`PATCH /conversations/{id}` → `conversation.update`。
-- App 升级：`versionCode` 单调递增 + 应用内 updater 已有，继续沿用。
+- `node --test`（server 87 + 插件升级/代理 14）全绿；
+- 越权访问返回 403 且不泄露名字；跨租户返回 404；
+- 授权变更下一次请求即生效（无缓存）；
+- 面板内完成：登录 → 授权 → 提案 → 批准 → 审计可见；
+- `origin/main == HEAD`。
