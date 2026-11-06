@@ -475,3 +475,15 @@ $ cd server && node --test test/isolation.test.mjs
 ```
 
 全量：`cd server && node --test` → **64 passed**。
+
+### 授权界面
+
+`GET /admin`（由 API 进程直接返回的静态页，`server/public/admin.html`）：
+
+- 管理员登录后列出成员，每人一行：`dataScope` 下拉（仅自己 / 整个团队）+ 渠道号码多选 chip
+- 勾选即写 `PATCH /v1/tenants/{id}/members/{userId}`，保存成功后重新拉取成员列表
+- 非管理员角色登录后整页只读（下拉与勾选均 disabled）
+- 只用一个中性色板；品牌绿只出现在主按钮与选中态
+
+截图：`docs/permissions-admin.png`（林小满被授予「售后 WhatsApp」后显示"1 个号码"）、
+`docs/permissions-admin-before-grant.png`（授权前）。

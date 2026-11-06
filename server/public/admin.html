@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>团队权限 · 全渠道 IM</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --base:#fafafa; --layer:#ffffff; --layer2:#f4f4f5;
+  --ink:#18181b; --ink2:#71717a; --ink3:#a1a1aa;
+  --line:#e6e6e8; --line2:#d4d4d8;
+  --green:#15803d; --red:#b91c1c; --amber:#b45309;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--base);color:var(--ink);font:14px/1.55 "PingFang SC","Segoe UI",system-ui,sans-serif}
+main{max-width:920px;margin:0 auto;padding:40px 24px 64px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:8px}
+h1{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0}
+.sub{color:var(--ink2);font-size:13px;margin:0 0 24px}
+.card{background:var(--layer);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:600;margin:0 0 4px}
+.card p.note{color:var(--ink3);font-size:12px;margin:0 0 16px}
+label.field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ink2)}
+input,select{height:34px;border:1px solid var(--line);border-radius:8px;background:var(--base);color:var(--ink);font:inherit;font-size:13px;padding:0 10px;outline:none}
+input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:1px}
+button{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--layer);color:var(--ink);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+button:hover{background:var(--layer2)}
+button.primary{background:var(--green);border-color:transparent;color:#fff}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:none}
+.who{min-width:0}
+.who b{font-weight:500;font-size:13.5px}
+.who span{display:block;color:var(--ink3);font-size:11.5px;margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--ink2);cursor:pointer;user-select:none;background:var(--layer)}
+.chip input{width:auto;height:auto;margin:0;accent-color:var(--green)}
+.chip.on{color:var(--ink);border-color:var(--line2);background:var(--layer2)}
+.status{font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.status.ok{color:var(--green)}
+.status.bad{color:var(--red)}
+.hint{color:var(--ink3);font-size:11.5px;margin-top:10px}
+.mono{font-family:var(--mono)}
+.hidden{display:none !important}
+.matrix{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.matrix th{text-align:left;font-weight:500;color:var(--ink2);font-size:11px;padding:0 0 8px;border-bottom:1px solid var(--line)}
+.matrix td{padding:8px 0;border-bottom:1px solid var(--line)}
+.matrix tr:last-child td{border-bottom:none}
+.matrix .yes{color:var(--ink)}
+.matrix .no{color:var(--ink3)}
+@media (max-width:720px){.row{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>团队权限</h1>
+    <span class="status" id="session"></span>
+  </header>
+  <p class="sub">每个员工的可见范围由这里的授权决定：整个团队，或只给指定号码。保存后下一次请求立即生效。</p>
+
+  <section class="card" id="loginCard">
+    <h2>登录</h2>
+    <p class="note">用团队管理员账号登录，只有所有者和管理员能分配权限。</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
+      <label class="field">邮箱<input id="email" type="email" autocomplete="username" value="demo@dsh.local"></label>
+      <label class="field">密码<input id="password" type="password" autocomplete="current-password" value="demo12345"></label>
+      <button class="primary" id="loginBtn">登录</button>
+    </div>
+    <p class="hint" id="loginMsg"></p>
+  </section>
+
+  <section class="card hidden" id="teamCard">
+    <h2>成员</h2>
+    <p class="note" id="teamNote"></p>
+    <div id="members"></div>
+  </section>
+
+  <section class="card hidden" id="matrixCard">
+    <h2>权限说明</h2>
+    <table class="matrix">
+      <thead><tr><th>能力</th><th>所有者 / 管理员</th><th>客服</th><th>客服 + 指定号码</th></tr></thead>
+      <tbody>
+        <tr><td>查看全部渠道号码</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>查看被授权的号码</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td></tr>
+        <tr><td>接待被授权号码上的会话</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td></tr>
+        <tr><td>分配成员权限</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+<script>
+const state = { token: '', tenantId: '', role: '', channels: [], members: [] }
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      'content-type': 'application/json',
+      ...(state.token === '' ? {} : { authorization: 'Bearer ' + state.token }),
+      ...(options.headers ?? {}),
+    },
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    const failure = new Error(body?.error?.message ?? ('HTTP ' + response.status))
+    failure.code = body?.error?.code
+    throw failure
+  }
+  return body
+}
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag)
+  for (const [key, value] of Object.entries(props)) {
+    if (key === 'class') node.className = value
+    else if (key === 'text') node.textContent = value
+    else if (key.startsWith('on')) node.addEventListener(key.slice(2).toLowerCase(), value)
+    else node.setAttribute(key, value)
+  }
+  for (const child of children) node.append(child)
+  return node
+}
+
+function setStatus(text, kind = '') {
+  const node = document.getElementById('session')
+  node.textContent = text
+  node.className = 'status ' + kind
+}
+
+async function login() {
+  const email = document.getElementById('email').value.trim()
+  const password = document.getElementById('password').value
+  document.getElementById('loginMsg').textContent = ''
+  try {
+    const session = await api('/v1/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+    state.token = session.accessToken
+    const me = await api('/v1/me')
+    const tenant = me.tenants.find((item) => item.tenant_id === me.currentTenant) ?? me.tenants[0]
+    state.tenantId = tenant.tenant_id
+    state.role = tenant.role
+    setStatus((me.user.name || me.user.email) + ' · ' + (tenant.role === 'owner' ? '所有者' : tenant.role === 'admin' ? '管理员' : '客服'))
+    await loadTeam()
+  } catch (error) {
+    document.getElementById('loginMsg').textContent = '登录失败：' + error.message
+    setStatus('未登录', 'bad')
+  }
+}
+
+async function loadTeam() {
+  const [members, channels] = await Promise.all([
+    api('/v1/tenants/' + state.tenantId + '/members'),
+    api('/v1/channels'),
+  ])
+  state.members = members.items
+  state.channels = channels.items
+  document.getElementById('loginCard').classList.add('hidden')
+  document.getElementById('teamCard').classList.remove('hidden')
+  document.getElementById('matrixCard').classList.remove('hidden')
+  const canAssign = state.role === 'owner' || state.role === 'admin'
+  document.getElementById('teamNote').textContent = canAssign
+    ? state.members.length + ' 名成员 · ' + state.channels.length + ' 个号码可见'
+    : '只有所有者和管理员能修改权限，这里只读。'
+  renderMembers(canAssign)
+}
+
+function renderMembers(canAssign) {
+  const host = document.getElementById('members')
+  host.textContent = ''
+  for (const member of state.members) {
+    const permission = member.permissions ?? {}
+    const scope = permission.dataScope === 'all' ? 'all' : permission.dataScope === 'own' ? 'own' : ''
+    const granted = new Set(permission.channelIds ?? [])
+    const isAdminRole = member.role === 'owner' || member.role === 'admin'
+    const allVisible = scope === 'all' || (scope === '' && isAdminRole)
+    const effective = allVisible ? '整个团队' : granted.size > 0 ? granted.size + ' 个号码' : '仅自己'
+
+    const scopeSelect = el('select', {
+      ...(canAssign ? {} : { disabled: 'disabled' }),
+      onchange: (event) => save(member, { dataScope: event.target.value, channelIds: event.target.value === 'all' ? [] : [...granted] }),
+    },
+      el('option', { value: 'own', ...(!allVisible ? { selected: 'selected' } : {}) }, '仅自己'),
+      el('option', { value: 'all', ...(allVisible ? { selected: 'selected' } : {}) }, '整个团队'),
+    )
+
+    const chips = el('div', { class: 'chips' })
+    if (!allVisible) {
+      for (const channel of state.channels) {
+        const box = el('input', { type: 'checkbox', ...(granted.has(channel.id) ? { checked: 'checked' } : {}) })
+        if (!canAssign) box.setAttribute('disabled', 'disabled')
+        box.addEventListener('change', () => {
+          const next = new Set(granted)
+          if (box.checked) next.add(channel.id)
+          else next.delete(channel.id)
+          save(member, { channelIds: [...next], ...(scope === 'all' ? {} : { dataScope: 'own' }) })
+        })
+        chips.append(el('label', { class: 'chip' + (granted.has(channel.id) ? ' on' : '') }, box, channel.name))
+      }
+      if (state.channels.length === 0) chips.append(el('span', { class: 'status' }, '还没有渠道'))
+    }
+
+    const row = el('div', { class: 'row' },
+      el('div', { class: 'who' },
+        el('b', { text: member.name || member.email }),
+        el('span', { text: member.email }),
+        ...(allVisible ? [] : [chips]),
+      ),
+      el('div', { style: 'display:flex;align-items:center;gap:12px;flex:none' },
+        el('span', { class: 'status', text: effective }),
+        scopeSelect,
+      ),
+    )
+    host.append(row)
+  }
+}
+
+async function save(member, patch) {
+  try {
+    const result = await api('/v1/tenants/' + state.tenantId + '/members/' + member.user_id, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    })
+    member.permissions = result.member.permissions
+    await loadTeam()
+  } catch (error) {
+    setStatus('保存失败：' + error.message, 'bad')
+  }
+}
+
+document.getElementById('loginBtn').addEventListener('click', login)
+document.getElementById('password').addEventListener('keydown', (event) => { if (event.key === 'Enter') login() })
+</script>
+</body>
+</html>

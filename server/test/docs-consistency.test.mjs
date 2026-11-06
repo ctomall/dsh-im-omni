@@ -42,7 +42,7 @@ const routes = [...appSource.matchAll(/route\('([A-Z]+)',\s*'([^']+)'/g)].map((m
   key: `${match[1]} ${canonical(normalise(match[2]))}`,
 }))
 
-const documented = [...apiDoc.matchAll(/`(GET|POST|PUT|PATCH|DELETE) (\/v1\/[^`]+|\/healthz|\/metrics)`/g)]
+const documented = [...apiDoc.matchAll(/`(GET|POST|PUT|PATCH|DELETE) (\/v1\/[^`]+|\/healthz|\/metrics|\/admin)`/g)]
   .flatMap((match) => expand(match[2]).map((path) => `${match[1]} ${canonical(path)}`))
 
 test('every implemented route appears in the API document', () => {
@@ -51,7 +51,7 @@ test('every implemented route appears in the API document', () => {
 })
 
 test('the document does not claim unimplemented routes as implemented', () => {
-  const docRoutes = [...apiDoc.matchAll(/`(GET|POST|PUT|PATCH|DELETE) (\/v1\/[^`]+|\/healthz|\/metrics)`/g)]
+  const docRoutes = [...apiDoc.matchAll(/`(GET|POST|PUT|PATCH|DELETE) (\/v1\/[^`]+|\/healthz|\/metrics|\/admin)`/g)]
     .flatMap((match) => expand(match[2]).map((path) => `${match[1]} ${canonical(path)}`))
   const unknown = docRoutes.filter((key) => !routes.some((route) => route.key === key))
   // Planned endpoints are allowed, but only outside the "✅ 已实现" table rows.

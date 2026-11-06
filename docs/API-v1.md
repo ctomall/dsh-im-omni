@@ -16,6 +16,7 @@
 | 注册 / 登录 / 刷新 | `POST /v1/auth/{register,login,refresh}` | ✅ 已实现 |
 | 切换租户 | `POST /v1/auth/switch` | ✅ 已实现 |
 | 我的信息 | `GET /v1/me` | ✅ 已实现 |
+| 管理页 | `GET /admin` | ✅ 已实现（团队权限分配，登录后按员工勾选可见号码） |
 | 租户 / 成员 | `POST /v1/tenants`、`GET /v1/tenants/{id}/members`、`PATCH /v1/tenants/{id}/members/{userId}` | ✅ 已实现（PATCH 分配成员的可见范围） |
 | 邀请 | `POST /v1/tenants/{id}/invites`、`POST /v1/invites/accept` | ✅ 已实现 |
 | 设备 | `POST /v1/devices/{code,link,register}`、`GET /v1/devices`、`DELETE /v1/devices/{id}` | ✅ 已实现 |

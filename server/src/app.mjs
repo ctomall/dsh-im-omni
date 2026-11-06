@@ -172,6 +172,16 @@ function allowScoped(response, decision) {
   return false
 }
 
+route('GET', '/admin', async (request, response) => {
+  const { readFile } = await import('node:fs/promises')
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const here = dirname(fileURLToPath(import.meta.url))
+  const html = await readFile(join(here, '..', 'public', 'admin.html'), 'utf8')
+  response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+  response.end(html)
+})
+
 route('GET', '/healthz', async (_request, response) => {
   // Liveness is cheap; readiness includes the database, because an instance
   // that cannot reach Postgres must be pulled out of the load balancer.
