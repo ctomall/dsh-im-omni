@@ -109,3 +109,28 @@ $ curl "http://127.0.0.1:52102/plugins/??dsh-im-omni/client.js&rev=92174c545404"
 ```
 
 边界：改**宿主半边**（`index.js`、`lib/*`、`cordis.patch.yml`）仍然需要重启 dsh，因为那是进程内加载的。
+
+## 第五轮：插件详情页（插件管理器内）
+
+在 DSH 插件管理器里点「全渠道 IM」进入的详情页，原本只有 README；这一轮在上面加了 **插件配置** 区，
+按 unslop 的方向设计（同一套石墨中性 + 品牌绿只给主操作与状态点）。
+
+| 分组 | 能改什么 | 落到哪个命令 |
+| --- | --- | --- |
+| 连接与演示 | Host 服务地址（只读）、演示数据开关 | `workspace.update { demo }` |
+| 通知默认值 | 企业微信机器人、深链模板、安静时段、通知开关 | `workspace.update { notify }`（复用既有校验：webhook 必须 https） |
+| 接待默认值 | 默认 SLA、翻译目标语言、自动分配/自动翻译/AI 建议 | `workspace.update { … }` |
+| 渠道开关 | 每个渠道启用/暂停 + 健康状态 | `channel.update { channelId, status }` |
+| 成员与权限 | 角色矩阵、成员角色下拉、当前身份 | `agent.update { agentId, role }`；所有权 `workspace.owner` |
+
+实现方式：注册插件管理器的 `plugins.detail.section` 槽（list / root），只在 `subject.pkg.name === 'dsh-im-omni'`
+时渲染；组件直接读写同一份 Host API，和面板不出现两份真相。
+
+### 权限设计（Host 侧强制）
+
+- `workspace.ownerId`：首个成员自动成为所有者；`workspace.owner` 只允许所有者转移。
+- 角色：`owner` > `admin` > `agent`；`agent` 不能改配置，`admin` 不能授予管理员。
+- 门在 `lib/commands.js`：`CONFIG_ACTIONS` 集合命中时用「当前坐席」的角色判定，越权返回 `403 forbidden` / `403 owner-only`。
+- 诚实的边界：插件 API 是本地 Host API，"当前坐席"由客户端声明，**不是强身份**；真正的多用户鉴权在 SaaS 服务端（JWT + RLS + 成员表），这里只做单机工作区的角色约束。
+
+截图：`docs/unslop-detail-before.png` / `docs/unslop-detail-after.png` / `docs/unslop-detail-permissions.png`。

@@ -30,6 +30,43 @@ window.__ModuleLoader__.load({
 
     /** Theme-aware, host-consistent styles. Literal colors are limited to avatar artwork. */
     const CSS = String.raw`
+/* --- Plugin detail page: configuration section --------------------------- */
+.imCfg{display:flex;flex-direction:column;gap:24px;margin-top:32px;border-top:.5px solid var(--dsw-alias-border-l1);padding:24px 0 8px;max-width:880px}
+.imCfgHead{display:flex;align-items:flex-start;gap:12px}
+.imCfgTitle{font-size:15px;font-weight:600;margin:0}
+.imCfgSub{font-size:12px;color:var(--dsw-alias-label-secondary);margin:4px 0 0}
+.imCfgGroup{border-top:.5px solid var(--dsw-alias-border-l1);padding-top:16px;display:flex;flex-direction:column;gap:12px}
+.imCfgGroupHead{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.imCfgGroupTitle{font-size:12px;font-weight:500;color:var(--dsw-alias-label-secondary);margin:0}
+.imCfgGroupNote{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+.imCfgGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.imCfgGrid.wide{grid-template-columns:1fr}
+.imCfgField{display:flex;flex-direction:column;gap:6px;min-width:0}
+.imCfgLabel{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imCfgInput{height:34px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;padding:0 10px;outline:none;min-width:0}
+.imCfgInput:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.imCfgRow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.imCfgRow:last-child{border-bottom:none;padding-bottom:0}
+.imCfgRowMain{display:flex;flex-direction:column;gap:2px;min-width:0}
+.imCfgRowTitle{font-size:13px}
+.imCfgRowNote{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+.imCfgActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.imCfgStatus{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--dsw-alias-label-secondary)}
+.imCfgDot{width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-success-primary)}
+.imCfgDot.paused{background:var(--dsw-alias-state-idle-primary)}
+.imCfgMatrix{width:100%;border-collapse:collapse;font-size:12px}
+.imCfgMatrix th{text-align:left;font-weight:500;color:var(--dsw-alias-label-secondary);font-size:11px;padding:0 0 8px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.imCfgMatrix td{padding:8px 0;border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle}
+.imCfgMatrix tr:last-child td{border-bottom:none}
+.imCfgMark{font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
+.imCfgMark.yes{color:var(--dsw-alias-label-primary)}
+.imCfgMark.no{color:var(--dsw-alias-label-tertiary)}
+.imCfgSelect{height:30px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;padding:0 8px}
+.imCfgNote{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:1.5}
+.imCfgToast{font-size:12px;color:var(--dsw-alias-state-success-primary)}
+.imCfgToast.bad{color:var(--dsw-alias-state-error-primary)}
+@media (max-width:720px){.imCfgGrid{grid-template-columns:1fr}}
+
 .imoRoot{height:100%;min-height:0;display:flex;flex-direction:column;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family,inherit);font-size:14px;line-height:1.45;overflow:hidden;position:relative}
 .imoRoot *{box-sizing:border-box}
 .imoTop{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 24px;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none}
@@ -5485,6 +5522,292 @@ window.__ModuleLoader__.load({
     /** Client services used by this plugin. */
     const inject = ['slots', 'locale']
 
+
+    /**
+     * Configuration contributed to this plugin's page in the plugin manager.
+     * Reads and writes the same Host API the panel uses, so the two surfaces
+     * never disagree about a value.
+     * @returns {import('react').ReactElement} the section.
+     */
+    function PluginConfigSection() {
+      const [state, setState] = React.useState(null)
+      const [error, setError] = React.useState('')
+      const [saving, setSaving] = React.useState('')
+      const [notice, setNotice] = React.useState('')
+      const [form, setForm] = React.useState(null)
+
+      const load = React.useCallback(async () => {
+        try {
+          const response = await fetch(STATE_PATH, { headers: { accept: 'application/json' }, credentials: 'same-origin' })
+          const payload = await response.json().catch(() => null)
+          if (!response.ok || payload?.ok !== true) throw new Error(payload?.error?.message ?? `HTTP ${response.status}`)
+          setState(payload.state)
+          const workspace = payload.state.workspace
+          setForm({
+            demo: workspace.demo !== false,
+            notifyEnabled: workspace.notify?.enabled === true,
+            webhook: workspace.notify?.wecomWebhook ?? '',
+            quietStart: workspace.notify?.quietStart ?? '',
+            quietEnd: workspace.notify?.quietEnd ?? '',
+            linkTemplate: workspace.notify?.linkTemplate ?? '',
+            sla: String(workspace.defaultSlaMinutes ?? 30),
+            autoAssign: workspace.autoAssign === true,
+            autoTranslate: workspace.autoTranslate !== false,
+            translationTarget: workspace.translationTarget ?? 'zh-CN',
+            aiSuggestions: workspace.aiSuggestions !== false,
+          })
+          setError('')
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : String(reason))
+        }
+      }, [])
+
+      React.useEffect(() => { void load() }, [load])
+
+      const run = React.useCallback(async (label, action, payload) => {
+        setSaving(label)
+        setNotice('')
+        setError('')
+        try {
+          const response = await fetch(COMMAND_PATH, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ action, payload }),
+          })
+          const body = await response.json().catch(() => null)
+          if (!response.ok || body?.ok !== true) throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
+          if (body.state !== undefined) setState(body.state)
+          setNotice(`${label}已保存`)
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : String(reason))
+        } finally {
+          setSaving('')
+        }
+      }, [])
+
+      if (error !== '' && state === null) {
+        return h('div', { className: 'imCfg' }, h('p', { className: 'imCfgNote' }, `配置加载失败：${error}`))
+      }
+      if (state === null || form === null) {
+        return h('div', { className: 'imCfg' }, h('p', { className: 'imCfgNote' }, '正在读取插件配置…'))
+      }
+
+      const workspace = state.workspace ?? {}
+      const channels = Array.isArray(state.channels) ? state.channels : []
+      const agents = Array.isArray(state.agents) ? state.agents : []
+      const currentAgent = agents.find((agent) => agent.id === workspace.currentAgentId)
+      const role = currentAgent === undefined ? 'owner' : workspace.ownerId === currentAgent.id ? 'owner' : currentAgent.role === 'admin' ? 'admin' : 'agent'
+      const canConfigure = role === 'owner' || role === 'admin'
+
+      const saveNotify = () => run('通知默认值', 'workspace.update', {
+        notify: {
+          enabled: form.notifyEnabled,
+          wecomWebhook: form.webhook,
+          quietStart: form.quietStart,
+          quietEnd: form.quietEnd,
+          linkTemplate: form.linkTemplate,
+        },
+      })
+      const saveReception = () => run('接待默认值', 'workspace.update', {
+        defaultSlaMinutes: Number(form.sla) || 30,
+        autoAssign: form.autoAssign,
+        autoTranslate: form.autoTranslate,
+        translationTarget: form.translationTarget,
+        aiSuggestions: form.aiSuggestions,
+      })
+
+      return h('div', { className: 'imCfg' },
+        h('div', { className: 'imCfgHead' },
+          h('div', null,
+            h('h2', { className: 'imCfgTitle' }, '插件配置'),
+            h('p', { className: 'imCfgSub' }, '这里的改动立即作用于全渠道 IM 面板，两个入口读写同一份 Host 状态。'),
+          ),
+        ),
+        notice === '' ? null : h('p', { className: `imCfgToast ${error === '' ? '' : 'bad'}`.trim() }, notice),
+        error === '' ? null : h('p', { className: 'imCfgToast bad' }, error),
+
+        h('section', { className: 'imCfgGroup' },
+          h('div', { className: 'imCfgGroupHead' },
+            h('h3', { className: 'imCfgGroupTitle' }, '连接与演示'),
+            h('span', { className: 'imCfgGroupNote' }, role === 'owner' ? '所有者' : role === 'admin' ? '管理员' : '客服'),
+          ),
+          h('div', { className: 'imCfgGrid' },
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, 'Host 服务地址'),
+              h('input', { className: 'imCfgInput', readOnly: true, value: typeof window === 'undefined' ? '' : window.location.origin }),
+            ),
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, '演示数据'),
+              h('select', {
+                className: 'imCfgSelect',
+                value: form.demo ? 'on' : 'off',
+                disabled: !canConfigure,
+                onChange: (event) => {
+                  const demo = event.target.value === 'on'
+                  setForm({ ...form, demo })
+                  void run('演示模式', 'workspace.update', { demo })
+                },
+              }, h('option', { value: 'on' }, '显示演示数据'), h('option', { value: 'off' }, '只用真实数据')),
+            ),
+          ),
+        ),
+
+        h('section', { className: 'imCfgGroup' },
+          h('div', { className: 'imCfgGroupHead' }, h('h3', { className: 'imCfgGroupTitle' }, '通知默认值')),
+          h('div', { className: 'imCfgGrid' },
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, '企业微信机器人'),
+              h('input', {
+                className: 'imCfgInput',
+                placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…',
+                value: form.webhook,
+                disabled: !canConfigure,
+                onChange: (event) => setForm({ ...form, webhook: event.target.value }),
+              }),
+            ),
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, '点击深链模板'),
+              h('input', {
+                className: 'imCfgInput',
+                placeholder: 'dshomni://chat/{conversationId}',
+                value: form.linkTemplate,
+                disabled: !canConfigure,
+                onChange: (event) => setForm({ ...form, linkTemplate: event.target.value }),
+              }),
+            ),
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, '安静时段开始'),
+              h('input', { className: 'imCfgInput', placeholder: '22:00', value: form.quietStart, disabled: !canConfigure, onChange: (event) => setForm({ ...form, quietStart: event.target.value }) }),
+            ),
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, '安静时段结束'),
+              h('input', { className: 'imCfgInput', placeholder: '08:00', value: form.quietEnd, disabled: !canConfigure, onChange: (event) => setForm({ ...form, quietEnd: event.target.value }) }),
+            ),
+          ),
+          h('div', { className: 'imCfgActions' },
+            h('button', { type: 'button', className: 'imoBtn imoBtnPrimary', disabled: !canConfigure || saving !== '', onClick: () => { void saveNotify() } }, saving === '通知默认值' ? '保存中…' : '保存通知'),
+            h('button', {
+              type: 'button',
+              className: 'imoBtn',
+              disabled: !canConfigure,
+              onClick: () => {
+                setForm({ ...form, notifyEnabled: !form.notifyEnabled })
+                void run('通知开关', 'workspace.update', { notify: { enabled: !form.notifyEnabled } })
+              },
+            }, form.notifyEnabled ? '通知已开启' : '通知已关闭'),
+          ),
+        ),
+
+        h('section', { className: 'imCfgGroup' },
+          h('div', { className: 'imCfgGroupHead' }, h('h3', { className: 'imCfgGroupTitle' }, '接待默认值')),
+          h('div', { className: 'imCfgGrid' },
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, '默认 SLA（分钟）'),
+              h('input', { className: 'imCfgInput', inputMode: 'numeric', value: form.sla, disabled: !canConfigure, onChange: (event) => setForm({ ...form, sla: event.target.value }) }),
+            ),
+            h('label', { className: 'imCfgField' },
+              h('span', { className: 'imCfgLabel' }, '翻译目标语言'),
+              h('input', { className: 'imCfgInput', value: form.translationTarget, disabled: !canConfigure, onChange: (event) => setForm({ ...form, translationTarget: event.target.value }) }),
+            ),
+          ),
+          h('div', null,
+            [
+              ['自动分配新会话', 'autoAssign'],
+              ['自动翻译客户消息', 'autoTranslate'],
+              ['显示 AI 建议', 'aiSuggestions'],
+            ].map(([label, key]) => h('div', { key, className: 'imCfgRow' },
+              h('div', { className: 'imCfgRowMain' }, h('span', { className: 'imCfgRowTitle' }, label)),
+              h('button', {
+                type: 'button',
+                className: 'imoSwitch',
+                role: 'switch',
+                'aria-checked': form[key] ? 'true' : 'false',
+                disabled: !canConfigure,
+                style: { opacity: form[key] ? 1 : 0.45, background: form[key] ? 'var(--dsw-alias-brand-primary)' : 'color-mix(in srgb,var(--dsw-alias-label-primary) 18%,transparent)' },
+                onClick: () => setForm({ ...form, [key]: !form[key] }),
+              }),
+            )),
+          ),
+          h('div', { className: 'imCfgActions' },
+            h('button', { type: 'button', className: 'imoBtn imoBtnPrimary', disabled: !canConfigure || saving !== '', onClick: () => { void saveReception() } }, saving === '接待默认值' ? '保存中…' : '保存接待设置'),
+          ),
+        ),
+
+        h('section', { className: 'imCfgGroup' },
+          h('div', { className: 'imCfgGroupHead' },
+            h('h3', { className: 'imCfgGroupTitle' }, '渠道开关'),
+            h('span', { className: 'imCfgGroupNote' }, `${channels.length} 个渠道`),
+          ),
+          channels.length === 0
+            ? h('p', { className: 'imCfgNote' }, '还没有渠道。在全渠道 IM 的渠道页添加。')
+            : channels.map((channel) => {
+              const active = channel.status === 'active'
+              return h('div', { key: channel.id, className: 'imCfgRow' },
+                h('div', { className: 'imCfgRowMain' },
+                  h('span', { className: 'imCfgRowTitle' }, channel.name),
+                  h('span', { className: 'imCfgRowNote' }, `${channel.type} · ${channel.runtime?.health ?? 'unconfigured'}`),
+                ),
+                h('div', { className: 'imCfgActions' },
+                  h('span', { className: 'imCfgStatus' }, h('span', { className: `imCfgDot ${active ? '' : 'paused'}`.trim() }), active ? '启用' : '已暂停'),
+                  h('button', {
+                    type: 'button',
+                    className: 'imoBtn imoBtnSm',
+                    disabled: !canConfigure,
+                    onClick: () => run(active ? '暂停渠道' : '启用渠道', 'channel.update', { channelId: channel.id, status: active ? 'paused' : 'active' }),
+                  }, active ? '暂停' : '启用'),
+                ),
+              )
+            }),
+        ),
+
+        h('section', { className: 'imCfgGroup' },
+          h('div', { className: 'imCfgGroupHead' },
+            h('h3', { className: 'imCfgGroupTitle' }, '成员与权限'),
+            h('span', { className: 'imCfgGroupNote' }, '身份取当前坐席；Host 侧按角色拒绝越权命令'),
+          ),
+          h('table', { className: 'imCfgMatrix' },
+            h('thead', null, h('tr', null,
+              h('th', null, '权限'), h('th', null, '所有者'), h('th', null, '管理员'), h('th', null, '客服'),
+            )),
+            h('tbody', null,
+              [
+                ['配置插件与通知', 'yes', 'yes', 'no'],
+                ['启用或暂停渠道', 'yes', 'yes', 'no'],
+                ['添加成员与改角色', 'yes', 'limit', 'no'],
+                ['接待会话与发送消息', 'yes', 'yes', 'yes'],
+              ].map(([label, owner, admin, agent]) => h('tr', { key: label },
+                h('td', null, label),
+                [owner, admin, agent].map((mark, index) => h('td', { key: index, className: `imCfgMark ${mark === 'yes' ? 'yes' : mark === 'no' ? 'no' : ''}`.trim() },
+                  mark === 'yes' ? '✓' : mark === 'no' ? '—' : '仅限添加/改客服')),
+              )),
+            ),
+          ),
+          h('div', null, agents.length === 0
+            ? h('p', { className: 'imCfgNote' }, '还没有成员。')
+            : agents.map((agent) => {
+              const isOwner = workspace.ownerId === agent.id
+              return h('div', { key: agent.id, className: 'imCfgRow' },
+                h('div', { className: 'imCfgRowMain' },
+                  h('span', { className: 'imCfgRowTitle' }, agent.name),
+                  h('span', { className: 'imCfgRowNote' }, agent.email || agent.id),
+                ),
+                isOwner
+                  ? h('span', { className: 'imCfgStatus' }, '所有者')
+                  : h('select', {
+                    className: 'imCfgSelect',
+                    value: agent.role ?? 'agent',
+                    disabled: role !== 'owner',
+                    onChange: (event) => run('成员角色', 'agent.update', { agentId: agent.id, role: event.target.value }),
+                  }, h('option', { value: 'admin' }, '管理员'), h('option', { value: 'agent' }, '客服')),
+              )
+            }),
+          ),
+          h('p', { className: 'imCfgNote' }, '当前身份：' + (currentAgent === undefined ? '未选择坐席（按所有者处理）' : `${currentAgent.name} · ${role === 'owner' ? '所有者' : role === 'admin' ? '管理员' : '客服'}`)),
+        ),
+      )
+    }
+
     /**
      * Register the sidebar entry, main panel, and locale dictionaries.
      * @param {import('@deepseek-ai/cordis').Context} ctx - Client context.
@@ -5507,6 +5830,17 @@ window.__ModuleLoader__.load({
         key: PANEL_ID,
         locale: NS,
       }, App))
+      ctx.slots.inject('plugins.detail.section', () => ctx.slots.register({
+        name: 'plugins.detail.section',
+        id: 'im-omni.config',
+        locale: NS,
+        render: (props) => {
+          const subject = props?.subject
+          const pkg = subject?.pkg
+          if (pkg === undefined || pkg.name !== 'dsh-im-omni') return null
+          return h(PluginConfigSection, null)
+        },
+      }))
     }
 
     return { name: 'im-omni', inject, apply }

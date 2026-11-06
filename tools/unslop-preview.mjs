@@ -287,7 +287,103 @@ ${css}
   </section>
 </div></div></div></div></body></html>`
 
-if (view === 'settings') {
+const detailCfg = `
+<div class="imCfg">
+  <div class="imCfgHead"><div><h2 class="imCfgTitle">插件配置</h2><p class="imCfgSub">这里的改动立即作用于全渠道 IM 面板，两个入口读写同一份 Host 状态。</p></div></div>
+  <section class="imCfgGroup">
+    <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">连接与演示</h3><span class="imCfgGroupNote">所有者</span></div>
+    <div class="imCfgGrid">
+      <label class="imCfgField"><span class="imCfgLabel">Host 服务地址</span><input class="imCfgInput" readonly value="https://dsh.ila3.top"></label>
+      <label class="imCfgField"><span class="imCfgLabel">演示数据</span><select class="imCfgSelect"><option>显示演示数据</option></select></label>
+    </div>
+  </section>
+  <section class="imCfgGroup">
+    <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">通知默认值</h3></div>
+    <div class="imCfgGrid">
+      <label class="imCfgField"><span class="imCfgLabel">企业微信机器人</span><input class="imCfgInput" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…"></label>
+      <label class="imCfgField"><span class="imCfgLabel">点击深链模板</span><input class="imCfgInput" value="dshomni://chat/{conversationId}"></label>
+      <label class="imCfgField"><span class="imCfgLabel">安静时段开始</span><input class="imCfgInput" value="22:00"></label>
+      <label class="imCfgField"><span class="imCfgLabel">安静时段结束</span><input class="imCfgInput" value="08:00"></label>
+    </div>
+    <div class="imCfgActions"><button class="imoBtn imoBtnPrimary">保存通知</button><button class="imoBtn">通知已开启</button></div>
+  </section>
+  <section class="imCfgGroup">
+    <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">接待默认值</h3></div>
+    <div class="imCfgGrid">
+      <label class="imCfgField"><span class="imCfgLabel">默认 SLA（分钟）</span><input class="imCfgInput" value="30"></label>
+      <label class="imCfgField"><span class="imCfgLabel">翻译目标语言</span><input class="imCfgInput" value="zh-CN"></label>
+    </div>
+    ${[['自动分配新会话', true], ['自动翻译客户消息', true], ['显示 AI 建议', true]].map(([label, on]) => `
+    <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">${label}</span></div><span class="imoSwitch" style="background:${on ? 'var(--dsw-alias-brand-primary)' : 'transparent'}"></span></div>`).join('')}
+    <div class="imCfgActions"><button class="imoBtn imoBtnPrimary">保存接待设置</button></div>
+  </section>
+  <section class="imCfgGroup">
+    <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">渠道开关</h3><span class="imCfgGroupNote">2 个渠道</span></div>
+    ${[['售后 WhatsApp', 'whatsapp_cloud · connected', '启用', true], ['社群 Telegram', 'telegram · ready', '启用', true], ['旧官网桥', 'webhook · unconfigured', '已暂停', false]].map(([name, meta, state, on]) => `
+    <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">${name}</span><span class="imCfgRowNote">${meta}</span></div>
+      <div class="imCfgActions"><span class="imCfgStatus"><span class="imCfgDot ${on ? '' : 'paused'}"></span>${state}</span><button class="imoBtn imoBtnSm">${on ? '暂停' : '启用'}</button></div></div>`).join('')}
+  </section>
+  <section class="imCfgGroup">
+    <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">成员与权限</h3><span class="imCfgGroupNote">身份取当前坐席；Host 侧按角色拒绝越权命令</span></div>
+    <table class="imCfgMatrix"><thead><tr><th>权限</th><th>所有者</th><th>管理员</th><th>客服</th></tr></thead><tbody>
+      <tr><td>配置插件与通知</td><td class="imCfgMark yes">✓</td><td class="imCfgMark yes">✓</td><td class="imCfgMark no">—</td></tr>
+      <tr><td>启用或暂停渠道</td><td class="imCfgMark yes">✓</td><td class="imCfgMark yes">✓</td><td class="imCfgMark no">—</td></tr>
+      <tr><td>添加成员与改角色</td><td class="imCfgMark yes">✓</td><td class="imCfgMark">仅限添加/改客服</td><td class="imCfgMark no">—</td></tr>
+      <tr><td>接待会话与发送消息</td><td class="imCfgMark yes">✓</td><td class="imCfgMark yes">✓</td><td class="imCfgMark yes">✓</td></tr>
+    </tbody></table>
+    <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">You</span><span class="imCfgRowNote">you@example.com</span></div><span class="imCfgStatus">所有者</span></div>
+    <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">林小满</span><span class="imCfgRowNote">lin@ctomall.cn</span></div><select class="imCfgSelect"><option>管理员</option><option>客服</option></select></div>
+    <div class="imCfgRow"><div class="imCfgRowMain"><span class="imCfgRowTitle">陈思远</span><span class="imCfgRowNote">chen@ctomall.cn</span></div><select class="imCfgSelect"><option>客服</option></select></div>
+    <p class="imCfgNote">当前身份：You · 所有者</p>
+  </section>
+</div>`
+
+const detailHtml = `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>im-omni · detail · ${variant}</title>
+<style>
+:root{
+  --dsw-alias-bg-base:#fafafa; --dsw-alias-bg-layer-1:#ffffff; --dsw-alias-bg-layer-2:#f4f4f5;
+  --dsw-alias-label-primary:#18181b; --dsw-alias-label-secondary:#71717a; --dsw-alias-label-tertiary:#a1a1aa;
+  --dsw-alias-border-l1:#e6e6e8; --dsw-alias-border-l2:#d4d4d8;
+  --dsw-alias-brand-primary:#15803d; --dsw-alias-state-success-primary:#16a34a;
+  --dsw-alias-state-warn-primary:#b45309; --dsw-alias-state-error-primary:#b91c1c;
+  --dsw-alias-state-idle-primary:#a1a1aa; --dsw-font-family:"PingFang SC","Segoe UI",system-ui,sans-serif;
+}
+body{margin:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family)}
+.stage{width:1440px;height:1000px;display:flex}
+.shell{flex:1;min-width:0;overflow:auto}
+.page{max-width:1000px;margin:0 auto;padding:28px 40px 40px}
+.crumb{font-size:12px;color:var(--dsw-alias-label-secondary);margin-bottom:20px}
+.head{display:flex;gap:16px;align-items:flex-start}
+.mark{width:48px;height:48px;border-radius:12px;background:var(--dsw-alias-bg-layer-2);display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-brand-primary);flex:none}
+h1{font-size:22px;font-weight:600;margin:0}
+.meta{font-size:12px;color:var(--dsw-alias-label-secondary);margin:4px 0 0}
+.desc{font-size:13px;color:var(--dsw-alias-label-secondary);margin:16px 0 0;max-width:720px;line-height:1.6}
+.doc{margin-top:24px;border-top:.5px solid var(--dsw-alias-border-l1);padding-top:20px}
+.doc h2{font-size:15px;font-weight:600;margin:0 0 10px}
+.doc p{font-size:13px;color:var(--dsw-alias-label-secondary);line-height:1.7;margin:0 0 10px;max-width:720px}
+.doc code{font-size:12px;background:var(--dsw-alias-bg-layer-2);padding:1px 4px;border-radius:4px}
+${css}
+</style></head>
+<body><div class="stage"><div class="shell"><div class="page">
+  <div class="crumb">插件 / 全渠道 IM</div>
+  <div class="head"><div class="mark">✉</div><div>
+    <h1>全渠道 IM</h1>
+    <p class="meta">dsh-im-omni · v2.9.0 · 已启用</p>
+  </div></div>
+  <p class="desc">把 WhatsApp、Telegram、企业微信、飞书等渠道的客户对话收进 DSH：统一收件箱、AI 建议、自动翻译、SLA 与群机器人通知。</p>
+  <div class="doc">
+    <h2>接入前准备</h2>
+    <p>先在 Host 里启用插件，再打开 <code>全渠道 IM</code> 面板添加渠道。官方 API 渠道填凭据；个人号走扫码桥接；自建系统用 HTTP 桥接并配置出站地址。</p>
+    <p>通知走企业微信群机器人，需要群主提供 <code>webhook</code> 地址。安静时段内不发卡片，消息仍会入库。</p>
+  </div>
+  ${variant === 'after' ? detailCfg : ''}
+</div></div></div></body></html>`
+
+if (view === 'detail') {
+  await writeFile(process.argv[3] ?? '/tmp/imo-detail.html', detailHtml)
+  console.log('wrote detail preview')
+} else if (view === 'settings') {
   await writeFile(process.argv[3] ?? '/tmp/imo-settings.html', settingsHtml)
   console.log('wrote settings preview')
 } else if (view === 'analytics') {
