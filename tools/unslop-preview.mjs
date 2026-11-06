@@ -297,9 +297,15 @@ const detailCfg = `
       <div class="imCfgActions">
         <span class="imCfgStatus"><span class="imCfgDot paused"></span>2 个提交待拉取</span>
         <button class="imoBtn imoBtnSm">检查更新</button>
-        <button class="imoBtn imoBtnSm imoBtnPrimary">一键升级</button>
+        <button class="imoBtn imoBtnSm">取消</button>
+        <button class="imoBtn imoBtnSm imoBtnPrimary">确认升级</button>
       </div>
     </div>
+    <div class="imCfgConfirm">
+      <p class="imCfgConfirmTitle">将从 9915ec6 更新到远程 main 的最新提交，拉取 2 个提交。</p>
+      <p class="imCfgNote">升级会替换宿主代码，完成后需要重启 DSH；工作区有未提交改动时会被拒绝。</p>
+    </div>
+    <div class="imCfgDirty"><p class="imCfgNote">工作区有 1 个未提交改动，升级会被拒绝：</p><code class="imCfgDirtyFile">client.js</code></div>
     <div class="imCfgCommits">
       <div class="imCfgCommit"><code>9915ec6</code><span class="imCfgCommitSubject">feat: plugin configuration on the plugin detail page</span></div>
       <div class="imCfgCommit"><code>7cc96fb</code><span class="imCfgCommitSubject">docs: single-file unslop report with inline before/after</span></div>

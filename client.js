@@ -62,6 +62,10 @@ window.__ModuleLoader__.load({
 .imCfgMark.yes{color:var(--dsw-alias-label-primary)}
 .imCfgMark.no{color:var(--dsw-alias-label-tertiary)}
 .imCfgSelect{height:30px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;padding:0 8px}
+.imCfgConfirm{border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.imCfgConfirmTitle{font-size:12.5px;margin:0;line-height:1.5}
+.imCfgDirty{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.imCfgDirtyFile{font-size:11px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);padding:1px 6px;border-radius:4px}
 .imCfgCommits{display:flex;flex-direction:column;gap:6px;padding:4px 0 0}
 .imCfgCommit{display:flex;align-items:baseline;gap:10px;font-size:12px;min-width:0}
 .imCfgCommit code{font-size:11px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);padding:1px 5px;border-radius:4px;flex:none}
@@ -4875,6 +4879,7 @@ window.__ModuleLoader__.load({
       const [upgrade, setUpgrade] = React.useState(null)
       const [upgradeBusy, setUpgradeBusy] = React.useState('')
       const [upgradeNote, setUpgradeNote] = React.useState('')
+      const [confirming, setConfirming] = React.useState(false)
 
       const workspaceSignature = JSON.stringify([
         workspace.name,
@@ -5604,7 +5609,11 @@ window.__ModuleLoader__.load({
         try {
           const result = await upgradeCall('pull')
           if (result.status !== undefined) setUpgrade(result.status)
-          setUpgradeNote(result.message ?? (result.restartRequired ? '已更新，重启 DSH 后生效。' : ''))
+          const short = result.status?.current?.short
+          setUpgradeNote(result.restartRequired
+            ? `已更新${short === undefined ? '' : `到 ${short}`}，重启 DSH 后生效。`
+            : (result.message ?? ''))
+          setConfirming(false)
         } catch (error) {
           setUpgradeNote(`更新失败：${error instanceof Error ? error.message : String(error)}`)
         } finally {
@@ -5696,14 +5705,32 @@ window.__ModuleLoader__.load({
                 disabled: upgradeBusy !== '',
                 onClick: () => { void checkUpgrade() },
               }, upgradeBusy === 'check' ? '检查中…' : '检查更新'),
+              confirming
+                ? h('button', { type: 'button', className: 'imoBtn imoBtnSm', onClick: () => setConfirming(false) }, '取消')
+                : null,
               h('button', {
                 type: 'button',
                 className: 'imoBtn imoBtnSm imoBtnPrimary',
                 disabled: upgradeBusy !== '' || upgrade === null || upgrade.canPull !== true,
-                onClick: () => { void pullUpgrade() },
-              }, upgradeBusy === 'pull' ? '升级中…' : '一键升级'),
+                onClick: () => {
+                  if (confirming) void pullUpgrade()
+                  else setConfirming(true)
+                },
+              }, upgradeBusy === 'pull' ? '升级中…' : confirming ? '确认升级' : '一键升级'),
             ),
           ),
+          confirming && upgrade !== null
+            ? h('div', { className: 'imCfgConfirm' },
+              h('p', { className: 'imCfgConfirmTitle' }, `将从 ${upgrade.current?.short ?? '当前提交'} 更新到远程 ${upgrade.branch ?? ''} 的最新提交，拉取 ${upgrade.behind ?? 0} 个提交。`),
+              h('p', { className: 'imCfgNote' }, '升级会替换宿主代码，完成后需要重启 DSH；工作区有未提交改动时会被拒绝。'),
+            )
+            : null,
+          (upgrade?.dirtyFiles?.length ?? 0) > 0
+            ? h('div', { className: 'imCfgDirty' },
+              h('p', { className: 'imCfgNote' }, `工作区有 ${upgrade.dirtyFiles.length} 个未提交改动，升级会被拒绝：`),
+              upgrade.dirtyFiles.slice(0, 5).map((file) => h('code', { key: file, className: 'imCfgDirtyFile' }, file)),
+            )
+            : null,
           upgrade?.commits?.length > 0
             ? h('div', { className: 'imCfgCommits' },
               upgrade.commits.slice(0, 5).map((commit) => h('div', { key: commit.sha, className: 'imCfgCommit' },

@@ -153,3 +153,14 @@ Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pul
 
 实测（本机真实 checkout）：`installKind=git`、`version=2.9.0`、`branch=main`、`behind=0`、`canPull=false`、`message=已是最新版本。`
 （截图里的“落后 2 个提交”是设计预览用的样例数据。）
+
+### 升级确认（第七轮）
+
+`一键升级` 不再直接拉取，先展开确认条：
+
+- 一句事实：「将从 `9915ec6` 更新到远程 `main` 的最新提交，拉取 2 个提交。」
+- 一句边界：「升级会替换宿主代码，完成后需要重启 DSH；工作区有未提交改动时会被拒绝。」
+- 脏工作区时列出最多 5 个文件（等宽 chip），并说明升级会被拒绝
+- 按钮改为 `取消` / `确认升级`；确认后按钮变 `升级中…`，完成后回写「已更新到 <sha>，重启 DSH 后生效。」
+
+截图：`docs/unslop-detail-upgrade-confirm.png`。
