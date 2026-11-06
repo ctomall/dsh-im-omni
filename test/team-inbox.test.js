@@ -118,3 +118,19 @@ test('workspace and notify writes map onto the settings endpoints', async () => 
   assert.equal(calls[1].init.method, 'PUT')
   assert.equal(calls[1].init.body.enabled, true)
 })
+
+test('template writes go to the team template endpoints', async () => {
+  const { call, calls } = transport({
+    'POST /v1/templates': { status: 201, body: { template: { id: 'tpl1' } } },
+    'PATCH /v1/templates/tpl1': { status: 200, body: { template: { id: 'tpl1' } } },
+    'DELETE /v1/templates/tpl1': { status: 200, body: { deleted: 'tpl1' } },
+  })
+  const inbox = createTeamInbox({ call, token: 't' })
+  await inbox.createTemplate({ name: '退款进度', body: '我们会在 24 小时内处理', shortcut: '/refund' })
+  await inbox.updateTemplate('tpl1', { name: '退款进度（新）', ignored: 1 })
+  await inbox.deleteTemplate('tpl1')
+  assert.equal(calls[0].init.body.name, '退款进度')
+  assert.equal(calls[0].init.body.shortcut, '/refund')
+  assert.deepEqual(calls[1].init.body, { name: '退款进度（新）' })
+  assert.equal(calls[2].init.method, 'DELETE')
+})

@@ -1078,6 +1078,96 @@ route('POST', '/v1/messages', async (request, response) => {
   send(response, 201, { message })
 })
 
+route('GET', '/v1/templates', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const items = await asMember(claims, async (client) => {
+    const result = await client.query('SELECT id, name, shortcut, body, owner_user_id, created_at, updated_at FROM templates ORDER BY name')
+    return result.rows
+  })
+  send(response, 200, { items })
+})
+
+route('POST', '/v1/templates', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const input = await body(request)
+  const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : ''
+  const reply = typeof input.body === 'string' ? input.body.slice(0, 4000) : ''
+  const shortcut = typeof input.shortcut === 'string' ? input.shortcut.trim().slice(0, 40) : ''
+  if (name === '') return fail(response, 422, 'invalid', '话术标题不能为空。')
+  if (reply === '') return fail(response, 422, 'invalid', '话术内容不能为空。')
+  const row = await withTenant(claims.tenantId, async (client) => {
+    const result = await client.query(
+      'INSERT INTO templates (tenant_id, name, shortcut, body, owner_user_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, name, shortcut, body, owner_user_id, created_at, updated_at',
+      [claims.tenantId, name, shortcut, reply, claims.userId],
+    )
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'template.create', $3, $4::jsonb)`,
+      [claims.tenantId, claims.userId, result.rows[0].id, JSON.stringify({ name })],
+    )
+    return result.rows[0]
+  })
+  send(response, 201, { template: row })
+})
+
+route('PATCH', '/v1/templates/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const role = await roleIn(claims.userId, claims.tenantId)
+  const input = await body(request)
+  const result = await withTenant(claims.tenantId, async (client) => {
+    const current = await client.query('SELECT owner_user_id FROM templates WHERE tenant_id = $1 AND id = $2', [claims.tenantId, params[0]])
+    if (current.rowCount === 0) return { missing: true }
+    const isOwner = current.rows[0].owner_user_id === claims.userId
+    if (!isOwner && role !== 'owner' && role !== 'admin') return { forbidden: true }
+    const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : null
+    const reply = typeof input.body === 'string' ? input.body.slice(0, 4000) : null
+    const shortcut = typeof input.shortcut === 'string' ? input.shortcut.trim().slice(0, 40) : null
+    if (name === '') return { invalid: '话术标题不能为空。' }
+    if (reply === '') return { invalid: '话术内容不能为空。' }
+    const updated = await client.query(
+      `UPDATE templates SET name = COALESCE($3, name), body = COALESCE($4, body), shortcut = COALESCE($5, shortcut), updated_at = now()
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING id, name, shortcut, body, owner_user_id, created_at, updated_at`,
+      [claims.tenantId, params[0], name, reply, shortcut],
+    )
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'template.update', $3, $4::jsonb)`,
+      [claims.tenantId, claims.userId, params[0], JSON.stringify({ name })],
+    )
+    return { row: updated.rows[0] }
+  })
+  if (result.missing) return fail(response, 404, 'not-found', '找不到这条话术。')
+  if (result.forbidden) return fail(response, 403, 'forbidden', '只能修改自己的话术，或由管理员修改。')
+  if (result.invalid !== undefined) return fail(response, 422, 'invalid', result.invalid)
+  send(response, 200, { template: result.row })
+})
+
+route('DELETE', '/v1/templates/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const role = await roleIn(claims.userId, claims.tenantId)
+  const result = await withTenant(claims.tenantId, async (client) => {
+    const current = await client.query('SELECT owner_user_id FROM templates WHERE tenant_id = $1 AND id = $2', [claims.tenantId, params[0]])
+    if (current.rowCount === 0) return { missing: true }
+    const isOwner = current.rows[0].owner_user_id === claims.userId
+    if (!isOwner && role !== 'owner' && role !== 'admin') return { forbidden: true }
+    await client.query('DELETE FROM templates WHERE tenant_id = $1 AND id = $2', [claims.tenantId, params[0]])
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'template.delete', $3, '{}'::jsonb)`,
+      [claims.tenantId, claims.userId, params[0]],
+    )
+    return { done: true }
+  })
+  if (result.missing) return fail(response, 404, 'not-found', '找不到这条话术。')
+  if (result.forbidden) return fail(response, 403, 'forbidden', '只能删除自己的话术，或由管理员删除。')
+  send(response, 200, { deleted: params[0] })
+})
+
 route('GET', '/v1/settings/workspace', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')

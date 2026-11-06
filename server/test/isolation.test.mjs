@@ -621,3 +621,33 @@ test('channels can be created and paused by admins, refused for agents', async (
   const deniedPatchOwner = await request('PATCH', `/v1/channels/${channelId}`, fixture.tokenB, { name: '不属于我' })
   assert.equal(deniedPatchOwner.status, 403)
 })
+
+test('shared templates: any member creates, only the author or an admin edits', async () => {
+  const fixture = await buildTenant()
+  const created = await request('POST', '/v1/templates', fixture.tokenA, { name: '退款进度', shortcut: '/refund', body: '我们会在 24 小时内处理' })
+  assert.equal(created.status, 201)
+  const templateId = created.body.template.id
+
+  const empty = await request('POST', '/v1/templates', fixture.tokenA, { name: '  ', body: 'x' })
+  assert.equal(empty.status, 422)
+
+  // Both members read the shared list; B may not edit A's row.
+  const listB = await request('GET', '/v1/templates', fixture.tokenB)
+  assert.equal(listB.status, 200)
+  assert.ok(listB.body.items.some((item) => item.id === templateId))
+  const denied = await request('PATCH', `/v1/templates/${templateId}`, fixture.tokenB, { name: '改掉' })
+  assert.equal(denied.status, 403)
+
+  const edited = await request('PATCH', `/v1/templates/${templateId}`, fixture.tokenA, { name: '退款进度（新版）' })
+  assert.equal(edited.status, 200)
+  assert.equal(edited.body.template.name, '退款进度（新版）')
+
+  // The owner of the tenant may edit anyone's template.
+  const byOwner = await request('PATCH', `/v1/templates/${templateId}`, fixture.ownerToken, { body: '请在 12 小时内处理' })
+  assert.equal(byOwner.status, 200)
+
+  const removed = await request('DELETE', `/v1/templates/${templateId}`, fixture.tokenA)
+  assert.equal(removed.status, 200)
+  const gone = await request('GET', '/v1/templates', fixture.ownerToken)
+  assert.equal(gone.body.items.some((item) => item.id === templateId), false)
+})

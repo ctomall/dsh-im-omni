@@ -5553,18 +5553,23 @@ window.__ModuleLoader__.load({
       return {
         async load(limits = {}) {
           const limit = Number(limits.limit ?? 30)
-          const [conversations, contacts, channels, settings, notify] = await Promise.all([
+          const [conversations, contacts, channels, settings, notify, templates] = await Promise.all([
             call(`/v1/conversations?limit=${limit}`),
             call('/v1/contacts'),
             call('/v1/channels'),
             call('/v1/settings/workspace'),
             call('/v1/settings/notify').catch(() => ({ notify: {} })),
+            call('/v1/templates').catch(() => ({ items: [] })),
           ])
           const snapshot = {
             conversations: (conversations.items ?? []).map(toConversation),
             contacts: (contacts.items ?? []).map((row) => ({
               id: row.id, name: row.name ?? '', handle: row.handle ?? '', phone: row.phone ?? '',
               tags: Array.isArray(row.tags) ? row.tags : [], channelId: row.channel_id ?? null,
+            })),
+            templates: (templates.items ?? []).map((row) => ({
+              id: row.id, name: row.name ?? '', shortcut: row.shortcut ?? '', body: row.body ?? '',
+              ownerId: row.owner_user_id ?? null, updatedAt: row.updated_at ?? null,
             })),
             workspace: {
               name: settings.settings?.name ?? '',
@@ -5616,6 +5621,17 @@ window.__ModuleLoader__.load({
         async send(conversationId, body) {
           const result = await call('/v1/messages', { method: 'POST', body: { conversationId, body } })
           return result.message ?? null
+        },
+        async createTemplate(input) {
+          return call('/v1/templates', { method: 'POST', body: { name: input.name, shortcut: input.shortcut ?? '', body: input.body } })
+        },
+        async updateTemplate(templateId, fields) {
+          const body = {}
+          for (const key of ['name', 'shortcut', 'body']) if (fields[key] !== undefined) body[key] = fields[key]
+          return call(`/v1/templates/${templateId}`, { method: 'PATCH', body })
+        },
+        async deleteTemplate(templateId) {
+          return call(`/v1/templates/${templateId}`, { method: 'DELETE' })
         },
         async updateWorkspace(fields) {
           const body = {}
@@ -5672,6 +5688,10 @@ window.__ModuleLoader__.load({
             automations: [],
             broadcasts: [],
             events: [],
+            templates: (templates.items ?? []).map((row) => ({
+              id: row.id, name: row.name ?? '', shortcut: row.shortcut ?? '', body: row.body ?? '',
+              ownerId: row.owner_user_id ?? null, updatedAt: row.updated_at ?? null,
+            })),
             workspace: { name: '', ownerId: null, bot: {}, notify: {} },
             meta: { revision: Date.now(), updatedAt: new Date().toISOString() },
           })
@@ -5707,6 +5727,9 @@ window.__ModuleLoader__.load({
           await inbox.updateWorkspace(rest)
           return { ok: true }
         }
+        if (name === 'template.create') return inbox.createTemplate(payload)
+        if (name === 'template.update') return inbox.updateTemplate(payload.templateId, payload)
+        if (name === 'template.delete') return inbox.deleteTemplate(payload.templateId)
         if (name === 'channel.create') return inbox.createChannel({ name: payload.name, type: payload.type })
         if (name === 'channel.update') return inbox.updateChannel(payload.channelId, { name: payload.name, status: payload.status })
         if (name === 'channel.delete') return inbox.deleteChannel(payload.channelId)
@@ -5940,7 +5963,7 @@ window.__ModuleLoader__.load({
 
       // Inbox and contacts read the team service (already permission-filtered);
       // the other tabs still read the local Host workspace until they migrate.
-      const active = ['inbox', 'contacts', 'channels', 'settings'].includes(tab) ? teamWorkspace : hostWorkspace
+      const active = ['inbox', 'contacts', 'channels', 'templates', 'settings'].includes(tab) ? teamWorkspace : hostWorkspace
 
       if (active.loading) {
         return h('div', { className: 'imoRoot' },

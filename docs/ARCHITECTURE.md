@@ -260,3 +260,16 @@ core 可以原样抽走。
 - 仍未接入：`agent.create/update/delete`（本机团队概念）、`demo.*`（演示数据）。调用时明确报错。
 
 截图：`docs/settings-team.png`。
+
+### 17. 快捷回复迁到团队服务（本轮）
+
+| 能力 | 接口 | 规则 |
+| --- | --- | --- |
+| 列表 | `GET /v1/templates` | 团队共用：所有成员读到同一套话术 |
+| 新增 | `POST /v1/templates` | 任何成员都可以贡献；空标题/空内容 422 |
+| 修改 / 删除 | `PATCH·DELETE /v1/templates/{id}` | **作者本人或 owner/admin**，否则 403 |
+| 审计 | 同事务写 `template.create/update/delete` | |
+
+- 客户端 `template.create/update/delete` 映射到上述接口，`templates` 标签改读团队数据。
+- 快捷回复是"团队资产"而非个人私有：可见性全租户，写入按作者归属校验——这是有意的取舍（客服之间要能复用话术）。
+- 测试：创建/改/删 + 空值 422 + 他人修改 403 + 所有者可改任意 + 删除后列表消失（isolation 24 条）。

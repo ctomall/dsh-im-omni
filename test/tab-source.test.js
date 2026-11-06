@@ -9,8 +9,8 @@ import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('../client.js', import.meta.url), 'utf8')
 
-test('App picks the team workspace for inbox, contacts, channels and settings', () => {
-  assert.match(source, /const active = \['inbox', 'contacts', 'channels', 'settings'\]\.includes\(tab\) \? teamWorkspace : hostWorkspace/)
+test('App picks the team workspace for inbox, contacts, channels, templates and settings', () => {
+  assert.match(source, /const active = \['inbox', 'contacts', 'channels', 'templates', 'settings'\]\.includes\(tab\) \? teamWorkspace : hostWorkspace/)
 })
 
 test('the login gate is checked before any workspace loading state', () => {
