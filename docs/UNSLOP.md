@@ -85,3 +85,8 @@ Credit: unslop by Damir Sokolovsky (@heydamir), CC BY 4.0.
 | 文案 | `默认 SLA（分钟）` 在双列里换行 | `默认 SLA`，标签单行不折行（`white-space:nowrap`） |
 
 截图：`docs/unslop-settings-before.png` / `docs/unslop-settings-after.png`。
+
+## 汇总报告
+
+`node tools/unslop-report.mjs` 生成 `docs/unslop-report.html`（约 1.1 MB，图片内联，双击即看）：
+方向五行 + 四组 before/after + 九道 pass + 署名。封面截图：`docs/unslop-report-cover.png`。
