@@ -6050,17 +6050,31 @@ window.__ModuleLoader__.load({
         key: PANEL_ID,
         locale: NS,
       }, App))
-      ctx.slots.inject('plugins.detail.section', () => ctx.slots.register({
-        name: 'plugins.detail.section',
-        id: 'im-omni.config',
-        locale: NS,
-        render: (props) => {
-          const subject = props?.subject
-          const pkg = subject?.pkg
-          if (pkg === undefined || pkg.name !== 'dsh-im-omni') return null
-          return h(PluginConfigSection, null)
-        },
-      }))
+      /**
+       * Section contributed to this plugin's page inside the plugin manager.
+       * A contribution renders through the component argument; the subject is
+       * the open page, so anything that is not this package renders null.
+       * @param {{subject?: {pkg?: {name?: string}}}} props - owner props.
+       * @returns {import('react').ReactNode} the section or null.
+       */
+      function PluginConfigContribution(props) {
+        const pkg = props?.subject?.pkg
+        if (pkg === undefined || pkg.name !== 'dsh-im-omni') return null
+        return h(PluginConfigSection, null)
+      }
+      ctx.slots.inject('plugins.detail.section', () => {
+        try {
+          return ctx.slots.register({
+            name: 'plugins.detail.section',
+            id: 'im-omni.config',
+            locale: NS,
+          }, PluginConfigContribution)
+        } catch (error) {
+          // A rejected contribution must not take the sidebar panel down with it.
+          if (typeof console !== 'undefined') console.warn('[im-omni] detail section not registered:', error)
+          return () => {}
+        }
+      })
     }
 
     return { name: 'im-omni', inject, apply }
