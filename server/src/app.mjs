@@ -1198,6 +1198,62 @@ route('GET', '/v1/channels', async (request, response) => {
   send(response, 200, { items })
 })
 
+route('POST', '/v1/channels', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const role = await roleIn(claims.userId, claims.tenantId)
+  if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有所有者和管理员可以新增渠道。')
+  const input = await body(request)
+  const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : ''
+  const type = typeof input.type === 'string' ? input.type.trim().slice(0, 40) : 'webhook'
+  if (name === '') return fail(response, 422, 'invalid', '渠道名不能为空。')
+  if (!/^[a-z0-9_-]+$/i.test(type)) return fail(response, 422, 'invalid', '渠道类型只能包含字母、数字、下划线和连字符。')
+  const row = await withTenant(claims.tenantId, async (client) => {
+    const result = await client.query(
+      'INSERT INTO channels (tenant_id, type, name, owner_user_id) VALUES ($1, $2, $3, $4) RETURNING id, name, type, status, health, created_at, owner_user_id',
+      [claims.tenantId, type, name, claims.userId],
+    )
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'channel.create', $3, $4::jsonb)`,
+      [claims.tenantId, claims.userId, result.rows[0].id, JSON.stringify({ name, type })],
+    )
+    return result.rows[0]
+  })
+  send(response, 201, { channel: row })
+})
+
+route('PATCH', '/v1/channels/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const role = await roleIn(claims.userId, claims.tenantId)
+  if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有所有者和管理员可以修改渠道。')
+  if (!allowScoped(response, await checkScopedAccess(claims.tenantId, claims.userId, 'channels', params[0]))) return
+  const input = await body(request)
+  const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : null
+  const status = input.status === 'active' || input.status === 'paused' ? input.status : null
+  if (name === '' ) return fail(response, 422, 'invalid', '渠道名不能为空。')
+  if (input.status !== undefined && status === null) return fail(response, 422, 'invalid', 'status 只能是 active 或 paused。')
+  if (name === null && status === null) return fail(response, 422, 'invalid', '没有要修改的字段。')
+  const row = await withTenant(claims.tenantId, async (client) => {
+    const result = await client.query(
+      `UPDATE channels SET name = COALESCE($3, name), status = COALESCE($4, status)
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING id, name, type, status, health, created_at, owner_user_id`,
+      [claims.tenantId, params[0], name, status],
+    )
+    if (result.rowCount === 0) return null
+    await client.query(
+      `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
+       VALUES ($1, $2, 'channel.update', $3, $4::jsonb)`,
+      [claims.tenantId, claims.userId, params[0], JSON.stringify({ name, status })],
+    )
+    return result.rows[0]
+  })
+  if (row === null) return fail(response, 404, 'not-found', '找不到这个渠道。')
+  send(response, 200, { channel: row })
+})
+
 route('DELETE', '/v1/channels/([0-9a-f-]{36})', async (request, response, params) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')

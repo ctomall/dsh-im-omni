@@ -5590,6 +5590,19 @@ window.__ModuleLoader__.load({
           const result = await call('/v1/messages', { method: 'POST', body: { conversationId, body } })
           return result.message ?? null
         },
+        async createChannel(input) {
+          return call('/v1/channels', { method: 'POST', body: input })
+        },
+        async updateChannel(channelId, fields) {
+          const body = {}
+          if (fields.name !== undefined) body.name = fields.name
+          if (fields.status !== undefined) body.status = fields.status
+          if (Object.keys(body).length === 0) return null
+          return call(`/v1/channels/${channelId}`, { method: 'PATCH', body })
+        },
+        async deleteChannel(channelId) {
+          return call(`/v1/channels/${channelId}`, { method: 'DELETE' })
+        },
       }
     }
 
@@ -5644,6 +5657,9 @@ window.__ModuleLoader__.load({
         if (name === 'conversation.update') return inbox.update(payload.conversationId, payload)
         if (name === 'conversation.bot') return inbox.update(payload.conversationId, { botPaused: payload.paused })
         if (name === 'message.send') return inbox.send(payload.conversationId, payload.body ?? payload.text ?? '')
+        if (name === 'channel.create') return inbox.createChannel({ name: payload.name, type: payload.type })
+        if (name === 'channel.update') return inbox.updateChannel(payload.channelId, { name: payload.name, status: payload.status })
+        if (name === 'channel.delete') return inbox.deleteChannel(payload.channelId)
         throw new Error('这个操作还在本机模式下，尚未接入团队服务')
       }, [])
 
@@ -5874,7 +5890,7 @@ window.__ModuleLoader__.load({
 
       // Inbox and contacts read the team service (already permission-filtered);
       // the other tabs still read the local Host workspace until they migrate.
-      const active = tab === 'inbox' || tab === 'contacts' ? teamWorkspace : hostWorkspace
+      const active = tab === 'inbox' || tab === 'contacts' || tab === 'channels' ? teamWorkspace : hostWorkspace
 
       if (active.loading) {
         return h('div', { className: 'imoRoot' },

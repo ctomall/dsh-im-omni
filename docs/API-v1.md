@@ -22,7 +22,7 @@
 | 设备 | `POST /v1/devices/{code,link,register}`、`GET /v1/devices`、`DELETE /v1/devices/{id}` | ✅ 已实现 |
 | 会话列表 | `GET /v1/conversations` | ✅ 已实现（无分页，限 50 条） |
 | 搜索 | 列表接口支持 `?q=`（渠道名、会话主题、联系人名、消息正文） | ✅ 已实现 |
-| 联系人 / 渠道 | `GET /v1/contacts`、`GET /v1/channels`、`GET /v1/channels/{id}`、`DELETE /v1/channels/{id}` | ✅ 已实现（按成员权限范围隔离） |
+| 联系人 / 渠道 | `GET /v1/contacts`、`GET /v1/channels`、`POST /v1/channels`、`GET /v1/channels/{id}`、`PATCH /v1/channels/{id}`、`DELETE /v1/channels/{id}` | ✅ 已实现（按成员权限范围隔离） |
 | 会话消息 / 已读 / 属性 | `GET /v1/conversations/{id}/messages`、`POST /v1/conversations/{id}/read`、`PATCH /v1/conversations/{id}` | ✅ 已实现 |
 | 发消息 | `POST /v1/messages` | ✅ 已实现（幂等 + 配额 + 计量） |
 | 计费 | `GET /v1/billing/{plan,usage,invoices}`、`POST /v1/billing/invoices`、`POST /v1/billing/invoices/{id}/status` | ✅ 已实现 |

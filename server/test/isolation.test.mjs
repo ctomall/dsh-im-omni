@@ -595,3 +595,29 @@ test('search only matches rows inside the member scope', async () => {
   const own = await request('GET', '/v1/channels?q=' + encodeURIComponent('A 的号码'), fixture.tokenA)
   assert.equal(own.body.items.length, 1)
 })
+
+test('channels can be created and paused by admins, refused for agents', async () => {
+  const fixture = await buildTenant()
+  const created = await request('POST', '/v1/channels', fixture.ownerToken, { name: '新官网桥', type: 'webhook' })
+  assert.equal(created.status, 201)
+  assert.equal(created.body.channel.name, '新官网桥')
+  const channelId = created.body.channel.id
+
+  const named = await request('POST', '/v1/channels', fixture.ownerToken, { name: '', type: 'webhook' })
+  assert.equal(named.status, 422)
+
+  const paused = await request('PATCH', `/v1/channels/${channelId}`, fixture.ownerToken, { status: 'paused' })
+  assert.equal(paused.status, 200)
+  assert.equal(paused.body.channel.status, 'paused')
+
+  const badStatus = await request('PATCH', `/v1/channels/${channelId}`, fixture.ownerToken, { status: 'gone' })
+  assert.equal(badStatus.status, 422)
+
+  // An agent owns neither the channel nor admin rights.
+  const denied = await request('POST', '/v1/channels', fixture.agentToken ?? fixture.tokenA, { name: '偷偷加的', type: 'webhook' })
+  assert.equal(denied.status, 403)
+  const deniedPatch = await request('PATCH', `/v1/channels/${channelId}`, fixture.tokenA, { status: 'active' })
+  assert.equal(deniedPatch.status, 403)
+  const deniedPatchOwner = await request('PATCH', `/v1/channels/${channelId}`, fixture.tokenB, { name: '不属于我' })
+  assert.equal(deniedPatchOwner.status, 403)
+})

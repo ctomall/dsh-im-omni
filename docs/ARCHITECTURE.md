@@ -230,3 +230,18 @@ core 可以原样抽走。
 
 另外修了顺序问题：登录闸现在在任何 `loading` 判断之前，未登录不会再看到"数据加载失败"。
 测试 `test/tab-source.test.js` 锁住这条规则（含 gate 先于 loading 的断言）。
+
+### 15. 渠道迁移到团队服务（本轮）
+
+| 能力 | 接口 | 权限 |
+| --- | --- | --- |
+| 列表 / 搜索 | `GET /v1/channels?q=` | 行级策略 |
+| 新增 | `POST /v1/channels` | owner/admin |
+| 改名 / 暂停 | `PATCH /v1/channels/{id}` | owner/admin + 渠道可见性校验 |
+| 删除 | `DELETE /v1/channels/{id}` | 所有者直接执行，管理员 → 审批 |
+
+- 客户端：`channel.create/update/delete` 映射到上述接口；`channel.test`、`channel.rotateSecret`、
+  `channel.revealSecret` 仍是本机能力，调用时明确报"尚未接入团队服务"。
+- 每次写操作同事务写审计（`channel.create` / `channel.update` / `channel.delete`）。
+- 测试：新增渠道/改名/暂停 + 空名 422 + 非法状态 422 + agent 403 + 非本人渠道 403（isolation 24 条）。
+截图：`docs/channels-team.png`（渠道页）、`docs/tab-data-sources.png`（数据来源矩阵）。

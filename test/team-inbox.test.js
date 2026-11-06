@@ -89,3 +89,19 @@ test('a refused write surfaces the API error and code', async () => {
     return true
   })
 })
+
+test('channel writes go to the team channel endpoints', async () => {
+  const { call, calls } = transport({
+    'POST /v1/channels': { status: 201, body: { channel: { id: 'ch9' } } },
+    'PATCH /v1/channels/ch1': { status: 200, body: { channel: { id: 'ch1', status: 'paused' } } },
+    'DELETE /v1/channels/ch1': { status: 200, body: { deleted: 'ch1' } },
+  })
+  const inbox = createTeamInbox({ call, token: 't' })
+  await inbox.createChannel({ name: '新桥', type: 'webhook' })
+  await inbox.updateChannel('ch1', { status: 'paused', ignored: true })
+  await inbox.deleteChannel('ch1')
+  assert.equal(calls[0].path, '/v1/channels')
+  assert.equal(calls[0].init.method, 'POST')
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[1].init.body)), { status: 'paused' })
+  assert.equal(calls[2].init.method, 'DELETE')
+})
