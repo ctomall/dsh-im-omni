@@ -366,13 +366,55 @@ route('GET', '/v1/tenants/([0-9a-f-]{36})/members', async (request, response, pa
   if (role === null) return fail(response, 403, 'forbidden', '你不在该团队中。')
   const members = await withTenant(tenantId, async (client) => {
     const result = await client.query(
-      `SELECT m.user_id, u.email, u.name, m.role, m.joined_at
+      `SELECT m.user_id, u.email, u.name, m.role, m.joined_at, m.permissions
          FROM memberships m JOIN users u ON u.id = m.user_id
         ORDER BY m.joined_at`,
     )
     return result.rows
   })
   send(response, 200, { items: members })
+})
+
+route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (request, response, params) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  const tenantId = params[0]
+  const targetId = params[1]
+  const role = await roleIn(claims.userId, tenantId)
+  if (role !== 'owner' && role !== 'admin') return fail(response, 403, 'forbidden', '只有管理员可以分配权限。')
+  const input = await body(request)
+  const grant = {}
+  if (input.dataScope !== undefined) {
+    if (input.dataScope !== 'all' && input.dataScope !== 'own') {
+      return fail(response, 422, 'invalid', 'dataScope 只能是 all 或 own。')
+    }
+    grant.dataScope = input.dataScope
+  }
+  if (input.channelIds !== undefined) {
+    if (!Array.isArray(input.channelIds)) return fail(response, 422, 'invalid', 'channelIds 必须是数组。')
+    const ids = input.channelIds.filter((item) => typeof item === 'string' && /^[0-9a-f-]{36}$/.test(item))
+    if (ids.length !== input.channelIds.length) return fail(response, 422, 'invalid', 'channelIds 里有一项不是渠道 id。')
+    // A grant may only name channels that exist in this tenant.
+    const known = await withTenant(tenantId, async (client) => {
+      const result = await client.query('SELECT id FROM channels WHERE tenant_id = $1 AND id = ANY($2::uuid[])', [tenantId, ids])
+      return new Set(result.rows.map((row) => row.id))
+    })
+    const unknown = ids.filter((id) => !known.has(id))
+    if (unknown.length > 0) return fail(response, 422, 'invalid', `这个团队里没有渠道 ${unknown[0]}。`)
+    grant.channelIds = ids
+  }
+  const updated = await withTenant(tenantId, async (client) => {
+    const result = await client.query(
+      `UPDATE memberships
+          SET permissions = permissions || $3::jsonb
+        WHERE tenant_id = $1 AND user_id = $2
+        RETURNING role, permissions`,
+      [tenantId, targetId, JSON.stringify(grant)],
+    )
+    return result.rows[0] ?? null
+  })
+  if (updated === null) return fail(response, 404, 'not-found', '这个团队里没有该成员。')
+  send(response, 200, { member: { userId: targetId, role: updated.role, permissions: updated.permissions } })
 })
 
 route('POST', '/v1/tenants/([0-9a-f-]{36})/invites', async (request, response, params) => {

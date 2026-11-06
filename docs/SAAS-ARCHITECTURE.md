@@ -416,16 +416,19 @@ server/src/app.mjs                      POST /v1/attachments、GET /v1/attachmen
 
 ## 21. 按成员隔离（渠道号码 + 数据）
 
-### 权限模型
+### 权限模型（按员工授权，不按角色写死）
 
-可见范围由成员角色决定，不另设缓存：
+可见范围是**每个员工的授权**，角色只提供默认值：
 
-| 角色 | 范围 | 看什么 |
+| 授权项 | 取值 | 说明 |
 | --- | --- | --- |
-| owner / admin | `all` | 整个租户的渠道、会话、联系人 |
-| agent / viewer | `own` | 只看到 `owner_user_id = 自己` 的渠道与其上的会话、以及这些会话里的联系人 |
+| `permissions.dataScope` | `all` / `own` | `all` = 整个租户；未显式设置时按角色默认（owner/admin → all，agent/viewer → own） |
+| `permissions.channelIds` | 渠道 uuid 数组 | 额外授权的号码；被授权号码上的会话随之可见 |
 
-`app_scope()` 每次查询从 `memberships` 现算，**角色一改，下一次请求立即生效**，没有缓存需要失效。
+接口：`PATCH /v1/tenants/{tenantId}/members/{userId}`，body `{ "dataScope": "all" }` 或
+`{ "channelIds": ["<channel-uuid>"] }`；只有 owner/admin 能分配，且 `channelIds` 里的渠道必须属于该租户。
+
+`app_scope()` / `app_channel_ids()` 每次查询从 `memberships` 现算，**授权一改，下一次请求立即生效**，没有缓存需要失效。
 
 ### 服务端强制（三道）
 

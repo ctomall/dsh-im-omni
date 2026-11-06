@@ -115,6 +115,8 @@ async function buildTenant() {
     ownerToken: owner.accessToken,
     tokenA,
     tokenB,
+    agentA: agentA.user.id,
+    agentB: agentB.user.id,
     channelA: channelA.rows[0].id,
     channelB: channelB.rows[0].id,
     convA: convA.rows[0].id,
@@ -212,4 +214,78 @@ test('a role change applies on the very next request', async () => {
   const after = await request('GET', '/v1/channels', fixture.tokenA)
   assert.equal(after.status, 200)
   assert.equal(after.body.items.length, 2)
+})
+
+test('an owner can widen one member to the whole tenant', async () => {
+  const fixture = await buildTenant()
+  const before = await request('GET', '/v1/channels', fixture.tokenA)
+  assert.equal(before.body.items.length, 1)
+
+  const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, { dataScope: 'all' })
+  assert.equal(grant.status, 200)
+  assert.equal(grant.body.member.permissions.dataScope, 'all')
+
+  const after = await request('GET', '/v1/channels', fixture.tokenA)
+  assert.deepEqual(after.body.items.map((item) => item.name).sort(), ['A 的号码', 'B 的号码'])
+
+  const conversation = await request('GET', `/v1/conversations/${fixture.convB}/messages`, fixture.tokenA)
+  assert.equal(conversation.status, 200)
+})
+
+test('a member can be granted specific channel numbers, and their conversations', async () => {
+  const fixture = await buildTenant()
+  const grant = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, {
+    channelIds: [fixture.channelB],
+  })
+  assert.equal(grant.status, 200)
+
+  const channels = await request('GET', '/v1/channels', fixture.tokenA)
+  assert.deepEqual(channels.body.items.map((item) => item.name).sort(), ['A 的号码', 'B 的号码'])
+
+  // The granted channel carries its conversation, but not someone else's data
+  // beyond that grant.
+  const granted = await request('GET', `/v1/conversations/${fixture.convB}/messages`, fixture.tokenA)
+  assert.equal(granted.status, 200)
+
+  // A conversation on a channel that was NOT granted stays out of reach.
+  const ownerChannel = await admin.query(
+    "INSERT INTO channels (tenant_id, type, name) VALUES ($1,'webhook','未授权的号码') RETURNING id",
+    [fixture.tenantId],
+  )
+  const ownerContact = await admin.query("INSERT INTO contacts (tenant_id, name) VALUES ($1,'未授权客户') RETURNING id", [fixture.tenantId])
+  const ownerConv = await admin.query(
+    `INSERT INTO conversations (tenant_id, channel_id, contact_id, subject) VALUES ($1,$2,$3,'未授权会话') RETURNING id`,
+    [fixture.tenantId, ownerChannel.rows[0].id, ownerContact.rows[0].id],
+  )
+  const outsider = await request('GET', `/v1/conversations/${ownerConv.rows[0].id}/messages`, fixture.tokenA)
+  assert.equal(outsider.status, 403)
+  assert.equal(outsider.body.error.code, 'out-of-scope')
+})
+
+test('revoking the grant takes effect on the next request', async () => {
+  const fixture = await buildTenant()
+  await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, {
+    channelIds: [fixture.channelB],
+  })
+  const widened = await request('GET', '/v1/channels', fixture.tokenA)
+  assert.equal(widened.body.items.length, 2)
+
+  await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, {
+    channelIds: [],
+    dataScope: 'own',
+  })
+  const narrowed = await request('GET', '/v1/channels', fixture.tokenA)
+  assert.deepEqual(narrowed.body.items.map((item) => item.name), ['A 的号码'])
+})
+
+test('an agent cannot assign permissions, and unknown channels are rejected', async () => {
+  const fixture = await buildTenant()
+  const denied = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.tokenA, { dataScope: 'all' })
+  assert.equal(denied.status, 403)
+
+  const unknown = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentA}`, fixture.ownerToken, {
+    channelIds: ['00000000-0000-0000-0000-0000000000ff'],
+  })
+  assert.equal(unknown.status, 422)
+  assert.equal(unknown.body.error.code, 'invalid')
 })
