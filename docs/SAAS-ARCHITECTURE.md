@@ -558,6 +558,8 @@ $ cd server && node --test test/isolation.test.mjs
 
 - 纳入复核的操作：`dataScope=all`、改 `role`、移除成员、删除渠道（`DELETE /v1/channels/{id}`）。
   渠道下有会话时直接 409，不进审批。
+- 提案在 `payload` 里存**名称快照**（`targetName` / `channelName`），审批页直接显示"人/渠道名"，不靠 id 反查。
+- `GET …/approvals` 支持 `limit` 与 `before=<created_at>` 游标。
 - 提案即时提醒：`notifyProposal()` 向企业微信机器人推一张「待审批 · 权限变更」卡片（未配置机器人则跳过）。
 - 超时提醒：`remindStaleApprovals()` 扫 `pending && reminded_at IS NULL && created_at < now()-24h`，
   推「审批仍未处理 · 已超过 24 小时」，成功后写 `reminded_at`，**每条只提醒一次**；

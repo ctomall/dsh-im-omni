@@ -548,3 +548,26 @@ test('channel deletion is guarded, and an admin proposal needs the owner', async
   const gone = await admin.query('SELECT count(*)::int AS n FROM channels WHERE id = $1', [emptyId])
   assert.equal(gone.rows[0].n, 0)
 })
+
+test('approval requests keep the target name snapshot and page by cursor', async () => {
+  const fixture = await buildTenant()
+  await admin.query("UPDATE memberships SET role = 'admin' WHERE tenant_id = $1 AND user_id = $2", [fixture.tenantId, fixture.agentA])
+  const roster = await request('GET', `/v1/tenants/${fixture.tenantId}/members`, fixture.ownerToken)
+  const emailB = roster.body.items.find((item) => item.user_id === fixture.agentB).email
+
+  const first = await request('PATCH', `/v1/tenants/${fixture.tenantId}/members/${fixture.agentB}`, fixture.tokenA, { dataScope: 'all', confirmEmail: emailB })
+  assert.equal(first.status, 202)
+  const channel = await admin.query("INSERT INTO channels (tenant_id, type, name) VALUES ($1,'webhook','待删渠道') RETURNING id", [fixture.tenantId])
+  const second = await request('DELETE', `/v1/channels/${channel.rows[0].id}`, fixture.tokenA)
+  assert.equal(second.status, 202)
+
+  const list = await request('GET', `/v1/tenants/${fixture.tenantId}/approvals?status=all&limit=1`, fixture.ownerToken)
+  assert.equal(list.body.items.length, 1)
+  const latest = list.body.items[0]
+  assert.equal(latest.action, 'channel.delete')
+  assert.equal(latest.payload.channelName, '待删渠道')
+
+  const next = await request('GET', `/v1/tenants/${fixture.tenantId}/approvals?status=all&limit=1&before=${encodeURIComponent(latest.created_at)}`, fixture.ownerToken)
+  assert.equal(next.body.items[0].action, 'member.permissions')
+  assert.equal(next.body.items[0].payload.targetName.length > 0, true)
+})

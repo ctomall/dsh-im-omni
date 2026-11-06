@@ -434,12 +434,15 @@ route('PATCH', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (req
   // Two-person rule: an admin may propose a privileged change, but only an owner
   // applies it. The request keeps the exact payload for the approver.
   if (role === 'admin' && (grant.dataScope === 'all' || grant.role !== undefined)) {
+    const snapshot = await db().query('SELECT name, email FROM users WHERE id = $1', [targetId])
+    const targetName = snapshot.rows[0]?.name || snapshot.rows[0]?.email || targetId
+    const payload = { ...grant, targetName }
     const request = await withTenant(tenantId, async (client) => {
       const row = await client.query(
         `INSERT INTO approval_requests (tenant_id, action, target_user, payload, requested_by)
          VALUES ($1, $2, $3, $4::jsonb, $5)
          RETURNING id, action, target_user, payload, status, created_at`,
-        [tenantId, grant.role === undefined ? 'member.permissions' : 'member.role', targetId, JSON.stringify(grant), claims.userId],
+        [tenantId, grant.role === undefined ? 'member.permissions' : 'member.role', targetId, JSON.stringify(payload), claims.userId],
       )
       await client.query(
         `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
@@ -524,7 +527,7 @@ route('DELETE', '/v1/tenants/([0-9a-f-]{36})/members/([0-9a-f-]{36})', async (re
         `INSERT INTO approval_requests (tenant_id, action, target_user, payload, requested_by)
          VALUES ($1, 'member.remove', $2, $3::jsonb, $4)
          RETURNING id, action, target_user, status, created_at`,
-        [tenantId, targetId, JSON.stringify({ role: targetRole }), claims.userId],
+        [tenantId, targetId, JSON.stringify({ role: targetRole, targetName: email }), claims.userId],
       )
       await client.query(
         `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
@@ -555,6 +558,8 @@ route('GET', '/v1/tenants/([0-9a-f-]{36})/approvals', async (request, response, 
   if (role === null) return fail(response, 403, 'forbidden', '你不在该团队中。')
   const url = new URL(request.url ?? '/', 'http://localhost')
   const status = url.searchParams.get('status') === 'all' ? null : 'pending'
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? 50) || 50, 100)
+  const before = url.searchParams.get('before')
   const rows = await withTenant(tenantId, async (client) => {
     const result = await client.query(
       `SELECT a.id, a.action, a.target_user, a.payload, a.status, a.created_at, a.decided_at,
@@ -564,9 +569,10 @@ route('GET', '/v1/tenants/([0-9a-f-]{36})/approvals', async (request, response, 
          LEFT JOIN users r ON r.id = a.requested_by
          LEFT JOIN users t ON t.id = a.target_user
         WHERE a.tenant_id = $1 AND ($2::text IS NULL OR a.status = $2)
-        ORDER BY a.created_at DESC
-        LIMIT 50`,
-      [tenantId, status],
+          AND ($3::timestamptz IS NULL OR a.created_at < $3::timestamptz)
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT $4`,
+      [tenantId, status, before, limit],
     )
     return result.rows
   })
@@ -1144,12 +1150,16 @@ route('DELETE', '/v1/channels/([0-9a-f-]{36})', async (request, response, params
   if (inUse > 0) return fail(response, 409, 'channel-in-use', '这个渠道下还有会话，先处理或归档。')
 
   if (role === 'admin') {
+    const channelRow = await withTenant(tenantId, async (client) => {
+      const result = await client.query('SELECT name FROM channels WHERE tenant_id = $1 AND id = $2', [tenantId, params[0]])
+      return result.rows[0] ?? null
+    })
     const request = await withTenant(tenantId, async (client) => {
       const row = await client.query(
         `INSERT INTO approval_requests (tenant_id, action, target_user, payload, requested_by)
          VALUES ($1, 'channel.delete', $2, $3::jsonb, $2)
          RETURNING id, action, target_user, status, created_at`,
-        [tenantId, claims.userId, JSON.stringify({ channelId: params[0] })],
+        [tenantId, claims.userId, JSON.stringify({ channelId: params[0], channelName: channelRow?.name ?? params[0] })],
       )
       await client.query(
         `INSERT INTO audit_logs (tenant_id, actor_id, action, target, detail)
