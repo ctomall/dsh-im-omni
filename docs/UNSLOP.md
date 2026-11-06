@@ -212,3 +212,10 @@ Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pul
   **README → 插件配置 → 行 → 版本 → 来源**；注册后 `configured` 为真，该 section 才会出现。
 - 宿主侧验证：`/plugins/events` 的 rebuilt 帧 rev 变化后，取回的 bundle 含 `plugins.bundle.config`、
   `PluginConfigView`，且不再含 `plugins.detail.section`。
+
+## 第六轮补充：团队权限（SaaS）分组
+
+- 详情页新增「团队与权限（SaaS）」：登录后按成员一行展开——姓名 + 可见范围摘要 + 号码 chip + 范围下拉；
+  待审批列表在下方用发丝线分隔，批准/拒绝为小按钮。
+- 沿用既有方向：中性石墨表面、绿色只给主操作与选中态；输入控件 34px、标签 12px、chip 6px 圆角。
+截图：`docs/detail-saas-team.png`。
