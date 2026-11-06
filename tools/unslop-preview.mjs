@@ -293,19 +293,18 @@ const detailCfg = `
   <section class="imCfgGroup">
     <div class="imCfgGroupHead"><h3 class="imCfgGroupTitle">在线升级</h3><span class="imCfgGroupNote">分支 main</span></div>
     <div class="imCfgRow">
-      <div class="imCfgRowMain"><span class="imCfgRowTitle">当前 v2.9.0 · f0b2abf</span><span class="imCfgRowNote">已更新，重启 DSH 后生效。</span></div>
+      <div class="imCfgRowMain"><span class="imCfgRowTitle">当前 v2.9.0 · 9915ec6</span><span class="imCfgRowNote">更新失败：工作区有未提交改动，为避免覆盖，已停止更新。</span></div>
       <div class="imCfgActions">
-        <span class="imCfgStatus"><span class="imCfgDot"></span>已更新到 f0b2abf</span>
+        <span class="imCfgStatus"><span class="imCfgDot paused"></span>工作区有改动</span>
         <button class="imoBtn imoBtnSm">检查更新</button>
         <button class="imoBtn imoBtnSm">取消</button>
         <button class="imoBtn imoBtnSm imoBtnPrimary">确认升级</button>
       </div>
     </div>
-    <div class="imCfgHints">
-      <p class="imCfgGroupTitle">让新代码生效</p>
-      <div class="imCfgHintRow"><span class="imCfgHintLabel">这个 DSH 跑在 systemd 下</span><code class="imCfgHintCommand">sudo systemctl restart dsh-web</code></div>
-      <div class="imCfgHintRow"><span class="imCfgHintLabel">重新启动 Host</span><code class="imCfgHintCommand">dsh web</code></div>
-      <div class="imCfgHintRow"><span class="imCfgHintLabel">页面硬刷新（客户端半边会先热替换）</span></div>
+    <div class="imCfgFailure">
+      <p class="imCfgGroupTitle">这次没升成，怎么处理</p>
+      <div class="imCfgHintRow"><span class="imCfgHintLabel">先收起本地改动，再升级</span><code class="imCfgHintCommand">git stash push -u -m "im-omni: before upgrade"</code><button class="imCfgCopy">复制</button></div>
+      <div class="imCfgHintRow"><span class="imCfgHintLabel">已经拉到一半时，回滚到升级前（会丢弃本地未提交改动）</span><code class="imCfgHintCommand">git reset --hard 9915ec6a3c</code><button class="imCfgCopy">复制</button></div>
     </div>
     <div class="imCfgCommits">
       <div class="imCfgCommit"><code>9915ec6</code><span class="imCfgCommitSubject">feat: plugin configuration on the plugin detail page</span></div>

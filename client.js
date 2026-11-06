@@ -62,6 +62,9 @@ window.__ModuleLoader__.load({
 .imCfgMark.yes{color:var(--dsw-alias-label-primary)}
 .imCfgMark.no{color:var(--dsw-alias-label-tertiary)}
 .imCfgSelect{height:30px;border:.5px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;padding:0 8px}
+.imCfgCopy{height:24px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l1);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer}
+.imCfgCopy:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
+.imCfgFailure{border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--dsw-alias-bg-layer-1)}
 .imCfgHints{border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--dsw-alias-bg-layer-1)}
 .imCfgHintRow{display:flex;align-items:center;gap:10px;font-size:12px}
 .imCfgHintLabel{color:var(--dsw-alias-label-secondary)}
@@ -4885,6 +4888,8 @@ window.__ModuleLoader__.load({
       const [upgradeNote, setUpgradeNote] = React.useState('')
       const [confirming, setConfirming] = React.useState(false)
       const [hints, setHints] = React.useState([])
+      const [failure, setFailure] = React.useState(null)
+      const [copied, setCopied] = React.useState('')
 
       const workspaceSignature = JSON.stringify([
         workspace.name,
@@ -5589,7 +5594,11 @@ window.__ModuleLoader__.load({
           body: JSON.stringify({ action }),
         })
         const body = await response.json().catch(() => null)
-        if (!response.ok || body?.ok !== true) throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
+        if (!response.ok || body?.ok !== true) {
+          const failure = new Error(body?.error?.message ?? `HTTP ${response.status}`)
+          failure.code = body?.error?.code ?? `http-${response.status}`
+          throw failure
+        }
         return body.result ?? {}
       }, [])
 
@@ -5608,11 +5617,22 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => { void checkUpgrade() }, [checkUpgrade])
 
+      const copy = React.useCallback(async (text) => {
+        try {
+          await navigator.clipboard.writeText(text)
+          setCopied(text)
+          setTimeout(() => setCopied(''), 1500)
+        } catch {
+          setCopied('')
+        }
+      }, [])
+
       const pullUpgrade = React.useCallback(async () => {
         setUpgradeBusy('pull')
         setUpgradeNote('')
         try {
           const result = await upgradeCall('pull')
+          setFailure(null)
           if (result.status !== undefined) setUpgrade(result.status)
           const short = result.status?.current?.short
           setUpgradeNote(result.restartRequired
@@ -5622,6 +5642,8 @@ window.__ModuleLoader__.load({
           setConfirming(false)
         } catch (error) {
           setUpgradeNote(`更新失败：${error instanceof Error ? error.message : String(error)}`)
+          setHints([])
+          setFailure({ code: error?.code ?? 'unknown', message: error instanceof Error ? error.message : String(error) })
         } finally {
           setUpgradeBusy('')
         }
@@ -5737,6 +5759,32 @@ window.__ModuleLoader__.load({
               upgrade.dirtyFiles.slice(0, 5).map((file) => h('code', { key: file, className: 'imCfgDirtyFile' }, file)),
             )
             : null,
+          failure !== null
+            ? h('div', { className: 'imCfgFailure' },
+              h('p', { className: 'imCfgGroupTitle' }, '这次没升成，怎么处理'),
+              failure.code === 'dirty-worktree' || (upgrade?.dirtyFiles?.length ?? 0) > 0
+                ? h('div', { className: 'imCfgHintRow' },
+                  h('span', { className: 'imCfgHintLabel' }, '先收起本地改动，再升级'),
+                  h('code', { className: 'imCfgHintCommand' }, 'git stash push -u -m "im-omni: before upgrade"'),
+                  h('button', { type: 'button', className: 'imCfgCopy', onClick: () => { void copy('git stash push -u -m "im-omni: before upgrade"') } }, '复制'),
+                )
+                : null,
+              failure.code === 'fetch-failed'
+                ? h('div', { className: 'imCfgHintRow' },
+                  h('span', { className: 'imCfgHintLabel' }, '远程不可达时手动检查'),
+                  h('code', { className: 'imCfgHintCommand' }, 'git fetch --all --prune'),
+                  h('button', { type: 'button', className: 'imCfgCopy', onClick: () => { void copy('git fetch --all --prune') } }, '复制'),
+                )
+                : null,
+              upgrade?.current?.sha !== undefined
+                ? h('div', { className: 'imCfgHintRow' },
+                  h('span', { className: 'imCfgHintLabel' }, '已经拉到一半时，回滚到升级前（会丢弃本地未提交改动）'),
+                  h('code', { className: 'imCfgHintCommand' }, `git reset --hard ${upgrade.current.sha}`),
+                  h('button', { type: 'button', className: 'imCfgCopy', onClick: () => { void copy(`git reset --hard ${upgrade.current.sha}`) } }, '复制'),
+                )
+                : null,
+            )
+            : null,
           hints.length > 0
             ? h('div', { className: 'imCfgHints' },
               h('p', { className: 'imCfgGroupTitle' }, '让新代码生效'),
@@ -5745,6 +5793,13 @@ window.__ModuleLoader__.load({
                 hint.command === undefined
                   ? null
                   : h('code', { className: 'imCfgHintCommand' }, hint.command),
+                hint.command === undefined
+                  ? null
+                  : h('button', {
+                    type: 'button',
+                    className: 'imCfgCopy',
+                    onClick: () => { void copy(hint.command) },
+                  }, copied === hint.command ? '已复制' : '复制'),
               )),
             )
             : null,

@@ -176,3 +176,13 @@ Host 侧沿用既有安全边界：`git` 只跑 `fetch / rev-list / status / pul
 
 不伪造"自动重启"：更新器只负责拉取，重启方式交给用户确认。单测覆盖了 systemd 与无 systemd 两条分支。
 截图：`docs/unslop-detail-restart.png`。
+
+### 升级失败的处理与复制（第九轮）
+
+- 每条提示后跟一个 `复制` 小按钮（`navigator.clipboard`），1.5 秒后回显「已复制」。
+- 升级失败时清空"让新代码生效"，换成「这次没升成，怎么处理」：
+  - 脏工作区 → `git stash push -u -m "im-omni: before upgrade"`
+  - 远程不可达 → `git fetch --all --prune`
+  - 已拉到一半 → `git reset --hard <升级前 sha>`（文案明确"会丢弃本地未提交改动"）
+- 只在失败时出现；成功时回到重启指引，两块互斥。
+截图：`docs/unslop-detail-recovery.png`。
