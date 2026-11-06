@@ -24,6 +24,7 @@ import { checkScopedAccess } from './scope.mjs'
 import { linkAttachments, publicAttachment, readAttachment, storeAttachment } from './attachments.mjs'
 import { sendPermissionAlert } from './notifications.mjs'
 import { notifyProposal } from './approvals.mjs'
+import { summaryFor } from './analytics.mjs'
 import {
   notifyInbound as notifyInboundMessage,
   sendTestCard,
@@ -1076,6 +1077,14 @@ route('POST', '/v1/messages', async (request, response) => {
     }
   })
   send(response, 201, { message })
+})
+
+route('GET', '/v1/analytics/summary', async (request, response) => {
+  const claims = await authenticate(request)
+  if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
+  // Runs inside the member's policies: the numbers only cover visible rows.
+  const summary = await asMember(claims, (client) => summaryFor(client))
+  send(response, 200, { summary })
 })
 
 route('GET', '/v1/templates', async (request, response) => {

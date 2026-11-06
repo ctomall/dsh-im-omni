@@ -5553,13 +5553,14 @@ window.__ModuleLoader__.load({
       return {
         async load(limits = {}) {
           const limit = Number(limits.limit ?? 30)
-          const [conversations, contacts, channels, settings, notify, templates] = await Promise.all([
+          const [conversations, contacts, channels, settings, notify, templates, analytics] = await Promise.all([
             call(`/v1/conversations?limit=${limit}`),
             call('/v1/contacts'),
             call('/v1/channels'),
             call('/v1/settings/workspace'),
             call('/v1/settings/notify').catch(() => ({ notify: {} })),
             call('/v1/templates').catch(() => ({ items: [] })),
+            call('/v1/analytics/summary').catch(() => ({ summary: null })),
           ])
           const snapshot = {
             conversations: (conversations.items ?? []).map(toConversation),
@@ -5567,6 +5568,13 @@ window.__ModuleLoader__.load({
               id: row.id, name: row.name ?? '', handle: row.handle ?? '', phone: row.phone ?? '',
               tags: Array.isArray(row.tags) ? row.tags : [], channelId: row.channel_id ?? null,
             })),
+            analytics: analytics.summary ?? {
+              generatedAt: new Date().toISOString(),
+              totals: { open: 0, awaiting: 0, breached: 0, resolvedToday: 0, contacts: 0, messages7d: 0, avgFirstResponseSeconds: 0, avgResolutionSeconds: 0 },
+              volume: [],
+              channels: [],
+              agents: [],
+            },
             templates: (templates.items ?? []).map((row) => ({
               id: row.id, name: row.name ?? '', shortcut: row.shortcut ?? '', body: row.body ?? '',
               ownerId: row.owner_user_id ?? null, updatedAt: row.updated_at ?? null,
@@ -5688,6 +5696,13 @@ window.__ModuleLoader__.load({
             automations: [],
             broadcasts: [],
             events: [],
+            analytics: analytics.summary ?? {
+              generatedAt: new Date().toISOString(),
+              totals: { open: 0, awaiting: 0, breached: 0, resolvedToday: 0, contacts: 0, messages7d: 0, avgFirstResponseSeconds: 0, avgResolutionSeconds: 0 },
+              volume: [],
+              channels: [],
+              agents: [],
+            },
             templates: (templates.items ?? []).map((row) => ({
               id: row.id, name: row.name ?? '', shortcut: row.shortcut ?? '', body: row.body ?? '',
               ownerId: row.owner_user_id ?? null, updatedAt: row.updated_at ?? null,
@@ -5963,7 +5978,7 @@ window.__ModuleLoader__.load({
 
       // Inbox and contacts read the team service (already permission-filtered);
       // the other tabs still read the local Host workspace until they migrate.
-      const active = ['inbox', 'contacts', 'channels', 'templates', 'settings'].includes(tab) ? teamWorkspace : hostWorkspace
+      const active = ['inbox', 'contacts', 'channels', 'templates', 'settings', 'analytics'].includes(tab) ? teamWorkspace : hostWorkspace
 
       if (active.loading) {
         return h('div', { className: 'imoRoot' },

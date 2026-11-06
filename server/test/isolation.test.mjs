@@ -651,3 +651,19 @@ test('shared templates: any member creates, only the author or an admin edits', 
   const gone = await request('GET', '/v1/templates', fixture.ownerToken)
   assert.equal(gone.body.items.some((item) => item.id === templateId), false)
 })
+
+test('analytics counts only the rows the member may see', async () => {
+  const fixture = await buildTenant()
+  const owner = await request('GET', '/v1/analytics/summary', fixture.ownerToken)
+  assert.equal(owner.status, 200)
+  assert.ok(owner.body.summary.totals.open >= 2, 'the owner sees both conversations')
+  assert.equal(owner.body.summary.volume.length, 7, 'seven days of volume')
+
+  const scoped = await request('GET', '/v1/analytics/summary', fixture.tokenA)
+  assert.equal(scoped.status, 200)
+  assert.ok(scoped.body.summary.totals.open <= owner.body.summary.totals.open, 'a member never sees more than the owner')
+  assert.ok(scoped.body.summary.channels.every((item) => item.id === fixture.channelA), 'only the granted channel appears')
+
+  const denied = await fetch(`${base}/v1/analytics/summary`)
+  assert.equal(denied.status, 401)
+})

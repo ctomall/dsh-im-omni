@@ -273,3 +273,21 @@ core 可以原样抽走。
 - 客户端 `template.create/update/delete` 映射到上述接口，`templates` 标签改读团队数据。
 - 快捷回复是"团队资产"而非个人私有：可见性全租户，写入按作者归属校验——这是有意的取舍（客服之间要能复用话术）。
 - 测试：创建/改/删 + 空值 422 + 他人修改 403 + 所有者可改任意 + 删除后列表消失（isolation 24 条）。
+
+### 18. 数据分析迁到团队服务（按权限聚合）
+
+`GET /v1/analytics/summary` 在成员的行策略内聚合，**统计口径 = 你能看到的行**：
+
+| 指标 | 计算 |
+| --- | --- |
+| 未结 / 等待 / 超时 | 会话状态、`unread > 0`、`tags` 含 `breached` |
+| 今日已解决 | `status='closed'` 且 `updated_at` 在今天 |
+| 近 7 天消息量 | `generate_series` 按天统计 inbound/outbound |
+| 按渠道 | 消息 join 会话 join 渠道（同样受策略约束） |
+| 按坐席 | 按 `owner_user_id` 汇总未结/已结 |
+
+- 客户端把 `analytics` 标签并入团队数据源，`snapshot.analytics` 来自该接口。
+- 测试：所有者看到的未结数 ≥ 成员；成员只出现被授权渠道；未登录 401（isolation 25 条）。
+- 真实调用核对（demo 租户）：`totals.open=4, contacts=4, messages7d=21`，7 天序列，2 个渠道。
+
+截图：`docs/analytics-team.png`、`docs/tab-data-sources.png`。
