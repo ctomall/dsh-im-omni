@@ -105,3 +105,16 @@ test('channel writes go to the team channel endpoints', async () => {
   assert.deepEqual(JSON.parse(JSON.stringify(calls[1].init.body)), { status: 'paused' })
   assert.equal(calls[2].init.method, 'DELETE')
 })
+
+test('workspace and notify writes map onto the settings endpoints', async () => {
+  const { call, calls } = transport({
+    'PATCH /v1/settings/workspace': { status: 200, body: { settings: {} } },
+    'PUT /v1/settings/notify': { status: 200, body: { notify: {} } },
+  })
+  const inbox = createTeamInbox({ call, token: 't' })
+  await inbox.updateWorkspace({ name: '演示团队', timezone: 'Asia/Shanghai', defaultSlaMinutes: 45, ignored: 'x' })
+  await inbox.updateNotify({ enabled: true, wecomWebhook: 'https://example.com/hook' })
+  assert.deepEqual(calls[0].init.body, { name: '演示团队', timezone: 'Asia/Shanghai', defaultSlaMinutes: 45 })
+  assert.equal(calls[1].init.method, 'PUT')
+  assert.equal(calls[1].init.body.enabled, true)
+})

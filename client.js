@@ -4960,7 +4960,7 @@ window.__ModuleLoader__.load({
      * @param {Record<string, any>} props - snapshot and services.
      * @returns {import('react').ReactElement} page.
      */
-    function SettingsView({ snapshot, t, command, notify, confirm }) {
+    function SettingsView({ snapshot, t, command, notify, confirm, teamMode = false }) {
       const workspace = snapshot.workspace
       const [form, setForm] = React.useState({
         name: workspace.name,
@@ -5342,7 +5342,12 @@ window.__ModuleLoader__.load({
                 h('button', { type: 'button', className: 'imoBtn imoBtnPrimary', disabled: saving, onClick: () => { void saveSettings() } }, saving ? h('span', { className: 'imoSpinner' }) : h(Icon, { name: 'check', size: 13 }), t('settings.save')),
               ),
             ),
-            h('section', { className: 'imoSection' },
+            teamMode
+              ? h('section', { className: 'imoSection' },
+                h('div', { className: 'imoSectionTitle' }, t('settings.team')),
+                h('div', { className: 'imoHelp' }, '成员与权限在「团队权限」面板里管理，这里不再重复一份。'),
+              )
+              : h('section', { className: 'imoSection' },
               h('div', { className: 'imoSectionTitle' }, t('settings.team')),
               h('div', { className: 'imoHelp', style: { marginBottom: 9 } }, t('settings.teamHint')),
               snapshot.agents.length === 0
@@ -5548,10 +5553,12 @@ window.__ModuleLoader__.load({
       return {
         async load(limits = {}) {
           const limit = Number(limits.limit ?? 30)
-          const [conversations, contacts, channels] = await Promise.all([
+          const [conversations, contacts, channels, settings, notify] = await Promise.all([
             call(`/v1/conversations?limit=${limit}`),
             call('/v1/contacts'),
             call('/v1/channels'),
+            call('/v1/settings/workspace'),
+            call('/v1/settings/notify').catch(() => ({ notify: {} })),
           ])
           const snapshot = {
             conversations: (conversations.items ?? []).map(toConversation),
@@ -5559,6 +5566,26 @@ window.__ModuleLoader__.load({
               id: row.id, name: row.name ?? '', handle: row.handle ?? '', phone: row.phone ?? '',
               tags: Array.isArray(row.tags) ? row.tags : [], channelId: row.channel_id ?? null,
             })),
+            workspace: {
+              name: settings.settings?.name ?? '',
+              timezone: settings.settings?.timezone ?? 'Asia/Shanghai',
+              defaultSlaMinutes: settings.settings?.defaultSlaMinutes ?? 30,
+              autoAssign: settings.settings?.autoAssign !== false,
+              autoTranslate: settings.settings?.autoTranslate !== false,
+              translationTarget: settings.settings?.translationTarget ?? 'zh-CN',
+              aiSuggestions: settings.settings?.aiSuggestions !== false,
+              bot: settings.settings?.bot ?? {},
+              businessHours: settings.settings?.businessHours ?? {},
+              notify: {
+                enabled: notify.notify?.enabled === true,
+                wecomWebhook: notify.notify?.wecomWebhook ?? '',
+                quietStart: notify.notify?.quietStart ?? '',
+                quietEnd: notify.notify?.quietEnd ?? '',
+                linkTemplate: notify.notify?.linkTemplate ?? '',
+                privatePreview: false,
+              },
+              ownerId: null,
+            },
             channels: (channels.items ?? []).map((row) => ({
               id: row.id, name: row.name ?? '', type: row.type ?? 'webhook', status: row.status ?? 'active',
               runtime: { health: row.health ?? 'ready', lastError: '', qrStatus: 'disconnected', account: '' },
@@ -5589,6 +5616,20 @@ window.__ModuleLoader__.load({
         async send(conversationId, body) {
           const result = await call('/v1/messages', { method: 'POST', body: { conversationId, body } })
           return result.message ?? null
+        },
+        async updateWorkspace(fields) {
+          const body = {}
+          for (const key of ['name', 'timezone', 'defaultSlaMinutes', 'autoAssign', 'autoTranslate', 'translationTarget', 'aiSuggestions', 'bot', 'businessHours']) {
+            if (fields[key] !== undefined) body[key] = fields[key]
+          }
+          if (Object.keys(body).length > 0) await call('/v1/settings/workspace', { method: 'PATCH', body })
+        },
+        async updateNotify(notify) {
+          const body = {}
+          for (const key of ['enabled', 'wecomWebhook', 'quietStart', 'quietEnd', 'linkTemplate']) {
+            if (notify[key] !== undefined) body[key] = notify[key]
+          }
+          if (Object.keys(body).length > 0) await call('/v1/settings/notify', { method: 'PUT', body })
         },
         async createChannel(input) {
           return call('/v1/channels', { method: 'POST', body: input })
@@ -5657,6 +5698,15 @@ window.__ModuleLoader__.load({
         if (name === 'conversation.update') return inbox.update(payload.conversationId, payload)
         if (name === 'conversation.bot') return inbox.update(payload.conversationId, { botPaused: payload.paused })
         if (name === 'message.send') return inbox.send(payload.conversationId, payload.body ?? payload.text ?? '')
+        if (name === 'settings.update' || name === 'workspace.update') {
+          if (payload.notify !== undefined) await inbox.updateNotify(payload.notify)
+          const rest = { ...payload }
+          delete rest.notify
+          delete rest.currentAgentId
+          delete rest.demo
+          await inbox.updateWorkspace(rest)
+          return { ok: true }
+        }
         if (name === 'channel.create') return inbox.createChannel({ name: payload.name, type: payload.type })
         if (name === 'channel.update') return inbox.updateChannel(payload.channelId, { name: payload.name, status: payload.status })
         if (name === 'channel.delete') return inbox.deleteChannel(payload.channelId)
@@ -5890,7 +5940,7 @@ window.__ModuleLoader__.load({
 
       // Inbox and contacts read the team service (already permission-filtered);
       // the other tabs still read the local Host workspace until they migrate.
-      const active = tab === 'inbox' || tab === 'contacts' || tab === 'channels' ? teamWorkspace : hostWorkspace
+      const active = ['inbox', 'contacts', 'channels', 'settings'].includes(tab) ? teamWorkspace : hostWorkspace
 
       if (active.loading) {
         return h('div', { className: 'imoRoot' },
@@ -5944,7 +5994,7 @@ window.__ModuleLoader__.load({
       } else if (tab === 'analytics') {
         page = h(AnalyticsView, { snapshot, t })
       } else if (tab === 'settings') {
-        page = h(SettingsView, { snapshot, t, command: active.command, notify, confirm })
+        page = h(SettingsView, { snapshot, t, command: active.command, notify, confirm, teamMode: active === teamWorkspace })
       } else {
         page = h(InboxView, {
           snapshot,

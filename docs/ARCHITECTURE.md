@@ -245,3 +245,18 @@ core 可以原样抽走。
 - 每次写操作同事务写审计（`channel.create` / `channel.update` / `channel.delete`）。
 - 测试：新增渠道/改名/暂停 + 空名 422 + 非法状态 422 + agent 403 + 非本人渠道 403（isolation 24 条）。
 截图：`docs/channels-team.png`（渠道页）、`docs/tab-data-sources.png`（数据来源矩阵）。
+
+### 16. 设置迁移到团队服务（本轮）
+
+| 设置组 | 接口 | 说明 |
+| --- | --- | --- |
+| 工作区（名称/时区/SLA/翻译） | `GET/PATCH /v1/settings/workspace` | 名称写回 `tenants.name` |
+| 自动接待（机器人名称/说明/关键词/回合） | 同上，`bot` jsonb | migration 019 |
+| 营业时间 | 同上，`business_hours` jsonb | |
+| 通知机器人 | `GET/PUT /v1/settings/notify` | 密钥不回传 |
+
+- 客户端 `settings.update` / `workspace.update` 映射为上述两个写接口；`notify` 子对象走通知接口。
+- **团队模式下列表区改为提示**："成员与权限在「团队权限」面板里管理"——不在设置里留第二份成员管理。
+- 仍未接入：`agent.create/update/delete`（本机团队概念）、`demo.*`（演示数据）。调用时明确报错。
+
+截图：`docs/settings-team.png`。

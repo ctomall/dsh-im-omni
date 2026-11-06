@@ -1081,17 +1081,23 @@ route('POST', '/v1/messages', async (request, response) => {
 route('GET', '/v1/settings/workspace', async (request, response) => {
   const claims = await authenticate(request)
   if (claims === null) return fail(response, 401, 'unauthorized', '请先登录。')
-  const row = await asMember(claims, async (client) => {
+  const data = await asMember(claims, async (client) => {
     const result = await client.query('SELECT * FROM tenant_settings WHERE tenant_id = $1', [claims.tenantId])
-    return result.rows[0] ?? null
+    const tenant = await client.query('SELECT name FROM tenants WHERE id = $1', [claims.tenantId])
+    return { row: result.rows[0] ?? null, name: tenant.rows[0]?.name ?? '' }
   })
+  const row = data.row
   send(response, 200, {
     settings: {
+      name: data.name,
+      timezone: row?.timezone ?? 'Asia/Shanghai',
       defaultSlaMinutes: row?.default_sla_minutes ?? 30,
       autoAssign: row?.auto_assign ?? true,
       autoTranslate: row?.auto_translate ?? true,
       translationTarget: row?.translation_target ?? 'zh-CN',
       aiSuggestions: row?.ai_suggestions ?? true,
+      bot: row?.bot ?? {},
+      businessHours: row?.business_hours ?? {},
     },
   })
 })
@@ -1104,16 +1110,23 @@ route('PATCH', '/v1/settings/workspace', async (request, response) => {
   const sla = input.defaultSlaMinutes === undefined ? null : Number(input.defaultSlaMinutes)
   if (sla !== null && (!Number.isInteger(sla) || sla < 1 || sla > 1440)) return fail(response, 422, 'invalid', '默认 SLA 必须是 1–1440 的整数。')
   const translationTarget = typeof input.translationTarget === 'string' ? input.translationTarget.slice(0, 40) : null
-  const row = await withTenant(claims.tenantId, async (client) => {
+  const timezone = typeof input.timezone === 'string' && input.timezone !== '' ? input.timezone.slice(0, 60) : null
+  const bot = input.bot !== null && typeof input.bot === 'object' ? JSON.stringify(input.bot) : null
+  const businessHours = input.businessHours !== null && typeof input.businessHours === 'object' ? JSON.stringify(input.businessHours) : null
+  const name = typeof input.name === 'string' && input.name.trim() !== '' ? input.name.trim().slice(0, 80) : null
+  const data = await withTenant(claims.tenantId, async (client) => {
     const result = await client.query(
-      `INSERT INTO tenant_settings (tenant_id, default_sla_minutes, auto_assign, auto_translate, translation_target, ai_suggestions)
-       VALUES ($1, COALESCE($2, 30), COALESCE($3, true), COALESCE($4, true), COALESCE($5, 'zh-CN'), COALESCE($6, true))
+      `INSERT INTO tenant_settings (tenant_id, default_sla_minutes, auto_assign, auto_translate, translation_target, ai_suggestions, timezone, bot, business_hours)
+       VALUES ($1, COALESCE($2, 30), COALESCE($3, true), COALESCE($4, true), COALESCE($5, 'zh-CN'), COALESCE($6, true), COALESCE($7, 'Asia/Shanghai'), COALESCE($8::jsonb, '{}'::jsonb), COALESCE($9::jsonb, '{}'::jsonb))
        ON CONFLICT (tenant_id) DO UPDATE SET
          default_sla_minutes = COALESCE($2, tenant_settings.default_sla_minutes),
          auto_assign = COALESCE($3, tenant_settings.auto_assign),
          auto_translate = COALESCE($4, tenant_settings.auto_translate),
          translation_target = COALESCE($5, tenant_settings.translation_target),
          ai_suggestions = COALESCE($6, tenant_settings.ai_suggestions),
+         timezone = COALESCE($7, tenant_settings.timezone),
+         bot = COALESCE($8::jsonb, tenant_settings.bot),
+         business_hours = COALESCE($9::jsonb, tenant_settings.business_hours),
          updated_at = now()
        RETURNING *`,
       [
@@ -1123,17 +1136,27 @@ route('PATCH', '/v1/settings/workspace', async (request, response) => {
         typeof input.autoTranslate === 'boolean' ? input.autoTranslate : null,
         translationTarget,
         typeof input.aiSuggestions === 'boolean' ? input.aiSuggestions : null,
+        timezone,
+        bot,
+        businessHours,
       ],
     )
-    return result.rows[0]
+    if (name !== null) await client.query('UPDATE tenants SET name = $2 WHERE id = $1', [claims.tenantId, name])
+    const tenant = await client.query('SELECT name FROM tenants WHERE id = $1', [claims.tenantId])
+    return { row: result.rows[0], name: tenant.rows[0]?.name ?? '' }
   })
+  const row = data.row
   send(response, 200, {
     settings: {
+      name: data.name,
+      timezone: row.timezone,
       defaultSlaMinutes: row.default_sla_minutes,
       autoAssign: row.auto_assign,
       autoTranslate: row.auto_translate,
       translationTarget: row.translation_target,
       aiSuggestions: row.ai_suggestions,
+      bot: row.bot,
+      businessHours: row.business_hours,
     },
   })
 })

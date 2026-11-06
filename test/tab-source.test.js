@@ -9,8 +9,8 @@ import { readFile } from 'node:fs/promises'
 
 const source = await readFile(new URL('../client.js', import.meta.url), 'utf8')
 
-test('App picks the team workspace for inbox, contacts and channels', () => {
-  assert.match(source, /const active = tab === 'inbox' \|\| tab === 'contacts' \|\| tab === 'channels' \? teamWorkspace : hostWorkspace/)
+test('App picks the team workspace for inbox, contacts, channels and settings', () => {
+  assert.match(source, /const active = \['inbox', 'contacts', 'channels', 'settings'\]\.includes\(tab\) \? teamWorkspace : hostWorkspace/)
 })
 
 test('the login gate is checked before any workspace loading state', () => {
@@ -24,5 +24,5 @@ test('the analytics and settings views keep reading the Host snapshot', () => {
   const analytics = source.indexOf('page = h(AnalyticsView, { snapshot, t })')
   assert.ok(analytics > 0)
   const settings = source.indexOf('page = h(SettingsView, { snapshot, t, command: active.command')
-  assert.ok(settings > 0, 'settings is wired to the Host command surface')
+  assert.ok(settings > 0, 'settings keeps a command surface')
 })
